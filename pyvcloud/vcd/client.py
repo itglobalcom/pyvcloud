@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
+import aiohttp
 from datetime import datetime
 from datetime import timedelta
 from distutils.version import StrictVersion
@@ -810,6 +812,23 @@ class Client(object):
         :rtype: lxml.objectify.ObjectifiedElement
         """
         with requests.Session() as new_session:
+            # Use with block to avoid leaking socket connections.
+            response = self._do_request_prim(
+                'GET', self._uri + '/versions', new_session, accept_type='')
+            sc = response.status_code
+            if sc != 200:
+                raise VcdException('Unable to get supported API versions.')
+            return objectify.fromstring(response.content)
+
+    async def async_get_supported_versions(self):
+        """Return non-deprecated API versions on vCD server.
+
+        :return: an object containing SupportedVersions XML element which
+            represents versions supported by vCD.
+
+        :rtype: lxml.objectify.ObjectifiedElement
+        """
+        with aiohttp .Session() as new_session:
             # Use with block to avoid leaking socket connections.
             response = self._do_request_prim(
                 'GET', self._uri + '/versions', new_session, accept_type='')
