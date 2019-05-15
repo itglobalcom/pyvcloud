@@ -444,7 +444,7 @@ class VDC(object):
         sourced_item.append(vm_instantiation_param)
 
         if storage_profile is not None:
-            sp = self.get_storage_profile(storage_profile)
+            sp = await self.get_storage_profile(storage_profile)
             vapp_storage_profile = E.StorageProfile(
                 href=sp.get('href'),
                 id=sp.get('href').split('/')[-1],
@@ -565,7 +565,7 @@ class VDC(object):
             disk_params.Disk.set('busSubType', bus_sub_type)
 
         if storage_profile_name is not None:
-            storage_profile = self.get_storage_profile(storage_profile_name)
+            storage_profile = await self.get_storage_profile(storage_profile_name)
             disk_params.Disk.append(
                 E.StorageProfile(
                     name=storage_profile_name,
