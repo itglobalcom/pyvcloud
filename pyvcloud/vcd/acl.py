@@ -40,7 +40,7 @@ class Acl(object):
         self.parent_resource = parent_resource
         self.resource = resource
 
-    def get_resource(self):
+    async def get_resource(self):
         """Fetches the XML representation of the Access Control List from vCD.
 
         Will serve cached response if possible.
@@ -51,12 +51,12 @@ class Acl(object):
         :rtype: lxml.objectify.ObjectifiedElement
         """
         if self.resource is None:
-            self.resource = self.client.get_linked_resource(
+            self.resource = await self.client.get_linked_resource(
                 self.parent_resource, RelationType.DOWN,
                 EntityType.CONTROL_ACCESS_PARAMS.value)
         return self.resource
 
-    def update_resource(self, control_access_params):
+    async def update_resource(self, control_access_params):
         """Update the access control settings of the parent resource.
 
         :param lxml.objectify.ObjectifiedElement control_access_params: object
@@ -71,20 +71,20 @@ class Acl(object):
         """
         # vdc Acl is updated though PUT instead of POST
         if self.parent_resource.attrib.get('type') == EntityType.VDC.value:
-            self.resource = self.client. \
+            self.resource = await self.client. \
                 put_linked_resource(self.parent_resource,
                                     RelationType.CONTROL_ACCESS,
                                     EntityType.CONTROL_ACCESS_PARAMS.value,
                                     control_access_params)
         else:
-            self.resource = self.client. \
+            self.resource = await self.client. \
                 post_linked_resource(self.parent_resource,
                                      RelationType.CONTROL_ACCESS,
                                      EntityType.CONTROL_ACCESS_PARAMS.value,
                                      control_access_params)
         return self.resource
 
-    def get_access_settings(self):
+    async def get_access_settings(self):
         """Get the Access Control List of the parent resource.
 
         :return: an object containing EntityType.CONTROL_ACCESS_PARAMS XML
@@ -93,9 +93,9 @@ class Acl(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        return self.get_resource()
+        return await self.get_resource()
 
-    def add_access_settings(self, access_settings_list=None):
+    async def add_access_settings(self, access_settings_list=None):
         """Add access settings.
 
         Append new / Overwrite old access setting(s) to the existing Access
@@ -115,7 +115,7 @@ class Acl(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        self.resource = self.get_resource()
+        self.resource = await self.get_resource()
 
         # if access_settings_list is None, nothing to add.
         if access_settings_list is None:
@@ -155,9 +155,9 @@ class Acl(object):
                 new_access_settings_params.append(old_access_setting)
 
         control_access_params.append(new_access_settings_params)
-        return self.update_resource(control_access_params)
+        return await self.update_resource(control_access_params)
 
-    def remove_access_settings(self,
+    async def remove_access_settings(self,
                                access_settings_list=None,
                                remove_all=False):
         """Remove access settings.
@@ -180,7 +180,7 @@ class Acl(object):
 
         :rtype: lxml.objectify.ObjectifiedElement`
         """
-        self.resource = self.get_resource()
+        self.resource = await self.get_resource()
 
         # if access_settings_list is None and remove_all is False, nothing to
         # remove.
@@ -223,9 +223,9 @@ class Acl(object):
             if hasattr(old_access_settings_params, 'AccessSetting'):
                 control_access_params.append(old_access_settings_params)
 
-        return self.update_resource(control_access_params)
+        return await self.update_resource(control_access_params)
 
-    def share_with_org_members(self, everyone_access_level='ReadOnly'):
+    async def share_with_org_members(self, everyone_access_level='ReadOnly'):
         """Share the resource to all members of the organization.
 
         :param str everyone_access_level: level of access granted while
@@ -238,7 +238,7 @@ class Acl(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        self.resource = self.get_resource()
+        self.resource = await self.get_resource()
 
         control_access_params = deepcopy(self.resource)
 
@@ -254,9 +254,9 @@ class Acl(object):
                 control_access_params.insert(
                     1, E.EveryoneAccessLevel(everyone_access_level))
 
-        return self.update_resource(control_access_params)
+        return await self.update_resource(control_access_params)
 
-    def unshare_from_org_members(self):
+    async def unshare_from_org_members(self):
         """Unshare the resource from all members of current organization.
 
         :return: an object containing EntityType.CONTROL_ACCESS_PARAMS XML
@@ -265,7 +265,7 @@ class Acl(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        self.resource = self.get_resource()
+        self.resource = await self.get_resource()
 
         control_access_params = deepcopy(self.resource)
 
@@ -277,7 +277,7 @@ class Acl(object):
             everyone_access_level = control_access_params.EveryoneAccessLevel
             control_access_params.remove(everyone_access_level)
 
-        return self.update_resource(control_access_params)
+        return await self.update_resource(control_access_params)
 
     def convert_access_settings_list_to_params(self, access_settings_list):
         """Convert access settings from one format to other.
@@ -327,7 +327,7 @@ class Acl(object):
             access_settings_params.append(access_setting_params)
         return access_settings_params
 
-    def get_org_href(self):
+    async def get_org_href(self):
         """Return the href of the org where the parent resource belongs to.
 
         :return: href of the org to which the parent resource belongs.
@@ -339,7 +339,7 @@ class Acl(object):
             vdc_href = find_link(self.parent_resource, RelationType.UP,
                                  EntityType.VDC.value).href
             return find_link(
-                self.client.get_resource(vdc_href), RelationType.UP,
+                await self.client.get_resource(vdc_href), RelationType.UP,
                 EntityType.ORG.value).href
         else:
             return find_link(self.parent_resource, RelationType.UP,

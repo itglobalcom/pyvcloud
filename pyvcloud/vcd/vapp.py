@@ -66,8 +66,9 @@ class VApp(object):
         if resource is not None:
             self.name = resource.get('name')
             self.href = resource.get('href')
+            self.id = resource.get('id')
 
-    def get_resource(self):
+    async def get_resource(self):
         """Fetches the XML representation of the vApp from vCD.
 
         Will serve cached response if possible.
@@ -78,17 +79,17 @@ class VApp(object):
         :rtype: lxml.objectify.ObjectifiedElement
         """
         if self.resource is None:
-            self.reload()
+            await self.reload()
         return self.resource
 
-    def reload(self):
+    async def reload(self):
         """Reloads the resource representation of the vApp.
 
         This method should be called in between two method invocations on the
         VApp object, if the former call changes the representation of the
         vApp in vCD.
         """
-        self.resource = self.client.get_resource(self.href)
+        self.resource = await self.client.get_resource(self.href)
         if self.resource is not None:
             self.name = self.resource.get('name')
             self.href = self.resource.get('href')
@@ -279,7 +280,7 @@ class VApp(object):
             self.resource.get('href') + '/leaseSettingsSection/', new_section,
             EntityType.LEASE_SETTINGS.value)
 
-    def change_owner(self, href):
+    async def change_owner(self, href):
         """Change the ownership of vApp to a given user.
 
         :param str href: href of the new owner.
@@ -289,11 +290,11 @@ class VApp(object):
         new_owner.User.set('href', href)
         objectify.deannotate(new_owner)
         etree.cleanup_namespaces(new_owner)
-        return self.client.put_resource(
+        return await self.client.put_resource(
             self.resource.get('href') + '/owner/', new_owner,
             EntityType.OWNER.value)
 
-    def get_power_state(self, vapp_resource=None):
+    async def get_power_state(self, vapp_resource=None):
         """Returns the status of the vApp.
 
         :param lxml.objectify.ObjectifiedElement vapp_resource: object
@@ -306,10 +307,10 @@ class VApp(object):
         :rtype: int
         """
         if vapp_resource is None:
-            vapp_resource = self.get_resource()
+            vapp_resource = await self.get_resource()
         return int(vapp_resource.get('status'))
 
-    def is_powered_on(self, vapp_resource=None):
+    async def is_powered_on(self, vapp_resource=None):
         """Checks if a vApp is powered on or not.
 
         :param lxml.objectify.ObjectifiedElement vapp_resource: object
@@ -320,9 +321,9 @@ class VApp(object):
 
         :rtype: bool
         """
-        return self.get_power_state(vapp_resource) == 4
+        return await self.get_power_state(vapp_resource) == 4
 
-    def is_powered_off(self, vapp_resource=None):
+    async def is_powered_off(self, vapp_resource=None):
         """Checks if a vApp is powered off or not.
 
         :param lxml.objectify.ObjectifiedElement vapp_resource: object
@@ -333,9 +334,9 @@ class VApp(object):
 
         :rtype: bool
         """
-        return self.get_power_state(vapp_resource) == 8
+        return await self.get_power_state(vapp_resource) == 8
 
-    def is_suspended(self, vapp_resource=None):
+    async def is_suspended(self, vapp_resource=None):
         """Checks if a vApp is suspended or not.
 
         :param lxml.objectify.ObjectifiedElement vapp_resource: object
@@ -346,9 +347,9 @@ class VApp(object):
 
         :rtype: bool
         """
-        return self.get_power_state(vapp_resource) == 3
+        return await self.get_power_state(vapp_resource) == 3
 
-    def is_deployed(self, vapp_resource=None):
+    async def is_deployed(self, vapp_resource=None):
         """Checks if a vApp is deployed or not.
 
         :param lxml.objectify.ObjectifiedElement vapp_resource: object
@@ -359,9 +360,9 @@ class VApp(object):
 
         :rtype: bool
         """
-        return self.get_power_state(vapp_resource) == 2
+        return await self.get_power_state(vapp_resource) == 2
 
-    def _perform_power_operation(self,
+    async def _perform_power_operation(self,
                                  rel,
                                  operation_name,
                                  media_type=None,
@@ -389,9 +390,9 @@ class VApp(object):
         :raises OperationNotSupportedException: if the power operation can't be
             performed on the vApp.
         """
-        vapp_resource = self.get_resource()
+        vapp_resource = await self.get_resource()
         try:
-            return self.client.post_linked_resource(vapp_resource, rel,
+            return await self.client.post_linked_resource(vapp_resource, rel,
                                                     media_type, contents)
         except OperationNotSupportedException:
             power_state = self.get_power_state(vapp_resource)
@@ -464,7 +465,7 @@ class VApp(object):
             media_type=EntityType.UNDEPLOY.value,
             contents=params)
 
-    def power_off(self):
+    async def power_off(self):
         """Power off the vms in the vApp.
 
         :return: an object containing EntityType.TASK XML data which represents
@@ -475,10 +476,10 @@ class VApp(object):
         :raises OperationNotSupportedException: if the vApp can't be powered
             off.
         """
-        return self._perform_power_operation(
+        return await self._perform_power_operation(
             rel=RelationType.POWER_OFF, operation_name='power off')
 
-    def power_on(self):
+    async def power_on(self):
         """Power on the vms in the vApp.
 
         :return: an object containing EntityType.TASK XML data which represents
@@ -489,7 +490,7 @@ class VApp(object):
         :raises OperationNotSupportedException: if the vApp can't be powered
             on.
         """
-        return self._perform_power_operation(
+        return await self._perform_power_operation(
             rel=RelationType.POWER_ON, operation_name='power on')
 
     def shutdown(self):
@@ -559,7 +560,7 @@ class VApp(object):
                 RelationType.EDIT, EntityType.NETWORK_CONNECTION_SECTION.value,
                 self.resource.Children.Vm[0].NetworkConnectionSection)
 
-    def attach_disk_to_vm(self, disk_href, vm_name):
+    async def attach_disk_to_vm(self, disk_href, vm_name):
         """Attach an independent disk to the vm with the given name.
 
         :param str disk_href: href of the disk to be attached.
@@ -575,14 +576,14 @@ class VApp(object):
         """
         disk_attach_or_detach_params = E.DiskAttachOrDetachParams(
             E.Disk(type=EntityType.DISK.value, href=disk_href))
-        vm = self.get_vm(vm_name)
+        vm = await self.get_vm(vm_name)
 
-        return self.client.post_linked_resource(
+        return await self.client.post_linked_resource(
             vm, RelationType.DISK_ATTACH,
             EntityType.DISK_ATTACH_DETACH_PARAMS.value,
             disk_attach_or_detach_params)
 
-    def detach_disk_from_vm(self, disk_href, vm_name):
+    async def detach_disk_from_vm(self, disk_href, vm_name):
         """Detach the independent disk from the vm with the given name.
 
         :param str disk_href: href of the disk to be detached.
@@ -598,13 +599,13 @@ class VApp(object):
         """
         disk_attach_or_detach_params = E.DiskAttachOrDetachParams(
             E.Disk(type=EntityType.DISK.value, href=disk_href))
-        vm = self.get_vm(vm_name)
-        return self.client.post_linked_resource(
+        vm = await self.get_vm(vm_name)
+        return await self.client.post_linked_resource(
             vm, RelationType.DISK_DETACH,
             EntityType.DISK_ATTACH_DETACH_PARAMS.value,
             disk_attach_or_detach_params)
 
-    def get_all_vms(self):
+    async def get_all_vms(self):
         """Retrieve all the vms in the vApp.
 
         :return: a list of lxml.objectify.ObjectifiedElement objects, where
@@ -612,7 +613,7 @@ class VApp(object):
 
         :rtype: empty list or generator object
         """
-        self.get_resource()
+        await self.get_resource()
         if hasattr(self.resource, 'Children') and \
                 hasattr(self.resource.Children, 'Vm') and \
                 len(self.resource.Children.Vm) > 0:
@@ -620,7 +621,7 @@ class VApp(object):
         else:
             return []
 
-    def get_vm(self, vm_name):
+    async def get_vm(self, vm_name):
         """Retrieve the vm with the given name in this vApp.
 
         :param str vm_name: name of the vm to be retrieved.
@@ -632,7 +633,7 @@ class VApp(object):
 
         :raises: EntityNotFoundException: if the named vm could not be found.
         """
-        for vm in self.get_all_vms():
+        for vm in await self.get_all_vms():
             if vm.get('name') == vm_name:
                 return vm
         raise EntityNotFoundException('Can\'t find VM \'%s\'' % vm_name)
@@ -942,7 +943,7 @@ class VApp(object):
             self.resource, RelationType.RECOMPOSE,
             EntityType.RECOMPOSE_VAPP_PARAMS.value, params)
 
-    def connect_org_vdc_network(self,
+    async def connect_org_vdc_network(self,
                                 orgvdc_network_name,
                                 retain_ip=None,
                                 is_deployed=None,
@@ -973,7 +974,7 @@ class VApp(object):
             self.client,
             href=find_link(self.resource, RelationType.UP,
                            EntityType.VDC.value).href)
-        orgvdc_network_href = vdc.get_orgvdc_network_admin_href_by_name(
+        orgvdc_network_href = await vdc.get_orgvdc_network_admin_href_by_name(
             orgvdc_network_name)
 
         network_configuration_section = \
@@ -997,7 +998,7 @@ class VApp(object):
             network_config.append(E.IsDeployed(is_deployed))
         network_configuration_section.append(network_config)
 
-        return self.client.put_linked_resource(
+        return await self.client.put_linked_resource(
             self.resource.NetworkConfigSection, RelationType.EDIT,
             EntityType.NETWORK_CONFIG_SECTION.value,
             network_configuration_section)
@@ -1356,7 +1357,7 @@ class VApp(object):
                 list_allocated_ip.append(dict)
         return list_allocated_ip
 
-    def edit_name_and_description(self, name, description=None):
+    async def edit_name_and_description(self, name, description=None):
         """Edit name and description of the vApp.
 
         :param str name: New name of the vApp. It is mandatory.
@@ -1369,7 +1370,7 @@ class VApp(object):
         """
         if name is None or name.isspace():
             raise InvalidParameterException("Name can't be None or empty")
-        vapp = self.get_resource()
+        vapp = await self.get_resource()
         vapp.set('name', name.strip())
         if description is not None:
             if hasattr(vapp, 'Description'):
@@ -1378,7 +1379,7 @@ class VApp(object):
                 vapp.LeaseSettingsSection.addprevious(
                     E.Description(description))
 
-        return self.client.put_linked_resource(
+        return await self.client.put_linked_resource(
             self.resource, RelationType.EDIT, EntityType.VAPP.value, vapp)
 
     def suspend_vapp(self):

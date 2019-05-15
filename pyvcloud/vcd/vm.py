@@ -51,7 +51,7 @@ class VM(object):
         if resource is not None:
             self.href = resource.get('href')
 
-    def get_resource(self):
+    async def get_resource(self):
         """Fetches the XML representation of the vm from vCD.
 
         Will serve cached response if possible.
@@ -61,28 +61,28 @@ class VM(object):
         :rtype: lxml.objectify.ObjectifiedElement
         """
         if self.resource is None:
-            self.reload()
+            await self.reload()
         return self.resource
 
-    def reload(self):
+    async def reload(self):
         """Reloads the resource representation of the vm.
 
         This method should be called in between two method invocations on the
         VM object, if the former call changes the representation of the
         vm in vCD.
         """
-        self.resource = self.client.get_resource(self.href)
+        self.resource = await self.client.get_resource(self.href)
         if self.resource is not None:
             self.href = self.resource.get('href')
 
-    def get_vc(self):
+    async def get_vc(self):
         """Returns the vCenter where this vm is located.
 
         :return: name of the vCenter server.
 
         :rtype: str
         """
-        self.get_resource()
+        await self.get_resource()
         for record in self.resource.VCloudExtension[
                 '{' + NSMAP['vmext'] + '}VmVimInfo'].iterchildren():
             if hasattr(record, '{' + NSMAP['vmext'] + '}VimObjectType'):
@@ -90,7 +90,7 @@ class VM(object):
                     return record.VimServerRef.get('name')
         return None
 
-    def get_cpus(self):
+    async def get_cpus(self):
         """Returns the number of CPUs in the vm.
 
         :return: number of cpus (int) and number of cores per socket (int) of
@@ -98,7 +98,7 @@ class VM(object):
 
         :rtype: dict
         """
-        self.get_resource()
+        await self.get_resource()
         return {
             'num_cpus':
             int(self.resource.VmSpecSection.NumCpus.text),
@@ -106,18 +106,18 @@ class VM(object):
             int(self.resource.VmSpecSection.NumCoresPerSocket.text)
         }
 
-    def get_memory(self):
+    async def get_memory(self):
         """Returns the amount of memory in MB.
 
         :return: amount of memory in MB.
 
         :rtype: int
         """
-        self.get_resource()
+        await self.get_resource()
         return int(
             self.resource.VmSpecSection.MemoryResourceMb.Configured.text)
 
-    def modify_cpu(self, virtual_quantity, cores_per_socket=None):
+    async def modify_cpu(self, virtual_quantity, cores_per_socket=None):
         """Updates the number of CPUs of a vm.
 
         :param int virtual_quantity: number of virtual CPUs to configure on the
@@ -132,14 +132,14 @@ class VM(object):
         uri = self.href + '/virtualHardwareSection/cpu'
         if cores_per_socket is None:
             cores_per_socket = virtual_quantity
-        item = self.client.get_resource(uri)
+        item = await self.client.get_resource(uri)
         item['{' + NSMAP['rasd'] + '}ElementName'] = \
             '%s virtual CPU(s)' % virtual_quantity
         item['{' + NSMAP['rasd'] + '}VirtualQuantity'] = virtual_quantity
         item['{' + NSMAP['vmw'] + '}CoresPerSocket'] = cores_per_socket
-        return self.client.put_resource(uri, item, EntityType.RASD_ITEM.value)
+        return await self.client.put_resource(uri, item, EntityType.RASD_ITEM.value)
 
-    def modify_memory(self, virtual_quantity):
+    async def modify_memory(self, virtual_quantity):
         """Updates the memory of a vm.
 
         :param int virtual_quantity: number of MB of memory to configure on the
@@ -151,13 +151,13 @@ class VM(object):
         :rtype: lxml.objectify.ObjectifiedElement
         """
         uri = self.href + '/virtualHardwareSection/memory'
-        item = self.client.get_resource(uri)
+        item = await self.client.get_resource(uri)
         item['{' + NSMAP['rasd'] + '}ElementName'] = \
             '%s virtual CPU(s)' % virtual_quantity
         item['{' + NSMAP['rasd'] + '}VirtualQuantity'] = virtual_quantity
-        return self.client.put_resource(uri, item, EntityType.RASD_ITEM.value)
+        return await self.client.put_resource(uri, item, EntityType.RASD_ITEM.value)
 
-    def get_power_state(self, vm_resource=None):
+    async def get_power_state(self, vm_resource=None):
         """Returns the status of the vm.
 
         :param lxml.objectify.ObjectifiedElement vm_resource: object
@@ -170,10 +170,10 @@ class VM(object):
         :rtype: int
         """
         if vm_resource is None:
-            vm_resource = self.get_resource()
+            vm_resource = await self.get_resource()
         return int(vm_resource.get('status'))
 
-    def is_powered_on(self, vm_resource=None):
+    async def is_powered_on(self, vm_resource=None):
         """Checks if a vm is powered on or not.
 
         :param lxml.objectify.ObjectifiedElement vm_resource: object
@@ -184,9 +184,9 @@ class VM(object):
 
         :rtype: bool
         """
-        return self.get_power_state(vm_resource) == 4
+        return await self.get_power_state(vm_resource) == 4
 
-    def is_powered_off(self, vm_resource=None):
+    async def is_powered_off(self, vm_resource=None):
         """Checks if a vm is powered off or not.
 
         :param lxml.objectify.ObjectifiedElement vm_resource: object
@@ -197,9 +197,9 @@ class VM(object):
 
         :rtype: bool
         """
-        return self.get_power_state(vm_resource) == 8
+        return await self.get_power_state(vm_resource) == 8
 
-    def is_suspended(self, vm_resource=None):
+    async def is_suspended(self, vm_resource=None):
         """Checks if a vm is suspended or not.
 
         :param lxml.objectify.ObjectifiedElement vm_resource: object
@@ -210,9 +210,9 @@ class VM(object):
 
         :rtype: bool
         """
-        return self.get_power_state(vm_resource) == 3
+        return await self.get_power_state(vm_resource) == 3
 
-    def is_deployed(self, vm_resource=None):
+    async def is_deployed(self, vm_resource=None):
         """Checks if a vm is deployed or not.
 
         :param lxml.objectify.ObjectifiedElement vm_resource: object
@@ -223,9 +223,9 @@ class VM(object):
 
         :rtype: bool
         """
-        return self.get_power_state(vm_resource) == 2
+        return await self.get_power_state(vm_resource) == 2
 
-    def _perform_power_operation(self,
+    async def _perform_power_operation(self,
                                  rel,
                                  operation_name,
                                  media_type=None,
@@ -253,17 +253,17 @@ class VM(object):
         :raises OperationNotSupportedException: if the power operation can't be
             performed on the vm.
         """
-        vm_resource = self.get_resource()
+        vm_resource = await self.get_resource()
         try:
-            return self.client.post_linked_resource(vm_resource, rel,
+            return await self.client.post_linked_resource(vm_resource, rel,
                                                     media_type, contents)
         except OperationNotSupportedException:
-            power_state = self.get_power_state(vm_resource)
+            power_state = await self.get_power_state(vm_resource)
             raise OperationNotSupportedException(
                 'Can\'t {0} vm. Current state of vm: {1}.'.format(
                     operation_name, VCLOUD_STATUS_MAP[power_state]))
 
-    def shutdown(self):
+    async def shutdown(self):
         """Shutdown the vm.
 
         :return: an object containing EntityType.TASK XML data which represents
@@ -271,10 +271,10 @@ class VM(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        return self._perform_power_operation(
+        return await self._perform_power_operation(
             rel=RelationType.POWER_SHUTDOWN, operation_name='shutdown')
 
-    def reboot(self):
+    async def reboot(self):
         """Reboots the vm.
 
         :return: an object containing EntityType.TASK XML data which represents
@@ -282,10 +282,10 @@ class VM(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        return self._perform_power_operation(
+        return await self._perform_power_operation(
             rel=RelationType.POWER_REBOOT, operation_name='reboot')
 
-    def power_on(self):
+    async def power_on(self):
         """Powers on the vm.
 
         :return: an object containing EntityType.TASK XML data which represents
@@ -293,10 +293,10 @@ class VM(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        return self._perform_power_operation(
+        return await self._perform_power_operation(
             rel=RelationType.POWER_ON, operation_name='power on')
 
-    def power_off(self):
+    async def power_off(self):
         """Powers off the vm.
 
         :return: an object containing EntityType.TASK XML data which represents
@@ -304,10 +304,10 @@ class VM(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        return self._perform_power_operation(
+        return await self._perform_power_operation(
             rel=RelationType.POWER_OFF, operation_name='power off')
 
-    def power_reset(self):
+    async def power_reset(self):
         """Powers reset the vm.
 
         :return: an object containing EntityType.TASK XML data which represents
@@ -315,10 +315,10 @@ class VM(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        return self._perform_power_operation(
+        return await self._perform_power_operation(
             rel=RelationType.POWER_RESET, operation_name='power reset')
 
-    def deploy(self, power_on=True, force_customization=False):
+    async def deploy(self, power_on=True, force_customization=False):
         """Deploys the vm.
 
         Deploying the vm will allocate all resources assigned to the vm. If an
@@ -334,13 +334,13 @@ class VM(object):
         deploy_vm_params.set('powerOn', str(power_on).lower())
         deploy_vm_params.set('forceCustomization',
                              str(force_customization).lower())
-        return self._perform_power_operation(
+        return await self._perform_power_operation(
             rel=RelationType.DEPLOY,
             operation_name='deploy',
             media_type=EntityType.DEPLOY.value,
             contents=deploy_vm_params)
 
-    def undeploy(self, action='default'):
+    async def undeploy(self, action='default'):
         """Undeploy the vm.
 
         :return: an object containing EntityType.TASK XML data which represents
@@ -349,13 +349,13 @@ class VM(object):
         :rtype: lxml.objectify.ObjectifiedElement
         """
         params = E.UndeployVAppParams(E.UndeployPowerAction(action))
-        return self._perform_power_operation(
+        return await self._perform_power_operation(
             rel=RelationType.UNDEPLOY,
             operation_name='undeploy',
             media_type=EntityType.UNDEPLOY.value,
             contents=params)
 
-    def snapshot_create(self, memory=None, quiesce=None, name=None):
+    async def snapshot_create(self, memory=None, quiesce=None, name=None):
         """Create a snapshot of the vm.
 
         :param bool memory: True, if the snapshot should include the virtual
@@ -370,7 +370,7 @@ class VM(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        self.get_resource()
+        await self.get_resource()
         snapshot_vm_params = E.CreateSnapshotParams()
         if memory is not None:
             snapshot_vm_params.set('memory', str(memory).lower())
@@ -378,11 +378,11 @@ class VM(object):
             snapshot_vm_params.set('quiesce', str(quiesce).lower())
         if name is not None:
             snapshot_vm_params.set('name', str(name).lower())
-        return self.client.post_linked_resource(
+        return await self.client.post_linked_resource(
             self.resource, RelationType.SNAPSHOT_CREATE,
             EntityType.SNAPSHOT_CREATE.value, snapshot_vm_params)
 
-    def snapshot_revert_to_current(self):
+    async def snapshot_revert_to_current(self):
         """Reverts a virtual machine to the current snapshot, if any.
 
         :return: an object containing EntityType.TASK XML data which represents
@@ -390,11 +390,11 @@ class VM(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        self.get_resource()
-        return self.client.post_linked_resource(
+        await self.get_resource()
+        return await self.client.post_linked_resource(
             self.resource, RelationType.SNAPSHOT_REVERT_TO_CURRENT, None, None)
 
-    def snapshot_remove_all(self):
+    async def snapshot_remove_all(self):
         """Removes all user created snapshots of a virtual machine.
 
         :return: an object containing EntityType.TASK XML data which represents
@@ -402,11 +402,11 @@ class VM(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        self.get_resource()
-        return self.client.post_linked_resource(
+        await self.get_resource()
+        return await self.client.post_linked_resource(
             self.resource, RelationType.SNAPSHOT_REMOVE_ALL, None, None)
 
-    def add_nic(self, adapter_type, is_primary, is_connected, network_name,
+    async def add_nic(self, adapter_type, is_primary, is_connected, network_name,
                 ip_address_mode, ip_address):
         """Adds a nic to the VM.
 
@@ -424,7 +424,7 @@ class VM(object):
         :rtype: lxml.objectify.ObjectifiedElement
         """
         # get network connection section.
-        net_conn_section = self.get_resource().NetworkConnectionSection
+        net_conn_section = (await self.get_resource()).NetworkConnectionSection
         nic_index = 0
         insert_index = net_conn_section.index(
             net_conn_section['{' + NSMAP['ovf'] + '}Info']) + 1
@@ -450,11 +450,11 @@ class VM(object):
         net_conn.append(E.IpAddressAllocationMode(ip_address_mode))
         net_conn.append(E.NetworkAdapterType(adapter_type))
         net_conn_section.insert(insert_index, net_conn)
-        return self.client.put_linked_resource(
+        return await self.client.put_linked_resource(
             net_conn_section, RelationType.EDIT,
             EntityType.NETWORK_CONNECTION_SECTION.value, net_conn_section)
 
-    def list_nics(self):
+    async def list_nics(self):
         """Lists all the nics of the VM.
 
         :return: list of nics with the following properties as a dictionary.
@@ -464,7 +464,7 @@ class VM(object):
         :rtype: list
         """
         nics = []
-        self.get_resource()
+        await self.get_resource()
         if hasattr(self.resource.NetworkConnectionSection,
                    'PrimaryNetworkConnectionIndex'):
             primary_index = self.resource.NetworkConnectionSection.\
@@ -487,7 +487,7 @@ class VM(object):
             nics.append(nic)
         return nics
 
-    def delete_nic(self, index):
+    async def delete_nic(self, index):
         """Deletes a nic from the VM.
 
         :param int index: index of the nic to be deleted.
@@ -501,7 +501,7 @@ class VM(object):
             not found in the VM.
         """
         # get network connection section.
-        net_conn_section = self.get_resource().NetworkConnectionSection
+        net_conn_section = (await self.get_resource()).NetworkConnectionSection
 
         indices = [None] * 10
         nic_not_found = True
@@ -517,7 +517,7 @@ class VM(object):
         if nic_not_found:
             raise InvalidParameterException(
                 'Nic with index \'%s\' is not found in the VM \'%s\'' %
-                (index, self.get_resource().get('name')))
+                (index, (await self.get_resource()).get('name')))
 
         # now indices will have all existing nic indices
         prim_nic = next((i for i in indices if i is not None), None)
@@ -528,7 +528,7 @@ class VM(object):
             net_conn_section, RelationType.EDIT,
             EntityType.NETWORK_CONNECTION_SECTION.value, net_conn_section)
 
-    def suspend(self):
+    async def suspend(self):
         """Suspend the vm.
 
         :return: an object containing EntityType.TASK XML data which represents
@@ -536,11 +536,11 @@ class VM(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        self.get_resource()
-        return self._perform_power_operation(
+        await self.get_resource()
+        return await self._perform_power_operation(
             rel=RelationType.POWER_SUSPEND, operation_name='suspend')
 
-    def discard_suspended_state(self):
+    async def discard_suspended_state(self):
         """Discard suspended state of the vm.
 
         :return: an object containing EntityType.TASK XML data which represents
@@ -549,11 +549,11 @@ class VM(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        self.get_resource()
-        return self.client.post_linked_resource(
+        await self.get_resource()
+        return await self.client.post_linked_resource(
             self.resource, RelationType.DISCARD_SUSPENDED_STATE, None, None)
 
-    def install_vmware_tools(self):
+    async def install_vmware_tools(self):
         """Install vmware tools in the vm.
 
         :return: an object containing EntityType.TASK XML data which represents
@@ -561,11 +561,11 @@ class VM(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        self.get_resource()
-        return self.client.post_linked_resource(
+        await self.get_resource()
+        return await self.client.post_linked_resource(
             self.resource, RelationType.INSTALL_VMWARE_TOOLS, None, None)
 
-    def insert_cd_from_catalog(self, media_href):
+    async def insert_cd_from_catalog(self, media_href):
         """Insert CD from catalog to the vm.
 
         :param: media href to insert to VM
@@ -575,14 +575,14 @@ class VM(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        vm_resource = self.get_resource()
+        vm_resource = await self.get_resource()
         media_insert_params = E.MediaInsertOrEjectParams(
             E.Media(href=media_href))
-        return self.client.post_linked_resource(
+        return await self.client.post_linked_resource(
             vm_resource, RelationType.INSERT_MEDIA,
             EntityType.MEDIA_INSERT_OR_EJECT_PARAMS.value, media_insert_params)
 
-    def eject_cd(self, media_href):
+    async def eject_cd(self, media_href):
         """Insert CD from catalog to the vm.
 
         :param: media href to eject from VM
@@ -592,14 +592,14 @@ class VM(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        vm_resource = self.get_resource()
+        vm_resource = await self.get_resource()
         media_eject_params = E.MediaInsertOrEjectParams(
             E.Media(href=media_href))
-        return self.client.post_linked_resource(
+        return await self.client.post_linked_resource(
             vm_resource, RelationType.EJECT_MEDIA,
             EntityType.MEDIA_INSERT_OR_EJECT_PARAMS.value, media_eject_params)
 
-    def upgrade_virtual_hardware(self):
+    async def upgrade_virtual_hardware(self):
         """Upgrade virtual hardware of vm.
 
         :return: an object containing EntityType.TASK XML data which represents
@@ -607,11 +607,11 @@ class VM(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        self.get_resource()
-        return self.client.post_linked_resource(
+        await self.get_resource()
+        return await self.client.post_linked_resource(
             self.resource, RelationType.UPGRADE, None, None)
 
-    def consolidate(self):
+    async def consolidate(self):
         """Consolidate VM.
 
         :return: an object containing EntityType.TASK XML data which represents
@@ -619,11 +619,11 @@ class VM(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        self.get_resource()
-        return self.client.post_linked_resource(
+        await self.get_resource()
+        return await self.client.post_linked_resource(
             self.resource, RelationType.CONSOLIDATE, None, None)
 
-    def copy_to(self, source_vapp_name, target_vapp_name, target_vm_name):
+    async def copy_to(self, source_vapp_name, target_vapp_name, target_vm_name):
         """Copy VM from one vApp to another.
 
         :param: str source vApp name
@@ -636,7 +636,7 @@ class VM(object):
         :rtype: lxml.objectify.ObjectifiedElement
         """
         from pyvcloud.vcd.vapp import VApp
-        vm_resource = self.get_resource()
+        vm_resource = await self.get_resource()
         resource_type = ResourceType.VAPP.value
         if self.is_powered_off(vm_resource):
             records1 = self.___validate_vapp_records(

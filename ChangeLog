@@ -1,6 +1,7 @@
 CHANGES
 =======
 
+* add async do\_request
 * Add client.async\_wait\_for\_success method
 * Add method ORG.get\_vdc\_by\_id
 * Add method VDC.get\_vapp\_by\_id

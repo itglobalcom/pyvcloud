@@ -65,7 +65,7 @@ class VDC(object):
             self.href = resource.get('href')
         self.href_admin = get_admin_href(self.href)
 
-    def get_resource(self):
+    async def get_resource(self):
         """Fetches the XML representation of the org vdc from vCD.
 
         Will serve cached response if possible.
@@ -79,7 +79,7 @@ class VDC(object):
             self.reload()
         return self.resource
 
-    def get_resource_href(self, name, entity_type=EntityType.VAPP):
+    async def get_resource_href(self, name, entity_type=EntityType.VAPP):
         """Fetches href of a vApp in the org vdc from vCD.
 
         :param str name: name of the vApp.
@@ -95,7 +95,7 @@ class VDC(object):
         :raises: MultipleRecordsException: if more than one vApp with the
             provided name are found.
         """
-        self.get_resource()
+        await self.get_resource()
         result = []
         if hasattr(self.resource, 'ResourceEntities') and \
            hasattr(self.resource.ResourceEntities, 'ResourceEntity'):
@@ -112,7 +112,7 @@ class VDC(object):
                 use the vapp-id to identify." % name)
         return result[0]
 
-    def get_resource_href_by_id(self, id, entity_type=EntityType.VAPP):
+    async def get_resource_href_by_id(self, id, entity_type=EntityType.VAPP):
         """Fetches href of a vApp in the org vdc from vCD.
 
         :param str id: ID of the vApp.
@@ -128,7 +128,7 @@ class VDC(object):
         :raises: MultipleRecordsException: if more than one vApp with the
             provided name are found.
         """
-        self.get_resource()
+        await self.get_resource()
         result = []
         if hasattr(self.resource, 'ResourceEntities') and \
            hasattr(self.resource.ResourceEntities, 'ResourceEntity'):
@@ -144,19 +144,19 @@ class VDC(object):
             raise MultipleRecordsException("Found multiple vApps named '%s'." % id)
         return result[0]
 
-    def reload(self):
+    async def reload(self):
         """Reloads the resource representation of the org vdc.
 
         This method should be called in between two method invocations on the
         VDC object, if the former call changes the representation of the
         org vdc in vCD.
         """
-        self.resource = self.client.get_resource(self.href)
+        self.resource = await self.client.get_resource(self.href)
         if self.resource is not None:
             self.name = self.resource.get('name')
             self.href = self.resource.get('href')
 
-    def get_vapp(self, name):
+    async def get_vapp(self, name):
         """Fetches XML representation of a vApp in the org vdc from vCD.
 
         :param str name: name of the vApp.
@@ -170,12 +170,16 @@ class VDC(object):
         :raises: MultipleRecordsException: if more than one vApp with the
             provided name are found.
         """
-        return self.client.get_resource(self.get_resource_href(name))
+        return await self.client.get_resource(
+            await self.get_resource_href(name)
+        )
 
-    def get_vapp_by_id(self, id):
-        return self.client.get_resource(self.get_resource_href_by_id(id))
+    async def get_vapp_by_id(self, id):
+        return await self.client.get_resource(
+            await self.get_resource_href_by_id(id)
+        )
 
-    def delete_vapp(self, name, force=False):
+    async def delete_vapp(self, name, force=False):
         """Delete a vApp in the current org vdc.
 
         :param str name: name of the vApp to be deleted.
@@ -184,11 +188,23 @@ class VDC(object):
         :raises: MultipleRecordsException: if more than one vApp with the
             provided name are found.
         """
-        href = self.get_resource_href(name)
-        return self.client.delete_resource(href, force=force)
+        href = await self.get_resource_href(name)
+        return await self.client.delete_resource(href, force=force)
+
+    async def delete_vapp_by_id(self, id, force=False):
+        """Delete a vApp in the current org vdc.
+
+        :param str id: id of the vApp to be deleted.
+
+        :raises: EntityNotFoundException: if the named vApp can not be found.
+        :raises: MultipleRecordsException: if more than one vApp with the
+            provided name are found.
+        """
+        href = await self.get_resource_href_by_id(id)
+        return await self.client.delete_resource(href, force=force)
 
     # NOQA refer to http://pubs.vmware.com/vcd-820/index.jsp?topic=%2Fcom.vmware.vcloud.api.sp.doc_27_0%2FGUID-BF9B790D-512E-4EA1-99E8-6826D4B8E6DC.html
-    def instantiate_vapp(self,
+    async def instantiate_vapp(self,
                          name,
                          catalog,
                          template,
@@ -249,14 +265,14 @@ class VDC(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        self.get_resource()
+        await self.get_resource()
 
         # Get hold of the template
         org_href = find_link(self.resource, RelationType.UP,
                              EntityType.ORG.value).href
         org = Org(self.client, href=org_href)
-        catalog_item = org.get_catalog_item(catalog, template)
-        template_resource = self.client.get_resource(
+        catalog_item = await org.get_catalog_item(catalog, template)
+        template_resource = await self.client.get_resource(
             catalog_item.Entity.get('href'))
 
         # If network is not specified by user then default to
@@ -457,12 +473,12 @@ class VDC(object):
 
         vapp_template_params.append(E.AllEULAsAccepted(all_eulas_accepted))
 
-        return self.client.post_linked_resource(
+        return await self.client.post_linked_resource(
             self.resource, RelationType.ADD,
             EntityType.INSTANTIATE_VAPP_TEMPLATE_PARAMS.value,
             vapp_template_params)
 
-    def list_resources(self, entity_type=None):
+    async def list_resources(self, entity_type=None):
         """Fetch information about all resources in the current org vdc.
 
         :param str entity_type: filter to restrict type of resource we want to
@@ -475,7 +491,7 @@ class VDC(object):
 
         :rtype: dict
         """
-        self.get_resource()
+        await self.get_resource()
         result = []
         if hasattr(self.resource, 'ResourceEntities') and \
            hasattr(self.resource.ResourceEntities, 'ResourceEntity'):
@@ -484,11 +500,12 @@ class VDC(object):
                    entity_type.value == resource.get('type'):
                     result.append({
                         'name': resource.get('name'),
-                        'type': resource.get('type')
+                        'type': resource.get('type'),
+                        'id': resource.get('id'),
                     })
         return result
 
-    def list_edge_gateways(self):
+    async def list_edge_gateways(self):
         """Fetch a list of edge gateways defined in a vdc.
 
         :return: a list of dictionaries, where each dictionary contains the
@@ -496,8 +513,8 @@ class VDC(object):
 
         :rtype: list
         """
-        self.get_resource()
-        links = self.client.get_linked_resource(self.resource,
+        await self.get_resource()
+        links = await self.client.get_linked_resource(self.resource,
                                                 RelationType.EDGE_GATEWAYS,
                                                 EntityType.RECORDS.value)
         edge_gateways = []
@@ -509,7 +526,7 @@ class VDC(object):
                 })
         return edge_gateways
 
-    def create_disk(self,
+    async def create_disk(self,
                     name,
                     size,
                     bus_type=None,
@@ -534,7 +551,7 @@ class VDC(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        self.get_resource()
+        await self.get_resource()
 
         disk_params = E.DiskCreateParams(E.Disk(name=name, size=str(size)))
         if iops is not None:
@@ -555,11 +572,11 @@ class VDC(object):
                     href=storage_profile.get('href'),
                     type=storage_profile.get('type')))
 
-        return self.client.post_linked_resource(
+        return await self.client.post_linked_resource(
             self.resource, RelationType.ADD,
             EntityType.DISK_CREATE_PARMS.value, disk_params)
 
-    def update_disk(self,
+    async def update_disk(self,
                     name=None,
                     disk_id=None,
                     new_name=None,
@@ -585,12 +602,12 @@ class VDC(object):
 
         :raises: EntityNotFoundException: if the named disk cannot be located.
         """
-        self.get_resource()
+        await self.get_resource()
 
         if disk_id is not None:
-            disk = self.get_disk(disk_id=disk_id)
+            disk = await self.get_disk(disk_id=disk_id)
         else:
-            disk = self.get_disk(name=name)
+            disk = await self.get_disk(name=name)
 
         disk_params = E.Disk()
         if new_name is not None:
@@ -607,7 +624,7 @@ class VDC(object):
             disk_params.append(E.Description(new_description))
 
         if new_storage_profile_name is not None:
-            new_sp = self.get_storage_profile(new_storage_profile_name)
+            new_sp = await self.get_storage_profile(new_storage_profile_name)
             disk_params.append(
                 E.StorageProfile(
                     name=new_storage_profile_name,
@@ -617,10 +634,10 @@ class VDC(object):
         if new_iops is not None:
             disk_params.set('iops', str(new_iops))
 
-        return self.client.put_linked_resource(
+        return await self.client.put_linked_resource(
             disk, RelationType.EDIT, EntityType.DISK.value, disk_params)
 
-    def delete_disk(self, name=None, disk_id=None):
+    async def delete_disk(self, name=None, disk_id=None):
         """Delete an existing independent disk.
 
         :param str name: name of the disk to delete.
@@ -633,17 +650,17 @@ class VDC(object):
 
         :raises: EntityNotFoundException: if the named disk cannot be located.
         """
-        self.get_resource()
+        await self.get_resource()
 
         if disk_id is not None:
-            disk = self.get_disk(disk_id=disk_id)
+            disk = await self.get_disk(disk_id=disk_id)
         else:
-            disk = self.get_disk(name=name)
+            disk = await self.get_disk(name=name)
 
-        return self.client.delete_linked_resource(disk, RelationType.REMOVE,
+        return await self.client.delete_linked_resource(disk, RelationType.REMOVE,
                                                   None)
 
-    def get_disks(self):
+    async def get_disks(self):
         """Request a list of independent disks defined in the vdc.
 
         :return: a list of objects, where each object is an
@@ -654,7 +671,7 @@ class VDC(object):
 
         :rtype: list
         """
-        self.get_resource()
+        await self.get_resource()
 
         disks = []
         if hasattr(self.resource, 'ResourceEntities') and \
@@ -663,14 +680,14 @@ class VDC(object):
                     self.resource.ResourceEntities.ResourceEntity:
 
                 if resourceEntity.get('type') == EntityType.DISK.value:
-                    disk = self.client.get_resource(resourceEntity.get('href'))
-                    attached_vms = self.client.get_linked_resource(
+                    disk = await self.client.get_resource(resourceEntity.get('href'))
+                    attached_vms = await self.client.get_linked_resource(
                         disk, RelationType.DOWN, EntityType.VMS.value)
                     disk['attached_vms'] = attached_vms
                     disks.append(disk)
         return disks
 
-    def get_disk(self, name=None, disk_id=None):
+    async def get_disk(self, name=None, disk_id=None):
         """Return information for an independent disk.
 
         :param str name: name of the disk.
@@ -689,9 +706,9 @@ class VDC(object):
             raise InvalidParameterException(
                 'Unable to idendify disk without name or id.')
 
-        self.get_resource()
+        await self.get_resource()
 
-        disks = self.get_disks()
+        disks = await self.get_disks()
 
         result = None
         if disk_id is not None:
@@ -719,7 +736,7 @@ class VDC(object):
         else:
             return result
 
-    def change_disk_owner(self, user_href, name=None, disk_id=None):
+    async def change_disk_owner(self, user_href, name=None, disk_id=None):
         """Change the ownership of an independent disk to a given user.
 
         :param str user_href: href of the new owner.
@@ -729,7 +746,7 @@ class VDC(object):
 
         :raises: EntityNotFoundException: if the named disk cannot be located.
         """
-        self.get_resource()
+        await self.get_resource()
 
         if disk_id is not None:
             disk = self.get_disk(disk_id=disk_id)
@@ -742,7 +759,7 @@ class VDC(object):
         return self.client.put_resource(
             disk.get('href') + '/owner/', new_owner, EntityType.OWNER.value)
 
-    def get_storage_profiles(self):
+    async def get_storage_profiles(self):
         """Fetch a list of the Storage Profiles defined in a vdc.
 
         :return: a list of lxml.objectify.ObjectifiedElement objects, where
@@ -752,7 +769,7 @@ class VDC(object):
         :rtype: list
         """
         profile_list = []
-        self.get_resource()
+        await self.get_resource()
 
         if hasattr(self.resource, 'VdcStorageProfiles') and \
            hasattr(self.resource.VdcStorageProfiles, 'VdcStorageProfile'):
@@ -761,7 +778,7 @@ class VDC(object):
             return profile_list
         return None
 
-    def get_all_metadata(self):
+    async def get_all_metadata(self):
         """Fetch all metadata entries of the org vdc.
 
         :return: an object containing EntityType.METADATA XML data which
@@ -769,8 +786,8 @@ class VDC(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        self.get_resource()
-        return self.client.get_linked_resource(
+        await self.get_resource()
+        return await self.client.get_linked_resource(
             self.resource, RelationType.DOWN, EntityType.METADATA.value)
 
     def get_metadata_value(self, key, domain=MetadataDomain.GENERAL):
@@ -876,7 +893,7 @@ class VDC(object):
         return metadata.remove_metadata(
             key=key, domain=domain, use_admin_endpoint=True)
 
-    def get_storage_profile(self, profile_name):
+    async def get_storage_profile(self, profile_name):
         """Fetch a specific Storage Profile within an org vdc.
 
         :param str profile_name: name of the requested storage profile.
@@ -886,7 +903,7 @@ class VDC(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        self.get_resource()
+        await self.get_resource()
 
         if hasattr(self.resource, 'VdcStorageProfiles') and \
            hasattr(self.resource.VdcStorageProfiles, 'VdcStorageProfile'):
@@ -897,7 +914,7 @@ class VDC(object):
         raise EntityNotFoundException(
             'Storage Profile named \'%s\' not found' % profile_name)
 
-    def enable_vdc(self, enable=True):
+    async def enable_vdc(self, enable=True):
         """Enable current vdc.
 
         :param bool enable: True, to enable the vdc. False, to disable the vdc.
@@ -907,16 +924,16 @@ class VDC(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        resource_admin = self.client.get_resource(self.href_admin)
+        resource_admin = await self.client.get_resource(self.href_admin)
         if enable:
             rel = RelationType.ENABLE
         else:
             rel = RelationType.DISABLE
 
-        return self.client.post_linked_resource(resource_admin, rel, None,
+        return await self.client.post_linked_resource(resource_admin, rel, None,
                                                 None)
 
-    def delete_vdc(self):
+    async def delete_vdc(self):
         """Delete the current org vdc.
 
         :param str vdc_name: name of the org vdc to delete.
@@ -926,12 +943,12 @@ class VDC(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        self.get_resource()
+        await self.get_resource()
 
-        return self.client.delete_linked_resource(self.resource,
+        return await self.client.delete_linked_resource(self.resource,
                                                   RelationType.REMOVE, None)
 
-    def get_access_settings(self):
+    async def get_access_settings(self):
         """Get the access settings of the vdc.
 
         :return: an object containing EntityType.CONTROL_ACCESS_PARAMS which
@@ -939,10 +956,10 @@ class VDC(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        acl = Acl(self.client, self.get_resource())
-        return acl.get_access_settings()
+        acl = Acl(self.client, await self.get_resource())
+        return await acl.get_access_settings()
 
-    def add_access_settings(self, access_settings_list=None):
+    async def add_access_settings(self, access_settings_list=None):
         """Add access settings to the vdc.
 
         :param list access_settings_list: list of dictionaries, where each
@@ -959,10 +976,10 @@ class VDC(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        acl = Acl(self.client, self.get_resource())
-        return acl.add_access_settings(access_settings_list)
+        acl = Acl(self.client, await self.get_resource())
+        return await acl.add_access_settings(access_settings_list)
 
-    def remove_access_settings(self,
+    async def remove_access_settings(self,
                                access_settings_list=None,
                                remove_all=False):
         """Remove access settings from the vdc.
@@ -981,10 +998,10 @@ class VDC(object):
 
         :rtype: lxml.objectify.ObjectifiedElement`
         """
-        acl = Acl(self.client, self.get_resource())
-        return acl.remove_access_settings(access_settings_list, remove_all)
+        acl = Acl(self.client, await self.get_resource())
+        return await acl.remove_access_settings(access_settings_list, remove_all)
 
-    def share_with_org_members(self, everyone_access_level='ReadOnly'):
+    async def share_with_org_members(self, everyone_access_level='ReadOnly'):
         """Share the vdc to all members of the organization.
 
         :param str everyone_access_level: level of access granted while
@@ -996,10 +1013,10 @@ class VDC(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        acl = Acl(self.client, self.get_resource())
-        return acl.share_with_org_members(everyone_access_level)
+        acl = Acl(self.client, await self.get_resource())
+        return await acl.share_with_org_members(everyone_access_level)
 
-    def unshare_from_org_members(self):
+    async def unshare_from_org_members(self):
         """Unshare the vdc from all members of current organization.
 
         Should give individual access to at least one user before unsharing
@@ -1010,10 +1027,10 @@ class VDC(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        acl = Acl(self.client, self.get_resource())
-        return acl.unshare_from_org_members()
+        acl = Acl(self.client, await self.get_resource())
+        return await acl.unshare_from_org_members()
 
-    def create_vapp(self,
+    async def create_vapp(self,
                     name,
                     description=None,
                     network=None,
@@ -1036,7 +1053,7 @@ class VDC(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        self.get_resource()
+        await self.get_resource()
 
         network_href = network_name = None
         if network is not None:
@@ -1071,11 +1088,11 @@ class VDC(object):
         if accept_all_eulas is not None:
             params.append(E.AllEULAsAccepted(accept_all_eulas))
 
-        return self.client.post_linked_resource(
+        return await self.client.post_linked_resource(
             self.resource, RelationType.ADD,
             EntityType.COMPOSE_VAPP_PARAMS.value, params)
 
-    def create_routed_vdc_network(self,
+    async def create_routed_vdc_network(self,
                                   network_name,
                                   gateway_name,
                                   network_cidr,
@@ -1127,7 +1144,7 @@ class VDC(object):
         """
         gateway_ip, netmask = cidr_to_netmask(network_cidr)
 
-        self.get_resource()
+        await self.get_resource()
 
         request_payload = E.OrgVdcNetwork(name=network_name)
         if description is not None:
@@ -1166,18 +1183,18 @@ class VDC(object):
                 E.GuestVlanAllowed(guest_vlan_allowed))
         request_payload.append(vdc_network_configuration)
 
-        gateway = self.get_gateway(gateway_name)
+        gateway = await self.get_gateway(gateway_name)
         gateway_href = gateway.get('href')
         request_payload.append(E.EdgeGateway(href=gateway_href))
 
         if is_shared is not None:
             request_payload.append(E.IsShared(is_shared))
 
-        return self.client.post_linked_resource(
+        return await self.client.post_linked_resource(
             self.resource, RelationType.ADD, EntityType.ORG_VDC_NETWORK.value,
             request_payload)
 
-    def create_directly_connected_vdc_network(self,
+    async def create_directly_connected_vdc_network(self,
                                               network_name,
                                               parent_network_name,
                                               description=None,
@@ -1196,7 +1213,7 @@ class VDC(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        self.get_resource()
+        await self.get_resource()
 
         platform = Platform(self.client)
         parent_network = platform.get_external_network(parent_network_name)
@@ -1213,11 +1230,11 @@ class VDC(object):
         if is_shared is not None:
             request_payload.append(E.IsShared(is_shared))
 
-        return self.client.post_linked_resource(
+        return await self.client.post_linked_resource(
             self.resource, RelationType.ADD, EntityType.ORG_VDC_NETWORK.value,
             request_payload)
 
-    def create_isolated_vdc_network(self,
+    async def create_isolated_vdc_network(self,
                                     network_name,
                                     network_cidr,
                                     description=None,
@@ -1263,7 +1280,7 @@ class VDC(object):
         """
         gateway_ip, netmask = cidr_to_netmask(network_cidr)
 
-        self.get_resource()
+        await self.get_resource()
 
         request_payload = E.OrgVdcNetwork(name=network_name)
         if description is not None:
@@ -1310,7 +1327,7 @@ class VDC(object):
             self.resource, RelationType.ADD, EntityType.ORG_VDC_NETWORK.value,
             request_payload)
 
-    def list_orgvdc_network_records(self):
+    async def list_orgvdc_network_records(self):
         """Fetch all org vdc network's record in the current vdc.
 
         :return: org vdc network's name (as key) and admin href (as value)
@@ -1321,6 +1338,9 @@ class VDC(object):
         # once vCD 9.0 reaches EOL. We are forced to use OrgNetwork typed
         # query instead of OrgVdcNetwork typed query because for vCD api
         # v29.0 and lower the link for the former is missing from /api/query
+
+        await self.reload()
+
         use_hack = False
         if not self.client.is_sysadmin() and\
            float(self.client.get_api_version()) <= 29.0:
@@ -1340,7 +1360,7 @@ class VDC(object):
             resource_type,
             query_result_format=QueryResultFormat.RECORDS,
             equality_filter=vdc_filter)
-        records = query.execute()
+        records = await query.execute()
 
         result = []
         for record in records:
@@ -1361,7 +1381,7 @@ class VDC(object):
             result.append(dict)
         return result
 
-    def get_orgvdc_network_admin_href_by_name(self, orgvdc_network_name):
+    async def get_orgvdc_network_admin_href_by_name(self, orgvdc_network_name):
         """Fetch the href of an org vdc network in the current vdc.
 
         :return: org vdc network admin href
@@ -1371,7 +1391,7 @@ class VDC(object):
         :raises: EntityNotFoundException: if the named org vdc network cannot
             be located.
         """
-        records_list = self.list_orgvdc_network_records()
+        records_list = await self.list_orgvdc_network_records()
 
         # dictionary key presence checks are case sensitive so we need to
         # iterate over the keys and manually check each one of them.
@@ -1381,9 +1401,9 @@ class VDC(object):
 
         raise EntityNotFoundException(
             "Org vdc network \'%s\' does not exist in vdc \'%s\'" %
-            (orgvdc_network_name, self.get_resource().get('name')))
+            (orgvdc_network_name, (await self.get_resource()).get('name')))
 
-    def list_orgvdc_network_resources(self, name=None, type=None):
+    async def list_orgvdc_network_resources(self, name=None, type=None):
         """Fetch org vdc networks filtered by name and type.
 
         :param str name: name of the network we want to retrieve.
@@ -1396,10 +1416,10 @@ class VDC(object):
 
         :rtype: list
         """
-        records_list = self.list_orgvdc_network_records()
+        records_list = await self.list_orgvdc_network_records()
         result = []
         for network_record in records_list:
-            orgvdc_network_resource = self.client.get_resource(
+            orgvdc_network_resource = await self.client.get_resource(
                 network_record['href'])
             if type is not None:
                 if hasattr(orgvdc_network_resource, 'Configuration') and \
@@ -1451,7 +1471,7 @@ class VDC(object):
         return self.list_orgvdc_network_resources(
             type=FenceMode.ISOLATED.value)
 
-    def get_routed_orgvdc_network(self, name):
+    async def get_routed_orgvdc_network(self, name):
         """Retrieve a routed org vdc network in the current vdc.
 
         :param str name: name of the org vdc network we want to retrieve.
@@ -1464,7 +1484,7 @@ class VDC(object):
         :raises: EntityNotFoundException: if org vdc network with the given
             name is not found.
         """
-        result = self.list_orgvdc_network_resources(
+        result = await self.list_orgvdc_network_resources(
             name=name, type=FenceMode.NAT_ROUTED.value)
         if len(result) == 0:
             raise EntityNotFoundException(
@@ -1511,7 +1531,7 @@ class VDC(object):
                 'Org vdc network with name \'%s\' not found.' % name)
         return result[0]
 
-    def delete_routed_orgvdc_network(self, name, force=False):
+    async def delete_routed_orgvdc_network(self, name, force=False):
         """Delete a routed org vdc network in the current vdc.
 
         :param str name: name of the org vdc network we want to delete.
@@ -1527,11 +1547,11 @@ class VDC(object):
         :raises: EntityNotFoundException: if org vdc network with the given
             name is not found.
         """
-        net_resource = self.get_routed_orgvdc_network(name)
-        return self.client.delete_resource(
+        net_resource = await self.get_routed_orgvdc_network(name)
+        return await self.client.delete_resource(
             net_resource.get('href'), force=force)
 
-    def delete_direct_orgvdc_network(self, name, force=False):
+    async def delete_direct_orgvdc_network(self, name, force=False):
         """Delete a directly connected org vdc network in the current vdc.
 
         :param str name: name of the org vdc network we want to delete.
@@ -1547,8 +1567,8 @@ class VDC(object):
         :raises: EntityNotFoundException: if org vdc network with the given
             name is not found.
         """
-        net_resource = self.get_direct_orgvdc_network(name)
-        return self.client.delete_resource(
+        net_resource = await self.get_direct_orgvdc_network(name)
+        return await self.client.delete_resource(
             net_resource.get('href'), force=force)
 
     def delete_isolated_orgvdc_network(self, name, force=False):
@@ -1571,7 +1591,7 @@ class VDC(object):
         return self.client.delete_resource(
             net_resource.get('href'), force=force)
 
-    def create_gateway_api_version_32(
+    async def create_gateway_api_version_32(
             self,
             name,
             external_networks=None,
@@ -1633,7 +1653,7 @@ class VDC(object):
         if external_networks is None or len(external_networks) == 0:
             raise InvalidParameterException('external networks can not be '
                                             'Null.')
-        resource_admin = self.client.get_resource(self.href_admin)
+        resource_admin = await self.client.get_resource(self.href_admin)
 
         gateway_params = E.EdgeGateway(name=name)
         if desc is not None:
@@ -1653,11 +1673,11 @@ class VDC(object):
             E.FipsModeEnabled(is_flips_mode_enabled))
 
         gateway_params.append(gateway_configuration_param)
-        return self.client.post_linked_resource(
+        return await self.client.post_linked_resource(
             resource_admin, RelationType.ADD, EntityType.EDGE_GATEWAY.value,
             gateway_params)
 
-    def create_gateway_api_version_30(
+    async def create_gateway_api_version_30(
             self,
             name,
             external_networks=None,
@@ -1715,7 +1735,7 @@ class VDC(object):
             raise InvalidParameterException('external networks can not be '
                                             'Null.')
 
-        resource_admin = self.client.get_resource(self.href_admin)
+        resource_admin = await self.client.get_resource(self.href_admin)
         gateway_params = E.EdgeGateway(name=name)
         if desc is not None:
             gateway_params.append(E.Description(desc))
@@ -1732,11 +1752,11 @@ class VDC(object):
                 ext_net_to_subnet_with_ip_range, ext_net_to_rate_limit)
         gateway_params.append(gateway_configuration_param)
 
-        return self.client.post_linked_resource(
+        return await self.client.post_linked_resource(
             resource_admin, RelationType.ADD, EntityType.EDGE_GATEWAY.value,
             gateway_params)
 
-    def create_gateway_api_version_31(
+    async def create_gateway_api_version_31(
             self,
             name,
             external_networks=None,
@@ -1795,7 +1815,7 @@ class VDC(object):
         if external_networks is None or len(external_networks) == 0:
             raise InvalidParameterException('external networks can not be '
                                             'Null.')
-        resource_admin = self.client.get_resource(self.href_admin)
+        resource_admin = await self.client.get_resource(self.href_admin)
 
         gateway_params = E.EdgeGateway(name=name)
         if desc is not None:
@@ -1814,11 +1834,11 @@ class VDC(object):
             E.FipsModeEnabled(is_flips_mode_enabled))
         gateway_params.append(gateway_configuration_param)
 
-        return self.client.post_linked_resource(
+        return await self.client.post_linked_resource(
             resource_admin, RelationType.ADD, EntityType.EDGE_GATEWAY.value,
             gateway_params)
 
-    def _create_gateway_configuration_param(
+    async def _create_gateway_configuration_param(
             self,
             external_networks,
             gateway_backing_config,
@@ -1852,7 +1872,7 @@ class VDC(object):
         gateway_interfaces_param = E.GatewayInterfaces()
         # Creating gateway interface
         for ext_net in provided_networks_resource:
-            ext_net_resource = self.client.get_resource(ext_net.get('href'))
+            ext_net_resource = await self.client.get_resource(ext_net.get('href'))
             gateway_interface_param = E.GatewayInterface()
             gateway_interface_param.append(E.Name(ext_net.get('name')))
             gateway_interface_param.append(E.DisplayName(ext_net.get('name')))
@@ -2006,7 +2026,7 @@ class VDC(object):
 
         return self.client.delete_resource(href)
 
-    def get_gateway(self, name):
+    async def get_gateway(self, name):
         """Get a gateway in the current org vdc.
 
         :param str name: name of the gateway to be fetched.
@@ -2025,7 +2045,7 @@ class VDC(object):
             ResourceType.EDGE_GATEWAY.value,
             query_result_format=QueryResultFormat.RECORDS,
             equality_filter=name_filter)
-        records = list(query.execute())
+        records = list(await query.execute())
         if records is None or len(records) == 0:
             return None
         elif len(records) > 1:

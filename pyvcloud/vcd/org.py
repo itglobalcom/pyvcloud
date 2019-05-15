@@ -72,16 +72,16 @@ class Org(object):
             self.href = resource.get('href')
         self.href_admin = get_admin_href(self.href)
 
-    def reload(self):
+    async def reload(self):
         """Reloads the resource representation of the organization.
 
         This method should be called in between two method invocations on the
         Org object, if the former call changes the representation of the
         organization in vCD.
         """
-        self.resource = self.client.get_resource(self.href)
+        self.resource = await self.client.get_resource(self.href)
 
-    def get_name(self):
+    async def get_name(self):
         """Retrieves the name of the organization.
 
         :return: name of the organization.
@@ -89,10 +89,10 @@ class Org(object):
         :rtype: str
         """
         if self.resource is None:
-            self.reload()
+            await self.reload()
         return self.resource.get('name')
 
-    def create_catalog(self, name, description):
+    async def create_catalog(self, name, description):
         """Create a catalog in the organization.
 
         :param str name: name of the catalog to be created.
@@ -104,13 +104,13 @@ class Org(object):
         :rtype: lxml.objectify.ObjectifiedElement
         """
         if self.resource is None:
-            self.reload()
+            await self.reload()
         payload = E.AdminCatalog(E.Description(description), name=name)
-        return self.client.post_linked_resource(
+        return await self.client.post_linked_resource(
             self.resource, RelationType.ADD, EntityType.ADMIN_CATALOG.value,
             payload)
 
-    def delete_catalog(self, name):
+    async def delete_catalog(self, name):
         """Delete a catalog in the organization.
 
         :param str name: name of the catalog to be deleted.
@@ -120,9 +120,9 @@ class Org(object):
         :raises: sub-class of VcdResponseException: if the REST call is not
             successful.
         """
-        catalog_admin_resource = self.get_catalog(
+        catalog_admin_resource = await self.get_catalog(
             name=name, is_admin_operation=True)
-        self.client.delete_linked_resource(
+        await self.client.delete_linked_resource(
             catalog_admin_resource, RelationType.REMOVE, media_type=None)
 
     def list_catalogs(self):
@@ -147,7 +147,7 @@ class Org(object):
                     r, resource_type=resource_type, exclude=['owner', 'org']))
         return result
 
-    def get_catalog(self, name, is_admin_operation=False):
+    async def get_catalog(self, name, is_admin_operation=False):
         """Retrieves a catalog by name.
 
         :param str name: name of the catalog to be retrieved.
@@ -163,7 +163,7 @@ class Org(object):
             found.
         """
         if self.resource is None:
-            self.reload()
+            await self.reload()
         links = get_links(
             self.resource,
             rel=RelationType.DOWN,
@@ -174,7 +174,7 @@ class Org(object):
                     href = get_admin_href(link.href)
                 else:
                     href = link.href
-                return self.client.get_resource(href)
+                return await self.client.get_resource(href)
         raise EntityNotFoundException('Catalog not found (or)'
                                       ' Access to resource is forbidden')
 
@@ -280,7 +280,7 @@ class Org(object):
             items.append({'name': item.get('name'), 'id': item.get('id')})
         return items
 
-    def get_catalog_item(self, name, item_name):
+    async def get_catalog_item(self, name, item_name):
         """Retrieve an item in a catalog.
 
         :param str name: name of the catalog whose item needs to be retrieved.
@@ -295,13 +295,13 @@ class Org(object):
         :raises: EntityNotFoundException: if the catalog/named item can not be
             found.
         """
-        catalog_resource = self.get_catalog(name)
+        catalog_resource = await self.get_catalog(name)
         for item in catalog_resource.CatalogItems.getchildren():
             if item.get('name') == item_name:
-                return self.client.get_resource(item.get('href'))
+                return await self.client.get_resource(item.get('href'))
         raise EntityNotFoundException('Catalog item not found.')
 
-    def delete_catalog_item(self, name, item_name):
+    async def delete_catalog_item(self, name, item_name):
         """Delete an item from a catalog.
 
         :param str name: name of the catalog whose item needs to be deleted.
@@ -310,10 +310,10 @@ class Org(object):
         :raises: EntityNotFoundException: if the catalog/named item can not be
             found.
         """
-        catalog_resource = self.get_catalog(name)
+        catalog_resource = await self.get_catalog(name)
         for item in catalog_resource.CatalogItems.getchildren():
             if item.get('name') == item_name:
-                self.client.delete_resource(item.get('href'))
+                await self.client.delete_resource(item.get('href'))
                 return
         raise EntityNotFoundException('Catalog item not found.')
 
@@ -367,7 +367,7 @@ class Org(object):
         self.client.get_task_monitor().wait_for_success(
             task, 60, 1, callback=task_callback)
 
-    def download_catalog_item(self,
+    async def download_catalog_item(self,
                               catalog_name,
                               item_name,
                               file_name,
@@ -397,7 +397,7 @@ class Org(object):
         :raises: EntityNotFoundException: if the catalog/named item is not
             found.
         """
-        item_resource = self.get_catalog_item(catalog_name, item_name)
+        item_resource = await self.get_catalog_item(catalog_name, item_name)
         item_type = item_resource.Entity.get('type')
         entity_resource = self.client.get_resource(
             item_resource.Entity.get('href'))
@@ -501,7 +501,7 @@ class Org(object):
 
         return bytes_written
 
-    def upload_media(self,
+    async def upload_media(self,
                      catalog_name,
                      file_name,
                      item_name=None,
@@ -535,7 +535,7 @@ class Org(object):
         :raises: InternalServerException: if item already exists in catalog.
         """
         stat_info = os.stat(file_name)
-        catalog_resource = self.get_catalog(catalog_name)
+        catalog_resource = await self.get_catalog(catalog_name)
         if item_name is None:
             item_name = os.path.basename(file_name)
         image_type = os.path.splitext(item_name)[1][1:]
@@ -544,13 +544,13 @@ class Org(object):
         media.append(E.Description(description))
         catalog_item_resource = self.client.post_linked_resource(
             catalog_resource, RelationType.ADD, EntityType.MEDIA.value, media)
-        entity_resource = self.client.get_resource(
+        entity_resource = await self.client.get_resource(
             catalog_item_resource.Entity.get('href'))
         file_href = entity_resource.Files.File.Link.get('href')
         return self._upload_file(
             file_name, file_href, chunk_size=chunk_size, callback=callback)
 
-    def upload_ovf(self,
+    async def upload_ovf(self,
                    catalog_name,
                    file_name,
                    item_name=None,
@@ -583,7 +583,7 @@ class Org(object):
         :raises: EntityNotFoundException: if the catalog is not found.
         :raises: InternalServerException: if item already exists in catalog.
         """
-        catalog_resource = self.get_catalog(catalog_name)
+        catalog_resource = await self.get_catalog(catalog_name)
         if item_name is None:
             item_name = os.path.basename(file_name)
         total_bytes_uploaded = 0
@@ -829,7 +829,7 @@ class Org(object):
                         time.sleep(1)
         return uploaded_bytes
 
-    def capture_vapp(self,
+    async def capture_vapp(self,
                      catalog_resource,
                      vapp_href,
                      catalog_item_name,
@@ -866,7 +866,7 @@ class Org(object):
                     E.CustomizeOnInstantiate('true')))
         if overwrite:
             try:
-                item = self.get_catalog_item(
+                item = await self.get_catalog_item(
                     catalog_resource.get('name'), catalog_item_name)
                 contents.append(
                     E.TargetCatalogItem(
@@ -876,13 +876,13 @@ class Org(object):
                         name=item.get('name')))
             except Exception:
                 pass
-        return self.client.post_linked_resource(
+        return await self.client.post_linked_resource(
             catalog_resource,
             rel=RelationType.ADD,
             media_type=EntityType.CAPTURE_VAPP_PARAMS.value,
             contents=contents)
 
-    def create_user(self,
+    async def create_user(self,
                     user_name,
                     password,
                     role_href,
@@ -931,7 +931,7 @@ class Org(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        resource_admin = self.client.get_resource(self.href_admin)
+        resource_admin = await self.client.get_resource(self.href_admin)
         user = E.User(
             E.Description(description),
             E.FullName(full_name),
@@ -981,7 +981,7 @@ class Org(object):
 
         return user
 
-    def get_user(self, user_name):
+    async def get_user(self, user_name):
         """Retrieve info of an user in current organization.
 
         :param str user_name: name of the user whose info we want to retrieve.
@@ -996,7 +996,7 @@ class Org(object):
         if len(user_record) < 1:
             raise EntityNotFoundException(
                 'User \'%s\' does not exist.' % user_name)
-        return self.client.get_resource(user_record[0].get('href'))
+        return await self.client.get_resource(user_record[0].get('href'))
 
     def list_users(self, name_filter=None):
         """Retrieve the list of users in the current organization.
@@ -1036,7 +1036,7 @@ class Org(object):
         user = self.get_user(user_name)
         return self.client.delete_resource(user.get('href'))
 
-    def create_role(self, role_name, description, rights):
+    async def create_role(self, role_name, description, rights):
         """Creates a role in the organization.
 
         :param str role_name: name of the role to be created.
@@ -1049,7 +1049,7 @@ class Org(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        org_admin_resource = self.client.get_resource(self.href_admin)
+        org_admin_resource = await self.client.get_resource(self.href_admin)
         role = E.Role(
             E.Description(description), E.RightReferences(), name=role_name)
         if rights is None:
@@ -1061,7 +1061,7 @@ class Org(object):
                     name=right_record.get('name'),
                     href=right_record.get('href'),
                     type=EntityType.RIGHT.value))
-        return self.client.post_linked_resource(
+        return await self.client.post_linked_resource(
             org_admin_resource, RelationType.ADD, EntityType.ROLE.value, role)
 
     def delete_role(self, name):
@@ -1074,7 +1074,7 @@ class Org(object):
         role_record = self.get_role_record(name)
         self.client.delete_resource(role_record.get('href'))
 
-    def get_role_resource(self, role_name):
+    async def get_role_resource(self, role_name):
         """Retrieves XML resource of a given role.
 
         :param str role_name: name of the role to be retrieved.
@@ -1084,10 +1084,10 @@ class Org(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        role_record = self.get_role_record(role_name)
-        return self.client.get_resource(role_record.get('href'))
+        role_record = await self.get_role_record(role_name)
+        return await self.client.get_resource(role_record.get('href'))
 
-    def get_role_record(self, role_name):
+    async def get_role_record(self, role_name):
         """Retrieve role record with a particular name in the current org.
 
         :param str role_name: name of the role object to be retrieved.
@@ -1099,13 +1099,13 @@ class Org(object):
         :raises: EntityNotFoundException: if role with the given name is not
             found.
         """
-        role_record = self.list_roles(('name', role_name))
+        role_record = await self.list_roles(('name', role_name))
         if len(role_record) < 1:
             raise EntityNotFoundException(
                 'Role \'%s\' does not exist.' % role_name)
         return role_record[0]
 
-    def list_roles(self, name_filter=None):
+    async def list_roles(self, name_filter=None):
         """Retrieve the list of roles in the current organization.
 
         :param tuple name_filter: (tuple): filter roles by name. The first item
@@ -1118,7 +1118,7 @@ class Org(object):
         :rtype: list
         """
         if self.resource is None:
-            self.reload()
+            await self.reload()
 
         org_filter = None
         resource_type = ResourceType.ROLE.value
@@ -1134,14 +1134,14 @@ class Org(object):
             equality_filter=name_filter,
             qfilter=org_filter)
         result = []
-        for r in list(query.execute()):
+        for r in list(await query.execute()):
             result.append(
                 to_dict(
                     r, resource_type=resource_type, exclude=['org',
                                                              'orgName']))
         return result
 
-    def add_rights(self, rights):
+    async def add_rights(self, rights):
         """Adds set of rights to the organization.
 
         :param tuple rights: names of rights as strings.
@@ -1151,7 +1151,7 @@ class Org(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        org_admin_resource = self.client.get_resource(self.href_admin)
+        org_admin_resource = await self.client.get_resource(self.href_admin)
         org_rights = E.OrgRights()
         for right in rights:
             right_record = self.get_right_record(right)
@@ -1164,7 +1164,7 @@ class Org(object):
             org_admin_resource.RightReferences, RelationType.ADD,
             EntityType.ORG_RIGHTS.value, org_rights)
 
-    def remove_rights(self, rights):
+    async def remove_rights(self, rights):
         """Removes set of rights from the organization.
 
         :param tuple rights: names of rights as strings.
@@ -1174,10 +1174,10 @@ class Org(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        org_admin_resource = self.client.get_resource(self.href_admin)
+        org_admin_resource = await self.client.get_resource(self.href_admin)
         org_rights_resource = None
         if hasattr(org_admin_resource, 'RightReferences'):
-            org_rights_resource = self.client.get_resource(
+            org_rights_resource = await self.client.get_resource(
                 org_admin_resource.RightReferences.get('href'))
             if hasattr(org_rights_resource, 'RightReference'):
                 for right in rights:
@@ -1191,12 +1191,12 @@ class Org(object):
                     if is_spurious:
                         raise EntityNotFoundException(
                             'Right reference \'%s\' does not exist.' % right)
-                return self.client.put_linked_resource(
+                return await self.client.put_linked_resource(
                     org_admin_resource.RightReferences, RelationType.EDIT,
                     EntityType.ORG_RIGHTS.value, org_rights_resource)
         return org_rights_resource
 
-    def get_right_resource(self, right_name):
+    async def get_right_resource(self, right_name):
         """Retrieves resource of a given right.
 
         :param str right_name: name of the right.
@@ -1207,7 +1207,7 @@ class Org(object):
         :rtype: lxml.objectify.ObjectifiedElement
         """
         right_record = self.get_right_record(right_name)
-        return self.client.get_resource(right_record.get('href'))
+        return await self.client.get_resource(right_record.get('href'))
 
     def get_right_record(self, right_name):
         """Retrieves corresponding record of the specified right.
@@ -1268,7 +1268,7 @@ class Org(object):
                     to_dict(r, resource_type=resource_type, exclude=[]))
         return result
 
-    def list_rights_of_org(self):
+    async def list_rights_of_org(self):
         """Retrieves the list of rights associated with the current org.
 
         :return: rights as a list of dictionaries, where each dictionary
@@ -1276,7 +1276,7 @@ class Org(object):
 
         :rtype: list
         """
-        org_admin_resource = self.client.get_resource(self.href_admin)
+        org_admin_resource = await self.client.get_resource(self.href_admin)
         rights = []
         if hasattr(org_admin_resource, 'RightReferences') and \
                 hasattr(org_admin_resource.RightReferences, 'RightReference'):
@@ -1285,7 +1285,7 @@ class Org(object):
                 rights.append(to_dict(right_reference, exclude=['type']))
         return rights
 
-    def get_catalog_access_settings(self, catalog_name):
+    async def get_catalog_access_settings(self, catalog_name):
         """Retrieve the access settings of a catalog.
 
         :param str catalog_name: name of the catalog.
@@ -1295,11 +1295,11 @@ class Org(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        catalog_resource = self.get_catalog(name=catalog_name)
+        catalog_resource = await self.get_catalog(name=catalog_name)
         acl = Acl(self.client, catalog_resource)
         return acl.get_access_settings()
 
-    def add_catalog_access_settings(self,
+    async def add_catalog_access_settings(self,
                                     catalog_name,
                                     access_settings_list=None):
         """Add access settings to a particular catalog.
@@ -1320,11 +1320,11 @@ class Org(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        catalog_resource = self.get_catalog(name=catalog_name)
+        catalog_resource = await self.get_catalog(name=catalog_name)
         acl = Acl(self.client, catalog_resource)
-        return acl.add_access_settings(access_settings_list)
+        return await acl.add_access_settings(access_settings_list)
 
-    def remove_catalog_access_settings(self,
+    async def remove_catalog_access_settings(self,
                                        catalog_name,
                                        access_settings_list=None,
                                        remove_all=False):
@@ -1346,11 +1346,11 @@ class Org(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        catalog_resource = self.get_catalog(name=catalog_name)
+        catalog_resource = await self.get_catalog(name=catalog_name)
         acl = Acl(self.client, catalog_resource)
-        return acl.remove_access_settings(access_settings_list, remove_all)
+        return await acl.remove_access_settings(access_settings_list, remove_all)
 
-    def share_catalog_with_org_members(self,
+    async def share_catalog_with_org_members(self,
                                        catalog_name,
                                        everyone_access_level='ReadOnly'):
         """Share a catalog with all members of an organization.
@@ -1365,11 +1365,11 @@ class Org(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        catalog_resource = self.get_catalog(name=catalog_name)
+        catalog_resource = await self.get_catalog(name=catalog_name)
         acl = Acl(self.client, catalog_resource)
-        return acl.share_with_org_members(everyone_access_level)
+        return await acl.share_with_org_members(everyone_access_level)
 
-    def unshare_catalog_with_org_members(self, catalog_name):
+    async def unshare_catalog_with_org_members(self, catalog_name):
         """Unshare a catalog from all members of the current organization.
 
         :param str catalog_name: name of the catalog which needs to be unshared
@@ -1380,11 +1380,11 @@ class Org(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        catalog_resource = self.get_catalog(name=catalog_name)
+        catalog_resource = await self.get_catalog(name=catalog_name)
         acl = Acl(self.client, catalog_resource)
-        return acl.unshare_from_org_members()
+        return await acl.unshare_from_org_members()
 
-    def update_org(self, is_enabled=None):
+    async def update_org(self, is_enabled=None):
         """Update an organization to enable/disable it.
 
         This operation can only be performed by an user with admin privileges.
@@ -1396,16 +1396,16 @@ class Org(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        org_admin_resource = self.client.get_resource(self.href_admin)
+        org_admin_resource = await self.client.get_resource(self.href_admin)
         if is_enabled is not None:
             if hasattr(org_admin_resource, 'IsEnabled'):
                 org_admin_resource['IsEnabled'] = E.IsEnabled(is_enabled)
-                return self.client.put_resource(self.href_admin,
+                return await self.client.put_resource(self.href_admin,
                                                 org_admin_resource,
                                                 EntityType.ADMIN_ORG.value)
         return org_admin_resource
 
-    def create_org_vdc(self,
+    async def create_org_vdc(self,
                        vdc_name,
                        provider_vdc_name,
                        description='',
@@ -1495,11 +1495,11 @@ class Org(object):
         :rtype: lxml.objectify.ObjectifiedElement
         """
         if self.resource is None:
-            self.reload()
+            await self.reload()
         sys_admin_resource = self.client.get_admin()
         system = System(self.client, admin_resource=sys_admin_resource)
         pvdc = system.get_provider_vdc(provider_vdc_name)
-        resource_admin = self.client.get_resource(self.href_admin)
+        resource_admin = await self.client.get_resource(self.href_admin)
         params = E.CreateVdcParams(
             E.Description(description),
             E.AllocationModel(allocation_model),
@@ -1547,11 +1547,11 @@ class Org(object):
             params.append(E.OverCommitAllowed(over_commit_allowed))
         if vm_discovery_enabled is not None:
             params.append(E.VmDiscoveryEnabled(vm_discovery_enabled))
-        return self.client.post_linked_resource(
+        return await self.client.post_linked_resource(
             resource_admin, RelationType.ADD, EntityType.VDCS_PARAMS.value,
             params)
 
-    def get_vdc(self, name, is_admin_operation=False):
+    async def get_vdc(self, name, is_admin_operation=False):
         """Retrieves resource of an org vdc identified by its name.
 
         :param str name: name of the org vdc to be retrieved.
@@ -1578,10 +1578,10 @@ class Org(object):
                     href = get_admin_href(link.href)
                 else:
                     href = link.href
-                return self.client.get_resource(href)
+                return await self.client.get_resource(href)
         return None
 
-    def get_vdc_by_id(self, id, is_admin_operation=False):
+    async def get_vdc_by_id(self, id, is_admin_operation=False):
         """Retrieves resource of an org vdc identified by its name.
 
         :param str id: ID of the org vdc to be retrieved.
@@ -1605,7 +1605,7 @@ class Org(object):
             media_type=EntityType.VDC.value)
         for link in links:
             if link.href.endswith(f'/api/vdc/{id}'):
-                return self.client.get_resource(link.href)
+                return await self.client.get_resource(link.href)
         return None
 
     def list_vdcs(self):

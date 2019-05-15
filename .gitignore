@@ -65,3 +65,6 @@ tests/private.*
 
 # Automatically generated system test config
 **/auto.*
+
+# envparse file
+.env

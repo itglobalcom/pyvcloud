@@ -453,6 +453,7 @@ class FenceMode(Enum):
 
 
 class LogicalNetworkLinkType(Enum):
+    ERROR = -1
     BRIDGED = 0
     INDEPENDENT = 1
     DLR_UPLINK = 2
@@ -513,10 +514,11 @@ def _get_session_endpoints(session):
 
 
 def _response_has_content(response):
-    return response.content is not None and len(response.content) > 0
+    # return response.content_length is not None and response.content_length > 0
+    return True
 
 
-def _objectify_response(response, as_object=True):
+async def _objectify_response(response, as_object=True):
     """Convert XML response content to an lxml object.
 
     :param str response: an XML response as a string.
@@ -528,11 +530,13 @@ def _objectify_response(response, as_object=True):
 
     :rtype: lxml.objectify.ObjectifiedElement
     """
-    if _response_has_content(response):
+    #if _response_has_content(response):
+    data = await response.read()
+    if data:
         if as_object:
-            return objectify.fromstring(response.content)
+            return objectify.fromstring(data)
         else:
-            return etree.fromstring(response.content)
+            return etree.fromstring(data)
     else:
         return None
 
@@ -569,81 +573,18 @@ class _TaskMonitor(object):
     def __init__(self, client):
         self._client = client
 
-    def wait_for_success(self,
+    async def wait_for_success(self,
                          task,
                          timeout=_DEFAULT_TIMEOUT_SEC,
                          poll_frequency=_DEFAULT_POLL_SEC,
                          callback=None):
-        return self.wait_for_status(
+        return await self.wait_for_status(
             task,
             timeout,
             poll_frequency, [TaskStatus.ERROR], [TaskStatus.SUCCESS],
             callback=callback)
 
-    async def async_wait_for_success(self,
-                         task,
-                         timeout=_DEFAULT_TIMEOUT_SEC,
-                         poll_frequency=_DEFAULT_POLL_SEC,
-                         callback=None):
-        return await self.async_wait_for_status(
-            task,
-            timeout,
-            poll_frequency, [TaskStatus.ERROR], [TaskStatus.SUCCESS],
-            callback=callback)
-
-    def wait_for_status(self,
-                        task,
-                        timeout=_DEFAULT_TIMEOUT_SEC,
-                        poll_frequency=_DEFAULT_POLL_SEC,
-                        fail_on_statuses=[
-                            TaskStatus.ABORTED, TaskStatus.CANCELED,
-                            TaskStatus.ERROR
-                        ],
-                        expected_target_statuses=[TaskStatus.SUCCESS],
-                        callback=None):
-        """Waits for task to reach expected status.
-
-        :param Task task: Task returned by post or put calls.
-        :param float timeout: Time (in seconds, floating point, fractional)
-            to wait for task to finish.
-        :param float poll_frequency: time (in seconds, as above) with which
-            task will be polled.
-        :param list fail_on_statuses: method will raise an exception if any
-            of the TaskStatus in this list is reached. If this parameter is
-            None then either task will achieve expected target status or throw
-            TimeOutException.
-        :param list expected_target_statuses: list of expected target
-            status.
-        :return: Task we were waiting for
-        :rtype Task:
-        :raises TimeoutException: If task is not finished within given time.
-        :raises VcdException: If task enters a status in fail_on_statuses list
-        """
-        if fail_on_statuses is None:
-            _fail_on_statuses = []
-        elif isinstance(fail_on_statuses, TaskStatus):
-            _fail_on_statuses[fail_on_statuses]
-        else:
-            _fail_on_statuses = fail_on_statuses
-        task_href = task.get('href')
-        start_time = datetime.now()
-        while True:
-            task = self._get_task_status(task_href)
-            if callback is not None:
-                callback(task)
-            task_status = task.get('status').lower()
-            for status in expected_target_statuses:
-                if task_status == status.value.lower():
-                    return task
-            for status in _fail_on_statuses:
-                if task_status == status.value.lower():
-                    raise VcdTaskException(task_status, task.Error)
-            if start_time - datetime.now() > timedelta(seconds=timeout):
-                break
-            time.sleep(poll_frequency)
-        raise TaskTimeoutException("Task timeout")
-
-    async def async_wait_for_status(self,
+    async def wait_for_status(self,
                         task,
                         timeout=_DEFAULT_TIMEOUT_SEC,
                         poll_frequency=_DEFAULT_POLL_SEC,
@@ -681,7 +622,7 @@ class _TaskMonitor(object):
         loop = asyncio.get_event_loop()
         start_time = loop.time()
         while True:
-            task = self._get_task_status(task_href)
+            task = await self._get_task_status(task_href)
             if callback is not None:
                 callback(task)
             task_status = task.get('status').lower()
@@ -696,11 +637,11 @@ class _TaskMonitor(object):
             await asyncio.sleep(poll_frequency)
         raise TaskTimeoutException("Task timeout")
 
-    def _get_task_status(self, task_href):
-        return self._client.get_resource(task_href)
+    async def _get_task_status(self, task_href):
+        return await self._client.get_resource(task_href)
 
-    def get_status(self, task):
-        return self._get_task_status(task.get('href')).get('status').lower()
+    async def get_status(self, task):
+        return await self._get_task_status(task.get('href')).get('status').lower()
 
 
 class Client(object):
@@ -847,14 +788,14 @@ class Client(object):
         """
         return self._api_version
 
-    def get_supported_versions_list(self):
+    async def get_supported_versions_list(self):
         """Return non-deprecated server API versions as a list.
 
         :return: versions as strings, sorted in numerical order.
 
         :rtype: list
         """
-        versions = self.get_supported_versions()
+        versions = await self.get_supported_versions()
         active_versions = []
         for version in versions.VersionInfo:
             # Versions must be explicitly assigned as text values using the
@@ -867,7 +808,7 @@ class Client(object):
         active_versions.sort(key=StrictVersion)
         return active_versions
 
-    def get_supported_versions(self):
+    async def get_supported_versions(self):
         """Return non-deprecated API versions on vCD server.
 
         :return: an object containing SupportedVersions XML element which
@@ -875,33 +816,16 @@ class Client(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        with requests.Session() as new_session:
+        async with aiohttp.ClientSession() as new_session:
             # Use with block to avoid leaking socket connections.
-            response = self._do_request_prim(
+            response = await self._do_request_prim(
                 'GET', self._uri + '/versions', new_session, accept_type='')
             sc = response.status_code
             if sc != 200:
                 raise VcdException('Unable to get supported API versions.')
             return objectify.fromstring(response.content)
 
-    async def async_get_supported_versions(self):
-        """Return non-deprecated API versions on vCD server.
-
-        :return: an object containing SupportedVersions XML element which
-            represents versions supported by vCD.
-
-        :rtype: lxml.objectify.ObjectifiedElement
-        """
-        with aiohttp .Session() as new_session:
-            # Use with block to avoid leaking socket connections.
-            response = self._do_request_prim(
-                'GET', self._uri + '/versions', new_session, accept_type='')
-            sc = response.status_code
-            if sc != 200:
-                raise VcdException('Unable to get supported API versions.')
-            return objectify.fromstring(response.content)
-
-    def set_highest_supported_version(self):
+    async def set_highest_supported_version(self):
         """Set the client API version to the highest server API version.
 
         This call is intended to make it easy to work with new vCD
@@ -913,14 +837,14 @@ class Client(object):
 
         :rtype: str
         """
-        active_versions = self.get_supported_versions_list()
+        active_versions = await self.get_supported_versions_list()
         self._api_version = active_versions[-1]
         self._negotiate_api_version = False
         self._logger.debug('API versions supported: %s' % active_versions)
         self._logger.debug('API version set to: %s' % self._api_version)
         return self._api_version
 
-    def set_credentials(self, creds):
+    async def set_credentials(self, creds):
         """Set credentials and authenticate to create a new session.
 
         This call will automatically negotiate the server API version if
@@ -960,19 +884,23 @@ class Client(object):
         # We can now proceed to login. Ensure we close session if
         # any exception is thrown to avoid leaking a socket connection.
         self._logger.debug('API version in use: %s' % self._api_version)
-        new_session = requests.Session()
+        new_session = aiohttp.ClientSession()
         try:
-            response = self._do_request_prim(
+            response = await self._do_request_prim(
                 'POST',
                 self._uri + '/sessions',
                 new_session,
-                auth=('%s@%s' % (creds.user, creds.org), creds.password))
+                auth=aiohttp.BasicAuth(
+                    '%s@%s' % (creds.user, creds.org),
+                    creds.password
+                )
+            )
 
-            sc = response.status_code
+            sc = response.status
             if sc != 200:
                 r = None
                 try:
-                    r = _objectify_response(response)
+                    r = await _objectify_response(response)
                 except Exception:
                     pass
                 if r is not None:
@@ -981,19 +909,19 @@ class Client(object):
                 else:
                     raise VcdException('Login failed.')
 
-            session = objectify.fromstring(response.content)
+            session = objectify.fromstring(await response.read())
             self._session_endpoints = _get_session_endpoints(session)
 
             self._session = new_session
-            self._session.headers[self._HEADER_X_VCLOUD_AUTH_NAME] = \
+            self._session._default_headers[self._HEADER_X_VCLOUD_AUTH_NAME] = \
                 response.headers[self._HEADER_X_VCLOUD_AUTH_NAME]
             self._is_sysadmin = self._is_sys_admin(session.get('org'))
         except Exception:
             new_session.close()
             raise
 
-    def rehydrate(self, state):
-        self._session = requests.Session()
+    async def rehydrate(self, state):
+        self._session = aiohttp.ClientSession()
         self._session.headers[self._HEADER_X_VCLOUD_AUTH_NAME] = \
             state.get('token')
         self._is_sysadmin = self._is_sys_admin(state.get('org'))
@@ -1003,16 +931,16 @@ class Client(object):
             if endpoint.name in wkep:
                 self._session_endpoints[endpoint] = wkep[endpoint.name]
 
-    def rehydrate_from_token(self, token):
-        new_session = requests.Session()
+    async def rehydrate_from_token(self, token):
+        new_session = aiohttp.ClientSession()
         new_session.headers[self._HEADER_X_VCLOUD_AUTH_NAME] = token
-        response = self._do_request_prim('GET', self._uri + "/session",
+        response = await self._do_request_prim('GET', self._uri + "/session",
                                          new_session)
         sc = response.status_code
         if sc != 200:
             self._response_code_to_exception(
                 sc, self._get_response_request_id(response),
-                _objectify_response(response))
+                await _objectify_response(response))
 
         session = objectify.fromstring(response.content)
 
@@ -1023,7 +951,7 @@ class Client(object):
             response.headers[self._HEADER_X_VCLOUD_AUTH_NAME]
         return session
 
-    def logout(self):
+    async def logout(self):
         """Destroy the server session and de-allocate local resources.
 
         Logout is idempotent. Reusing a client after logout will result
@@ -1031,8 +959,8 @@ class Client(object):
         """
         if self._session is not None:
             uri = self._uri + '/session'
-            result = self._do_request('DELETE', uri)
-            self._session.close()
+            result = await self._do_request('DELETE', uri)
+            await self._session.close()
             self._session = None
             return result
 
@@ -1052,14 +980,14 @@ class Client(object):
             self._task_monitor = _TaskMonitor(self)
         return self._task_monitor
 
-    def _do_request(self,
+    async def _do_request(self,
                     method,
                     uri,
                     contents=None,
                     media_type=None,
                     objectify_results=True,
                     params=None):
-        response = self._do_request_prim(
+        response = await self._do_request_prim(
             method,
             uri,
             self._session,
@@ -1067,13 +995,13 @@ class Client(object):
             media_type=media_type,
             params=params)
 
-        sc = response.status_code
+        sc = response.status
         if 200 <= sc <= 299:
-            return _objectify_response(response, objectify_results)
+            return await _objectify_response(response, objectify_results)
 
         self._response_code_to_exception(
             sc, self._get_response_request_id(response),
-            _objectify_response(response, objectify_results))
+            await _objectify_response(response, objectify_results))
 
     @staticmethod
     def _response_code_to_exception(sc, request_id, objectify_response):
@@ -1123,19 +1051,19 @@ class Client(object):
                 redacted_headers[key] = "[REDACTED]"
         return redacted_headers
 
-    def _log_request_response(self,
+    async def _log_request_response(self,
                               response,
                               request_body=None,
                               skip_logging_response_body=False):
         if not self._log_requests:
             return
 
-        self._logger.debug('Request uri (%s): %s' % (response.request.method,
-                                                     response.request.url))
+        self._logger.debug('Request uri (%s): %s' % (response.request_info.method,
+                                                     response.request_info.url))
 
         if self._log_headers:
             self._logger.debug('Request headers: %s' % self._redact_headers(
-                response.request.headers))
+                response.request_info.headers))
 
         if self._log_bodies and request_body is not None:
             if isinstance(request_body, str):
@@ -1144,21 +1072,21 @@ class Client(object):
                 body = request_body.decode(self.fsencoding)
             self._logger.debug('Request body: %s' % body)
 
-        self._logger.debug('Response status code: %s' % response.status_code)
+        self._logger.debug('Response status code: %s' % response.status)
 
         if self._log_headers:
             self._logger.debug('Response headers: %s' % self._redact_headers(
-                response.headers))
+                response.request_info.headers))
 
         if self._log_bodies and not skip_logging_response_body and \
            _response_has_content(response):
-            if isinstance(response.content, str):
-                response_body = response.content
-            else:
-                response_body = response.content.decode(self.fsencoding)
+            # if isinstance(response.content, str):
+            #     response_body = response.content
+            # else:
+            response_body = await response.text(self.fsencoding)
             self._logger.debug('Response body: %s' % response_body)
 
-    def _do_request_prim(self,
+    async def _do_request_prim(self,
                          method,
                          uri,
                          session,
@@ -1182,20 +1110,20 @@ class Client(object):
             else:
                 data = etree.tostring(contents)
 
-        response = session.request(
+        response = await session.request(
             method,
             uri,
             params=params,
             data=data,
             headers=headers,
             auth=auth,
-            verify=self._verify_ssl_certs)
+            ssl=self._verify_ssl_certs)
 
-        self._log_request_response(response=response, request_body=data)
+        await self._log_request_response(response=response, request_body=data)
 
         return response
 
-    def upload_fragment(self, uri, contents, range_str):
+    async def upload_fragment(self, uri, contents, range_str):
         headers = {}
         headers[self._HEADER_CONTENT_RANGE_NAME] = range_str
         headers[self._HEADER_CONTENT_LENGTH_NAME] = str(len(contents))
@@ -1212,7 +1140,7 @@ class Client(object):
                     data=data,
                     headers=headers,
                     verify=self._verify_ssl_certs)
-                self._log_request_response(response)
+                await self._log_request_response(response)
 
                 sc = response.status_code
                 if sc != 200:
@@ -1231,7 +1159,7 @@ class Client(object):
                         'Reached max retry limit. Failing upload.')
                     raise
 
-    def download_from_uri(self,
+    async def download_from_uri(self,
                           uri,
                           file_name,
                           chunk_size=SIZE_1MB,
@@ -1240,7 +1168,7 @@ class Client(object):
 
         response = self._session.get(
             uri, stream=True, verify=self._verify_ssl_certs)
-        self._log_request_response(response, skip_logging_response_body=True)
+        await self._log_request_response(response, skip_logging_response_body=True)
 
         sc = response.status_code
         if sc != 200:
@@ -1257,7 +1185,7 @@ class Client(object):
                     self._logger.debug('Downloaded bytes : %s' % bytes_written)
         return bytes_written
 
-    def put_resource(self,
+    async def put_resource(self,
                      uri,
                      contents,
                      media_type,
@@ -1267,7 +1195,7 @@ class Client(object):
 
         This method does an HTTP PUT.
         """
-        return self._do_request(
+        return await self._do_request(
             'PUT',
             uri,
             contents=contents,
@@ -1275,7 +1203,7 @@ class Client(object):
             objectify_results=objectify_results,
             params=params)
 
-    def put_linked_resource(self, resource, rel, media_type, contents):
+    async def put_linked_resource(self, resource, rel, media_type, contents):
         """Puts to a resource link.
 
         Puts the contents of the resource referenced by the link with the
@@ -1287,13 +1215,13 @@ class Client(object):
             the link being not visible to the logged in user of the client.
         """
         try:
-            return self.put_resource(
+            return await self.put_resource(
                 find_link(resource, rel, media_type).href, contents,
                 media_type)
         except MissingLinkException as e:
             raise OperationNotSupportedException from e
 
-    def post_resource(self,
+    async def post_resource(self,
                       uri,
                       contents,
                       media_type,
@@ -1304,7 +1232,7 @@ class Client(object):
         Posts the specified contents to the specified resource. (Does an HTTP
         POST.)
         """
-        return self._do_request(
+        return await self._do_request(
             'POST',
             uri,
             contents=contents,
@@ -1312,7 +1240,7 @@ class Client(object):
             objectify_results=objectify_results,
             params=params)
 
-    def post_linked_resource(self, resource, rel, media_type, contents):
+    async def post_linked_resource(self, resource, rel, media_type, contents):
         """Posts to a resource link.
 
         Posts the contents of the resource referenced by the link with the
@@ -1324,22 +1252,22 @@ class Client(object):
             the link being not visible to the logged in user of the client.
         """
         try:
-            return self.post_resource(
+            return await self.post_resource(
                 find_link(resource, rel, media_type).href, contents,
                 media_type)
         except MissingLinkException as e:
             raise OperationNotSupportedException(
                 "Operation is not supported").with_traceback(e.__traceback__)
 
-    def get_resource(self, uri, params=None, objectify_results=True):
+    async def get_resource(self, uri, params=None, objectify_results=True):
         """Gets the specified contents to the specified resource.
 
         This method does an HTTP GET.
         """
-        return self._do_request(
+        return await self._do_request(
             'GET', uri, objectify_results=objectify_results, params=params)
 
-    def get_linked_resource(self, resource, rel, media_type):
+    async def get_linked_resource(self, resource, rel, media_type):
         """Gets the content of the resource link.
 
         Gets the contents of the resource referenced by the link with the
@@ -1354,7 +1282,7 @@ class Client(object):
             the link being not visible to the logged in user of the client.
         """
         try:
-            return self.get_resource(find_link(resource, rel, media_type).href)
+            return await self.get_resource(find_link(resource, rel, media_type).href)
         except MissingLinkException as e:
             raise OperationNotSupportedException(
                 "Operation is not supported").with_traceback(e.__traceback__)
@@ -1383,11 +1311,11 @@ class Client(object):
         """Returns the "admin" root resource type."""
         return self._get_wk_resource(_WellKnownEndpoint.ADMIN)
 
-    def get_query_list(self):
+    async def get_query_list(self):
         """Returns the list of supported queries."""
-        return self._get_wk_resource(_WellKnownEndpoint.QUERY_LIST)
+        return await self._get_wk_resource(_WellKnownEndpoint.QUERY_LIST)
 
-    def get_org(self):
+    async def get_org(self):
         """Returns the logged in org.
 
         :return: a sparse representation of the logged in org. The returned
@@ -1396,7 +1324,7 @@ class Client(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        return self._get_wk_resource(_WellKnownEndpoint.LOGGED_IN_ORG)
+        return await self._get_wk_resource(_WellKnownEndpoint.LOGGED_IN_ORG)
 
     def get_extensibility(self):
         """Returns the 'extensibility' resource type."""
@@ -1477,10 +1405,12 @@ class Client(object):
             raise MultipleRecordsException('multiple users found')
         return self.get_resource(records[0].get('href'))
 
-    def _get_query_list_map(self):
+    async def _get_query_list_map(self):
         if self._query_list_map is None:
             self._query_list_map = {}
-            for link in self.get_query_list().Link:
+            for link in (
+                await self.get_query_list()
+            ).Link:
                 self._query_list_map[(link.get('type'),
                                       link.get('name'))] = link.get('href')
         return self._query_list_map
@@ -1537,8 +1467,8 @@ class Client(object):
             sort_desc=sort_desc,
             fields=fields)
 
-    def _get_wk_resource(self, wk_type):
-        return self.get_resource(self._get_wk_endpoint(wk_type))
+    async def _get_wk_resource(self, wk_type):
+        return await self.get_resource(self._get_wk_endpoint(wk_type))
 
     def _get_wk_endpoint(self, wk_type):
         if wk_type in self._session_endpoints:
@@ -1678,14 +1608,14 @@ class _AbstractQuery(object):
 
         self.fields = fields
 
-    def execute(self):
+    async def execute(self):
         """Executes query and returns results.
 
         :return: A generator to returns results.
 
         :rtype: generator object
         """
-        query_href = self._find_query_uri(self._query_result_format)
+        query_href = await self._find_query_uri(self._query_result_format)
         if query_href is None:
             raise OperationNotSupportedException('Unable to execute query.')
         query_uri = self._build_query_uri(
@@ -1695,7 +1625,7 @@ class _AbstractQuery(object):
             self._filter,
             self._include_links,
             fields=self.fields)
-        return self._iterator(self._client.get_resource(query_uri))
+        return self._iterator(await self._client.get_resource(query_uri))
 
     def _iterator(self, query_results):
         while True:
@@ -1798,13 +1728,14 @@ class _TypedQuery(_AbstractQuery):
             fields=fields)
         self._query_type_name = query_type_name
 
-    def _find_query_uri(self, query_result_format):
+    async def _find_query_uri(self, query_result_format):
         (query_media_type, _) = query_result_format.value
         query_href = \
-            self. \
-            _client. \
-            _get_query_list_map().get(
-                (query_media_type, self._query_type_name))
+            (
+                await self._client._get_query_list_map()
+            ).get(
+                (query_media_type, self._query_type_name)
+            )
         if query_href is None:
             self._client._logger.warning(
                 'Unable to locate query href for \'%s\' typed query.' %
