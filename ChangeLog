@@ -1,6 +1,8 @@
 CHANGES
 =======
 
+* fix typo
+* change project to aiohttp & change unittest to pytest
 * add async do\_request
 * Add client.async\_wait\_for\_success method
 * Add method ORG.get\_vdc\_by\_id

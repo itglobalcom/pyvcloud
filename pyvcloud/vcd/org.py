@@ -627,7 +627,7 @@ class Org(object):
             entity_href = catalog_item_resource.Entity.get('href')
             entity_resource = self.client.get_resource(entity_href)
             ovf_upload_href = entity_resource.Files.File.Link.get('href')
-            self.client.put_resource(ovf_upload_href, ovf_resource,
+            await self.client.put_resource(ovf_upload_href, ovf_resource,
                                      EntityType.TEXT_XML.value)
 
             while True:
