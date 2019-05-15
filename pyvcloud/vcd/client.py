@@ -586,7 +586,6 @@ class _TaskMonitor(object):
                 TaskStatus.ERROR
             ], [
                 TaskStatus.SUCCESS,
-                '7',
             ],
             callback=callback)
 
