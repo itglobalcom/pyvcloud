@@ -315,7 +315,6 @@ async def test_add_resources(vapp):
 @pytest.mark.asyncio
 async def test_snapshot(vapp):
     async with client_vdc() as (client, _, vdc):
-        # time.sleep(1)
         await vapp.reload()
 
         result = await vapp.power_off()
@@ -327,9 +326,9 @@ async def test_snapshot(vapp):
         for vm_xml in await vapp.get_all_vms():
             vm = VM(client, resource=vm_xml)
 
-            # Create shapshot
+            # Create snapshot
             result = await vm.snapshot_create(name='TestSnapshot')
-            task = await vapp.client.get_task_monitor().wait_for_success(
+            await vapp.client.get_task_monitor().wait_for_success(
                 task=result,
             )
 
@@ -340,14 +339,14 @@ async def test_snapshot(vapp):
             # Revert to current shapshot
             await vm.reload()
             result = await vm.snapshot_revert_to_current()
-            task = await vapp.client.get_task_monitor().wait_for_success(
+            await vapp.client.get_task_monitor().wait_for_success(
                 task=result,
             )
 
             # Remove all shapshot
             await vm.reload()
             result = await vm.snapshot_remove_all()
-            task = await vapp.client.get_task_monitor().wait_for_success(
+            await vapp.client.get_task_monitor().wait_for_success(
                 task=result,
             )
 
@@ -364,7 +363,6 @@ async def test_status(vapp_off):
         task=result,
     )
 
-    # time.sleep(2)
     await vapp_off.reload()
     assert (await vapp_off.get_resource()).get('deployed') == 'true'
     assert await vapp_off.is_powered_on() == True
