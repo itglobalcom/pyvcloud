@@ -581,7 +581,13 @@ class _TaskMonitor(object):
         return await self.wait_for_status(
             task,
             timeout,
-            poll_frequency, [TaskStatus.ERROR], [TaskStatus.SUCCESS],
+            poll_frequency, [
+                TaskStatus.ABORTED, TaskStatus.CANCELED,
+                TaskStatus.ERROR
+            ], [
+                TaskStatus.SUCCESS,
+                '7',
+            ],
             callback=callback)
 
     async def wait_for_status(self,
