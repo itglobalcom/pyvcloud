@@ -638,23 +638,23 @@ class VM(object):
         from pyvcloud.vcd.vapp import VApp
         vm_resource = await self.get_resource()
         resource_type = ResourceType.VAPP.value
-        if self.is_powered_off(vm_resource):
-            records1 = self.___validate_vapp_records(
+        if await self.is_powered_off(vm_resource):
+            records1 = await self.___validate_vapp_records(
                 vapp_name=source_vapp_name, resource_type=resource_type)
 
             source_vapp_href = records1[0].get('href')
 
-            records2 = self.___validate_vapp_records(
+            records2 = await self.___validate_vapp_records(
                 vapp_name=target_vapp_name, resource_type=resource_type)
 
             target_vapp_href = records2[0].get('href')
 
             source_vapp = VApp(self.client, href=source_vapp_href)
             target_vapp = VApp(self.client, href=target_vapp_href)
-            target_vapp.reload()
+            await target_vapp.reload()
             spec = {
-                'vapp': source_vapp.get_resource(),
-                'source_vm_name': self.get_resource().get('name'),
+                'vapp': (await source_vapp.get_resource()),
+                'source_vm_name': (await self.get_resource()).get('name'),
                 'target_vm_name': target_vm_name
             }
             return target_vapp.add_vms([spec],
@@ -665,13 +665,31 @@ class VM(object):
         else:
             raise InvalidStateException("VM Must be powered off.")
 
-    def ___validate_vapp_records(self, vapp_name, resource_type):
+    async def get_guest_customization_section(self):
+        # await self.reload()
+        guest_xml = (await self.get_resource()).GuestCustomizationSection
+        return {
+            'id': guest_xml.VirtualMachineId.text,
+            'name': guest_xml.ComputerName.text,
+            'password': guest_xml.AdminPassword.text,
+        }
+
+    async def set_guest_customization_section(self, **kwargs):
+        # guest_xml = (await self.get_resource()).GuestCustomizationSection
+
+        uri = self.href + '/GuestCustomizationSection'
+        item = await self.client.get_resource(uri)
+        for k, v in kwargs:
+            getattr(item, k).text = v
+        return await self.client.put_resource(uri, item, EntityType.RASD_ITEM.value)
+
+    async def ___validate_vapp_records(self, vapp_name, resource_type):
         name_filter = ('name', vapp_name)
         q1 = self.client.get_typed_query(
             resource_type,
             query_result_format=QueryResultFormat.REFERENCES,
             equality_filter=name_filter)
-        records = list(q1.execute())
+        records = list(await q1.execute())
         if records is None or len(records) == 0:
             raise EntityNotFoundException(
                 'Vapp with name \'%s\' not found.' % vapp_name)
