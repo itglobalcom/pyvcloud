@@ -493,7 +493,7 @@ class VApp(object):
         return await self._perform_power_operation(
             rel=RelationType.POWER_ON, operation_name='power on')
 
-    def shutdown(self):
+    async def shutdown(self):
         """Shutdown the vApp.
 
         :return: an object containing EntityType.TASK XML data which represents
@@ -503,10 +503,10 @@ class VApp(object):
 
         :raises OperationNotSupportedException: if the vApp can't be shutdown.
         """
-        return self._perform_power_operation(
+        return await self._perform_power_operation(
             rel=RelationType.POWER_SHUTDOWN, operation_name='shutdown')
 
-    def power_reset(self):
+    async def power_reset(self):
         """Power resets the vms in the vApp.
 
         :return: an object containing EntityType.TASK XML data which represents
@@ -517,10 +517,10 @@ class VApp(object):
         :raises OperationNotSupportedException: if the vApp can't be power
             reset.
         """
-        return self._perform_power_operation(
+        return await self._perform_power_operation(
             rel=RelationType.POWER_RESET, operation_name='power reset')
 
-    def reboot(self):
+    async def reboot(self):
         """Reboots the vms in the vApp.
 
         :return: an object containing EntityType.TASK XML data which represents
@@ -530,11 +530,11 @@ class VApp(object):
 
         :raises OperationNotSupportedException: if the vApp can't be rebooted.
         """
-        return self._perform_power_operation(
+        return await self._perform_power_operation(
             rel=RelationType.POWER_REBOOT, operation_name='reboot')
 
-    def connect_vm(self, mode='DHCP', reset_mac_address=False):
-        self.get_resource()
+    async def connect_vm(self, mode='DHCP', reset_mac_address=False):
+        await self.get_resource()
         if hasattr(self.resource, 'Children') and \
            hasattr(self.resource.Children, 'Vm') and \
            len(self.resource.Children.Vm) > 0:
@@ -555,7 +555,7 @@ class VApp(object):
             self.resource.Children.Vm[0].NetworkConnectionSection.\
                 NetworkConnection.IpAddressAllocationMode = \
                 E.IpAddressAllocationMode(mode.upper())
-            return self.client.put_linked_resource(
+            return await self.client.put_linked_resource(
                 self.resource.Children.Vm[0].NetworkConnectionSection,
                 RelationType.EDIT, EntityType.NETWORK_CONNECTION_SECTION.value,
                 self.resource.Children.Vm[0].NetworkConnectionSection)
