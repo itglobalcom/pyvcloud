@@ -566,9 +566,6 @@ class VAppPowerStatus(Enum):
     UNDEPLOYED = '1'
 
 
-POWERSTATES_DICT = {int(v.value): k for k,v in VAppPowerStatus.__members__.items()}
-
-
 class _TaskMonitor(object):
     _DEFAULT_POLL_SEC = 5
     _DEFAULT_TIMEOUT_SEC = 600
