@@ -1382,7 +1382,7 @@ class VApp(object):
         return await self.client.put_linked_resource(
             self.resource, RelationType.EDIT, EntityType.VAPP.value, vapp)
 
-    def suspend_vapp(self):
+    async def suspend_vapp(self):
         """Suspend a vApp.
 
         :return: an object containing EntityType.TASK XML data which represents
@@ -1390,11 +1390,11 @@ class VApp(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        self.get_resource()
-        return self.client.post_linked_resource(
+        await self.get_resource()
+        return await self.client.post_linked_resource(
             self.resource, RelationType.POWER_SUSPEND, None, None)
 
-    def discard_suspended_state_vapp(self):
+    async def discard_suspended_state_vapp(self):
         """Discard suspended state of the vApp.
 
         :return: an object containing EntityType.TASK XML data which represents
@@ -1403,34 +1403,34 @@ class VApp(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        self.get_resource()
-        return self.client.post_linked_resource(
+        await self.get_resource()
+        return await self.client.post_linked_resource(
             self.resource, RelationType.DISCARD_SUSPENDED_STATE, None, None)
 
-    def enter_maintenance_mode(self):
+    async def enter_maintenance_mode(self):
         """Enter maintenance mode a vApp."""
-        self.get_resource()
-        return self.client.post_linked_resource(
+        await self.get_resource()
+        return await self.client.post_linked_resource(
             self.resource, RelationType.ENTER_MAINTENANCE_MODE, None, None)
 
-    def exit_maintenance_mode(self):
+    async def exit_maintenance_mode(self):
         """Exit maintenance mode a vApp."""
-        self.get_resource()
-        return self.client.post_linked_resource(
+        await self.get_resource()
+        return await self.client.post_linked_resource(
             self.resource, RelationType.EXIT_MAINTENANCE_MODE, None, None)
 
-    def enable_download(self):
+    async def enable_download(self):
         """Helper method to enable an entity for download.
 
         Behind the scene it involves vCD copying the template/media file
         from ESX hosts to spool area (transfer folder).
         """
-        self.get_resource()
-        task = self.client.post_linked_resource(
+        await self.get_resource()
+        task = await self.client.post_linked_resource(
             self.resource, RelationType.ENABLE, None, None)
         self.client.get_task_monitor().wait_for_success(task, 60, 1)
 
-    def download_ova(self, file_name, chunk_size=DEFAULT_CHUNK_SIZE):
+    async def download_ova(self, file_name, chunk_size=DEFAULT_CHUNK_SIZE):
         """Downloads a vapp into a local file.
 
         :param str file_name: name of the target file on local disk where the
@@ -1441,14 +1441,14 @@ class VApp(object):
         :return: number of bytes written to file.
         :rtype: int
         """
-        self.enable_download()
+        await self.enable_download()
         self.resource = None
-        self.get_resource()
+        await self.get_resource()
         ova_uri = find_link(self.resource, RelationType.DOWNLOAD_OVA_DEFAULT,
                             EntityType.APPLICATION_BINARY.value).href
-        return self.client.download_from_uri(ova_uri, file_name, chunk_size)
+        return await self.client.download_from_uri(ova_uri, file_name, chunk_size)
 
-    def upgrade_virtual_hardware(self):
+    async def upgrade_virtual_hardware(self):
         """Upgrade virtual hardware of vapp.
 
         Behind the scene it upgrades virtual hardware of all the vm belongs to
@@ -1458,13 +1458,13 @@ class VApp(object):
         :rtype: int
         """
         self.resource = None
-        self.get_resource()
+        await self.get_resource()
         no_of_vm_upgraded = 0
-        for vm in self.get_all_vms():
+        for vm in await self.get_all_vms():
             vm_obj = VM(self.client, resource=vm)
             try:
-                task = vm_obj.upgrade_virtual_hardware()
-                self.client.get_task_monitor().wait_for_success(task)
+                task = await vm_obj.upgrade_virtual_hardware()
+                await self.client.get_task_monitor().wait_for_success(task)
                 no_of_vm_upgraded += 1
             except OperationNotSupportedException:
                 LOGGER.error('Operation not supported  for vm ' +
