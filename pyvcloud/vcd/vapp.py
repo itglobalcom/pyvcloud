@@ -395,12 +395,12 @@ class VApp(object):
             return await self.client.post_linked_resource(vapp_resource, rel,
                                                     media_type, contents)
         except OperationNotSupportedException:
-            power_state = self.get_power_state(vapp_resource)
+            power_state = await self.get_power_state(vapp_resource)
             raise OperationNotSupportedException(
                 'Can\'t {0} vApp. Current state of vApp: {1}.'.format(
                     operation_name, VCLOUD_STATUS_MAP[power_state]))
 
-    def deploy(self, power_on=None, force_customization=None):
+    async def deploy(self, power_on=None, force_customization=None):
         """Deploys the vApp.
 
         Deploying the vApp will allocate all resources assigned to the vApp.
@@ -427,13 +427,13 @@ class VApp(object):
             deploy_vapp_params.set('forceCustomization',
                                    str(force_customization).lower())
 
-        return self._perform_power_operation(
+        return await self._perform_power_operation(
             rel=RelationType.DEPLOY,
             operation_name='deploy',
             media_type=EntityType.DEPLOY.value,
             contents=deploy_vapp_params)
 
-    def undeploy(self, action='default'):
+    async def undeploy(self, action='default'):
         """Undeploys the vApp.
 
         :param str action: specifies the action to be applied to all vms in the
@@ -459,7 +459,7 @@ class VApp(object):
         """
         params = E.UndeployVAppParams(E.UndeployPowerAction(action))
 
-        return self._perform_power_operation(
+        return await self._perform_power_operation(
             rel=RelationType.UNDEPLOY,
             operation_name='undeploy',
             media_type=EntityType.UNDEPLOY.value,
