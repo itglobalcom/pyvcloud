@@ -621,7 +621,7 @@ class VApp(object):
         else:
             return []
 
-    async def get_vm(self, vm_name):
+    async def get_vm(self, vm_name=None):
         """Retrieve the vm with the given name in this vApp.
 
         :param str vm_name: name of the vm to be retrieved.
@@ -633,12 +633,14 @@ class VApp(object):
 
         :raises: EntityNotFoundException: if the named vm could not be found.
         """
+        if vm_name is None:
+            return (await self.get_all_vms())[0]
         for vm in await self.get_all_vms():
             if vm.get('name') == vm_name:
                 return vm
         raise EntityNotFoundException('Can\'t find VM \'%s\'' % vm_name)
 
-    def add_disk_to_vm(self, vm_name, disk_size):
+    async def add_disk_to_vm(self, vm_name, disk_size):
         """Add a virtual disk to a virtual machine in the vApp.
 
         It assumes that the vm has already at least one virtual hard disk
@@ -655,8 +657,8 @@ class VApp(object):
         :raises: EntityNotFoundException: if the named vm cannot be located.
             occurred.
         """
-        vm = self.get_vm(vm_name)
-        disk_list = self.client.get_resource(
+        vm = await self.get_vm(vm_name)
+        disk_list = await self.client.get_resource(
             vm.get('href') + '/virtualHardwareSection/disks')
         last_disk = None
         for disk in disk_list.Item:
@@ -676,7 +678,7 @@ class VApp(object):
         new_disk['{' + NSMAP['rasd'] + '}HostResource'].set(
             '{' + NSMAP['vcloud'] + '}capacity', str(disk_size))
         disk_list.append(new_disk)
-        return self.client.put_resource(
+        return await self.client.put_resource(
             vm.get('href') + '/virtualHardwareSection/disks', disk_list,
             EntityType.RASD_ITEMS_LIST.value)
 
@@ -1460,13 +1462,12 @@ class VApp(object):
         self.resource = None
         await self.get_resource()
         no_of_vm_upgraded = 0
-        for vm in await self.get_all_vms():
-            vm_obj = VM(self.client, resource=vm)
-            try:
-                task = await vm_obj.upgrade_virtual_hardware()
-                await self.client.get_task_monitor().wait_for_success(task)
-                no_of_vm_upgraded += 1
-            except OperationNotSupportedException:
-                LOGGER.error('Operation not supported  for vm ' +
-                             vm.get('name'))
+        vm = await self.get_vm()
+        vm_obj = VM(self.client, resource=vm)
+        try:
+            task = await vm_obj.upgrade_virtual_hardware()
+            no_of_vm_upgraded += 1
+        except OperationNotSupportedException:
+            LOGGER.error('Operation not supported  for vm ' +
+                         vm.get('name'))
         return no_of_vm_upgraded
