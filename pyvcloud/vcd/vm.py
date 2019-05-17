@@ -13,6 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from lxml import etree
+from lxml import objectify
+
 from pyvcloud.vcd.client import E
 from pyvcloud.vcd.client import EntityType
 from pyvcloud.vcd.client import IpAddressMode
@@ -666,22 +669,27 @@ class VM(object):
             raise InvalidStateException("VM Must be powered off.")
 
     async def get_guest_customization_section(self):
-        # await self.reload()
         guest_xml = (await self.get_resource()).GuestCustomizationSection
         return {
-            'id': guest_xml.VirtualMachineId.text,
-            'name': guest_xml.ComputerName.text,
-            'password': guest_xml.AdminPassword.text,
+            child.tag.title().split('}')[1]: child.text
+            for child in guest_xml.getchildren()
         }
 
     async def set_guest_customization_section(self, **kwargs):
-        # guest_xml = (await self.get_resource()).GuestCustomizationSection
-
-        uri = self.href + '/GuestCustomizationSection'
+        await self.reload()
+        uri = self.href + '/guestCustomizationSection'
         item = await self.client.get_resource(uri)
-        for k, v in kwargs:
-            getattr(item, k).text = v
-        return await self.client.put_resource(uri, item, EntityType.RASD_ITEM.value)
+        for k, v in kwargs.items():
+            setattr(item, k, v)
+
+        objectify.deannotate(item)
+        etree.cleanup_namespaces(item)
+        return await self.client.put_resource(
+            uri,
+            item,
+            EntityType.GUEST_CUSTOMIZATION_SECTION.value
+        )
+
 
     async def ___validate_vapp_records(self, vapp_name, resource_type):
         name_filter = ('name', vapp_name)

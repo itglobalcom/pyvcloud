@@ -15,8 +15,8 @@
 
 import asyncio
 import aiohttp
-from datetime import datetime
-from datetime import timedelta
+# from datetime import datetime
+# from datetime import timedelta
 from distutils.version import StrictVersion
 from enum import Enum
 import json
@@ -24,12 +24,15 @@ import logging
 import logging.handlers as handlers
 from pathlib import Path
 import sys
-import time
+# import time
 import urllib
 
 from lxml import etree
 from lxml import objectify
 import requests
+
+from pyvcloud.vcd.decorators import simple_call
+
 
 from pyvcloud.vcd.exceptions import AccessForbiddenException, \
     BadRequestException, ClientException, ConflictException, \
@@ -348,6 +351,8 @@ class EntityType(Enum):
     EXTERNAL_NETWORK = 'application/vnd.vmware.admin.vmwexternalnet+xml'
     EXTERNAL_NETWORK_REFS = \
         'application/vnd.vmware.admin.vmwExternalNetworkReferences+xml'
+    GUEST_CUSTOMIZATION_SECTION = \
+        'application/vnd.vmware.vcloud.guestCustomizationSection+xml'
     INSTANTIATE_VAPP_TEMPLATE_PARAMS = \
         'application/vnd.vmware.vcloud.instantiateVAppTemplateParams+xml'
     LEASE_SETTINGS = 'application/vnd.vmware.vcloud.leaseSettingsSection+xml'
@@ -1190,6 +1195,7 @@ class Client(object):
                     self._logger.debug('Downloaded bytes : %s' % bytes_written)
         return bytes_written
 
+    @simple_call
     async def put_resource(self,
                      uri,
                      contents,
@@ -1226,6 +1232,7 @@ class Client(object):
         except MissingLinkException as e:
             raise OperationNotSupportedException from e
 
+    @simple_call
     async def post_resource(self,
                       uri,
                       contents,
@@ -1292,11 +1299,12 @@ class Client(object):
             raise OperationNotSupportedException(
                 "Operation is not supported").with_traceback(e.__traceback__)
 
-    def delete_resource(self, uri, params=None, force=False, recursive=False):
+    @simple_call
+    async def delete_resource(self, uri, params=None, force=False, recursive=False):
         full_uri = '%s?force=%s&recursive=%s' % (uri, force, recursive)
-        return self._do_request('DELETE', full_uri, params=params)
+        return await self._do_request('DELETE', full_uri, params=params)
 
-    def delete_linked_resource(self, resource, rel, media_type):
+    async def delete_linked_resource(self, resource, rel, media_type):
         """Deletes the resource referenced by the link.
 
         Deletes the resource referenced by the link with the specified rel and
@@ -1306,7 +1314,7 @@ class Client(object):
             the link being not visible to the logged in user of the client.
         """
         try:
-            return self.delete_resource(
+            return await self.delete_resource(
                 find_link(resource, rel, media_type).href)
         except MissingLinkException as e:
             raise OperationNotSupportedException(

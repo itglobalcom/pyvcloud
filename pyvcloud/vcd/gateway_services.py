@@ -65,7 +65,7 @@ class GatewayServices(object):
         self.parent_href = self.parent.get('href')
         self.network_url = build_network_url_from_gateway_url(self.parent_href)
 
-    def _get_resource(self):
+    async def _get_resource(self):
         """Fetches the XML representation of the Service.
 
          :return: object containing EntityType.Service XML data
@@ -73,13 +73,13 @@ class GatewayServices(object):
         :rtype: lxml.objectify.ObjectifiedElement
         """
         if self.resource is None:
-            self._reload()
+            await self._reload()
         return self.resource
 
-    def _reload(self):
+    async def _reload(self):
         pass
 
-    def _get_parent_by_name(self):
+    async def _get_parent_by_name(self):
         """Get a gateway by name.
 
         :return: gateway​
@@ -94,7 +94,7 @@ class GatewayServices(object):
             ResourceType.EDGE_GATEWAY.value,
             query_result_format=QueryResultFormat.RECORDS,
             equality_filter=name_filter)
-        records = list(query.execute())
+        records = list(await query.execute())
         if records is None or len(records) == 0:
             raise EntityNotFoundException(
                 'Gateway with name \'%s\' not found.' % self.gateway_name)

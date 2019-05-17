@@ -132,11 +132,11 @@ class VDC(object):
         result = []
         if hasattr(self.resource, 'ResourceEntities') and \
            hasattr(self.resource.ResourceEntities, 'ResourceEntity'):
-            for vapp in self.resource.ResourceEntities.ResourceEntity:
+            for resource in self.resource.ResourceEntities.ResourceEntity:
                 if entity_type is None or \
-                   entity_type.value == vapp.get('type'):
-                    if vapp.get('id') == id:
-                        result.append(vapp.get('href'))
+                   entity_type.value == resource.get('type'):
+                    if resource.get('id') == id:
+                        result.append(resource.get('href'))
         if len(result) == 0:
             raise EntityNotFoundException('vApp with id \'%s\' not found' % id)
 

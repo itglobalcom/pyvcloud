@@ -32,17 +32,17 @@ class DhcpPool(GatewayServices):
         pool_id_length = len(DHCP_POOLS + '/' + str(self.resource_id))
         return self.href[:-pool_id_length]
 
-    def _reload(self):
+    async def _reload(self):
         """Reloads the resource representation of the DHCP pool."""
         pool_config_resource = \
-            self.client.get_resource(self.__config_url())
+            await self.client.get_resource(self.__config_url())
         ip_pools = pool_config_resource.ipPools
         for pool in ip_pools.ipPool:
             if pool.poolId == self.resource_id:
                 self.resource = pool
                 break
 
-    def get_pool_info(self):
+    async def get_pool_info(self):
         """Get the details of DHCP pool.
 
         :return: Dictionary having DHCP Pool details.
@@ -54,7 +54,7 @@ class DhcpPool(GatewayServices):
         :rtype: Dictionary
         """
         pool_info = {}
-        resource = self._get_resource()
+        resource = await self._get_resource()
         pool_info['ID'] = resource.poolId
         pool_info['IPRange'] = resource.ipRange
         if hasattr(resource, 'domainName'):
@@ -74,7 +74,7 @@ class DhcpPool(GatewayServices):
             pool_info['AllowHugeRange'] = resource.allowHugeRange
         return pool_info
 
-    def delete_pool(self):
+    async def delete_pool(self):
         """Delete a DHCP Pool from gateway."""
-        self._get_resource()
-        return self.client.delete_resource(self.href)
+        await self._get_resource()
+        return await self.client.delete_resource(self.href)

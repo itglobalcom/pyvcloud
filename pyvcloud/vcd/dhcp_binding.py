@@ -32,11 +32,11 @@ class DhcpBinding(GatewayServices):
         self._build_self_href(self.resource_id)
         return self.href
 
-    def _reload(self):
+    async def _reload(self):
         """Reloads the resource representation of the DHCP binding."""
-        self.resource = self.client.get_resource(self.href)
+        self.resource = await self.client.get_resource(self.href)
 
-    def delete_binding(self):
+    async def delete_binding(self):
         """Delete a DHCP binding from gateway."""
         dhcp_resource = self._get_resource()
         if hasattr(dhcp_resource.staticBindings, 'staticBinding'):
@@ -45,5 +45,5 @@ class DhcpBinding(GatewayServices):
                     dhcp_resource.staticBindings.remove(static_binding)
                     break
 
-        self.client.put_resource(self.href, dhcp_resource,
+        await self.client.put_resource(self.href, dhcp_resource,
                                  EntityType.DEFAULT_CONTENT_TYPE.value)
