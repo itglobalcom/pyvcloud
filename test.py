@@ -94,6 +94,21 @@ async def vapp():
 
 
 @pytest.fixture()
+async def vapp_test():
+    async with client_vdc() as (client, org, vdc):
+        vapp_xml = await vdc.get_vapp_by_id('urn:vcloud:vapp:59067364-2248-40bc-b41b-edbf75e4d9c3')
+        vapp = VApp(vdc.client, resource=vapp_xml)
+
+        yield vapp
+
+        await asyncio.sleep(1.0)
+        await vdc.reload()
+        await vapp.reload()
+
+        # await vdc.delete_vapp_by_id(vapp.id, force=True)
+
+
+@pytest.fixture()
 async def vapp_off():
     async with client_vdc() as (client, org, vdc):
         name = uuid.uuid4().hex[:5]
@@ -383,16 +398,27 @@ async def test_get_vapp_by_id(vapp):
 async def test_guest_customization_section(vapp):
     vm_resource = (await vapp.get_all_vms())[0]
     vm = VM(vapp.client, resource=vm_resource)
-    dic = await vm.get_guest_customization_section()
-    for field_name in ('id', 'name', 'password'):
-        assert field_name in dic
+    guest_xml_old = await vm.get_guest_customization_section()
+    for field_name in ('VirtualMachineId', 'ComputerName', 'AdminPassword'):
+        assert hasattr(guest_xml_old, field_name)
     await vm.set_guest_customization_section(
-        Adminpassword='123',
-        Adminpasswordauto=False,
-        Adminpasswordenabled=True,
+        AdminPassword='12345',
+        AdminPasswordAuto=False,
+        AdminPasswordEnabled=True,
+        # JoinDomainEnabled=True,
+        UseOrgSettings=False,
+        ComputerName='TestComputer3',
+        # Enabled=True,
     )
     await vm.reload()
-    dic2 = await vm.get_guest_customization_section()
-    assert dic2['Adminpassword'] == '123'
-    for field_name in ('id', 'name'):
-        assert dic[field_name] == dic2[field_name]
+    guest_xml_new = await vm.get_guest_customization_section()
+    # _save_xml_to_file(guest_xml_new, 'tmp.xml')
+    assert guest_xml_new.AdminPassword.text == '12345'
+    assert guest_xml_new.ComputerName.text == 'TestComputer3'
+    for field_name in ('VirtualMachineId',):
+        assert getattr(
+            guest_xml_old, field_name
+        ).text == getattr(
+            guest_xml_new, field_name
+        ).text
+

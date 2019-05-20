@@ -670,10 +670,7 @@ class VM(object):
 
     async def get_guest_customization_section(self):
         guest_xml = (await self.get_resource()).GuestCustomizationSection
-        return {
-            child.tag.title().split('}')[1]: child.text
-            for child in guest_xml.getchildren()
-        }
+        return guest_xml
 
     async def set_guest_customization_section(self, **kwargs):
         await self.reload()
@@ -684,7 +681,7 @@ class VM(object):
 
         objectify.deannotate(item)
         etree.cleanup_namespaces(item)
-        return await self.client.put_resource(
+        await self.client.put_resource(
             uri,
             item,
             EntityType.GUEST_CUSTOMIZATION_SECTION.value
