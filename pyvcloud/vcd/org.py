@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import math
+import re
 import os
 import shutil
 import tarfile
@@ -52,6 +53,8 @@ DEFAULT_CHUNK_SIZE = 10 * 1024 * 1024
 
 
 class Org(object):
+    vdc_href_id_pattern = re.compile('/api/vdc/([a-fA-F0-9-]+)')
+
     def __init__(self, client, href=None, resource=None):
         """Constructor for Org objects.
 
@@ -1551,6 +1554,44 @@ class Org(object):
             resource_admin, RelationType.ADD, EntityType.VDCS_PARAMS.value,
             params)
 
+    async def get_vdc_all(self, is_admin_operation=False):
+        """Retrieves resource of an org vdc identified by its name.
+
+        :param str name: name of the org vdc to be retrieved.
+
+        :param bool is_admin_operation: if set True, will return the admin
+            view of the org vdc resource.
+
+        :return: an object containing EtityType.VDC XML data representing the
+            vdc.
+
+        :rtype: lxml.objectify.ObjectifiedElement
+
+        :raises: EntityNotFoundException: if the named vdc can not be found.
+        """
+        if self.resource is None:
+            await self.reload()
+        with open('tmp.xml', 'wb') as f:
+            f.write(
+                etree.tostring(self.resource, pretty_print=True)
+            )
+        links = get_links(
+            self.resource,
+            rel=RelationType.DOWN,
+            media_type=EntityType.VDC.value)
+        for link in links:
+            if is_admin_operation:
+                href = get_admin_href(link.href)
+            else:
+                href = link.href
+            yield {
+                'href': href,
+                'name': link.name,
+                'id': self.vdc_href_id_pattern.search(
+                    link.href
+                ).groups()[0],
+            }
+
     async def get_vdc(self, name, is_admin_operation=False):
         """Retrieves resource of an org vdc identified by its name.
 
@@ -1567,7 +1608,7 @@ class Org(object):
         :raises: EntityNotFoundException: if the named vdc can not be found.
         """
         if self.resource is None:
-            self.reload()
+            await self.reload()
         links = get_links(
             self.resource,
             rel=RelationType.DOWN,
@@ -1598,7 +1639,7 @@ class Org(object):
         """
         # TODO Add is_admin_operation using
         if self.resource is None:
-            self.reload()
+            await self.reload()
         links = get_links(
             self.resource,
             rel=RelationType.DOWN,

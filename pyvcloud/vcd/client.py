@@ -927,7 +927,7 @@ class Client(object):
                 response.headers[self._HEADER_X_VCLOUD_AUTH_NAME]
             self._is_sysadmin = self._is_sys_admin(session.get('org'))
         except Exception:
-            new_session.close()
+            await new_session.close()
             raise
 
     async def rehydrate(self, state):

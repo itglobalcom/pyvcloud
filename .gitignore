@@ -68,3 +68,5 @@ tests/private.*
 
 # envparse file
 .env
+
+tmp.xml
