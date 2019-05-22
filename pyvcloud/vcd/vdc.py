@@ -223,7 +223,7 @@ class VDC(object):
                          vm_name=None,
                          hostname=None,
                          ip_address=None,
-                         storage_profile=None,
+                         storage_profile_id=None,
                          network_adapter_type=None):
         """Instantiate a vApp from a vApp template in a catalog.
 
@@ -256,7 +256,7 @@ class VDC(object):
         :param str vm_name: when provided, sets the name of the vm.
         :param str ip_address: when provided, sets the ip_address of the vm.
         :param str hostname: when provided, sets the hostname of the guest OS.
-        :param str storage_profile:
+        :param str storage_profile_id:
         :param str network_adapter_type: One of the values in
             pyvcloud.vcd.client.NetworkAdapterType.
 
@@ -443,8 +443,8 @@ class VDC(object):
         sourced_item.append(vm_general_params)
         sourced_item.append(vm_instantiation_param)
 
-        if storage_profile is not None:
-            sp = await self.get_storage_profile(storage_profile)
+        if storage_profile_id is not None:
+            sp = await self.get_storage_profile_by_id(storage_profile_id)
             vapp_storage_profile = E.StorageProfile(
                 href=sp.get('href'),
                 id=sp.get('href').split('/')[-1],
@@ -913,6 +913,27 @@ class VDC(object):
 
         raise EntityNotFoundException(
             'Storage Profile named \'%s\' not found' % profile_name)
+
+    async def get_storage_profile_by_id(self, profile_id):
+        """Fetch a specific Storage Profile within an org vdc.
+
+        :param str profile_name: name of the requested storage profile.
+
+        :return: an object containing VdcStorageProfile XML element that
+            represents the requested storage profile.
+
+        :rtype: lxml.objectify.ObjectifiedElement
+        """
+        await self.get_resource()
+
+        if hasattr(self.resource, 'VdcStorageProfiles') and \
+           hasattr(self.resource.VdcStorageProfiles, 'VdcStorageProfile'):
+            for profile in self.resource.VdcStorageProfiles.VdcStorageProfile:
+                if profile.get('id') == profile_id:
+                    return profile
+
+        raise EntityNotFoundException(
+            'Storage Profile with id \'%s\' not found' % profile_id)
 
     async def enable_vdc(self, enable=True):
         """Enable current vdc.

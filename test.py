@@ -106,6 +106,7 @@ async def vapp(vdc):
         name,
         'Test',
         'Ubuntu 18.04 x64 v3 (minimal requirements)',
+        storage_profile_id='urn:vcloud:vdcstorageProfile:1db61137-fd0c-4768-9916-464afc21433a',
     )
 
     await vdc.reload()
@@ -214,7 +215,7 @@ async def test_poweroff_shutdown(vapp):
     """
     Exception in this test: vapp.shutdown don't switch vapp to power off.
     """
-    return  # Plumb
+    return  # Fake this test
     assert VCLOUD_STATUS_MAP[await vapp.get_power_state()] == 'Powered on'
     await vapp.reload()
     await vapp.power_off()
