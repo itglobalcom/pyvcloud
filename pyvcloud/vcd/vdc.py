@@ -223,6 +223,7 @@ class VDC(object):
                          vm_name=None,
                          hostname=None,
                          ip_address=None,
+                         storage_profile=None,
                          storage_profile_id=None,
                          network_adapter_type=None):
         """Instantiate a vApp from a vApp template in a catalog.
@@ -256,6 +257,7 @@ class VDC(object):
         :param str vm_name: when provided, sets the name of the vm.
         :param str ip_address: when provided, sets the ip_address of the vm.
         :param str hostname: when provided, sets the hostname of the guest OS.
+        :param str storage_profile:
         :param str storage_profile_id:
         :param str network_adapter_type: One of the values in
             pyvcloud.vcd.client.NetworkAdapterType.
@@ -443,7 +445,15 @@ class VDC(object):
         sourced_item.append(vm_general_params)
         sourced_item.append(vm_instantiation_param)
 
-        if storage_profile_id is not None:
+        if storage_profile is not None:
+            sp = await self.get_storage_profile(storage_profile)
+            vapp_storage_profile = E.StorageProfile(
+                href=sp.get('href'),
+                id=sp.get('href').split('/')[-1],
+                type=sp.get('type'),
+                name=sp.get('name'))
+            sourced_item.append(vapp_storage_profile)
+        elif storage_profile_id is not None:
             sp = await self.get_storage_profile_by_id(storage_profile_id)
             vapp_storage_profile = E.StorageProfile(
                 href=sp.get('href'),
