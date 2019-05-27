@@ -1320,9 +1320,9 @@ class Client(object):
             raise OperationNotSupportedException(
                 "Operation is not supported").with_traceback(e.__traceback__)
 
-    def get_admin(self):
+    async def get_admin(self):
         """Returns the "admin" root resource type."""
-        return self._get_wk_resource(_WellKnownEndpoint.ADMIN)
+        return await self._get_wk_resource(_WellKnownEndpoint.ADMIN)
 
     async def get_query_list(self):
         """Returns the list of supported queries."""
@@ -1339,15 +1339,15 @@ class Client(object):
         """
         return await self._get_wk_resource(_WellKnownEndpoint.LOGGED_IN_ORG)
 
-    def get_extensibility(self):
+    async def get_extensibility(self):
         """Returns the 'extensibility' resource type."""
-        return self._get_wk_resource(_WellKnownEndpoint.API_EXTENSIBILITY)
+        return await self._get_wk_resource(_WellKnownEndpoint.API_EXTENSIBILITY)
 
-    def get_extension(self):
+    async def get_extension(self):
         """Returns the 'extension' resource type."""
-        return self._get_wk_resource(_WellKnownEndpoint.EXTENSION)
+        return await self._get_wk_resource(_WellKnownEndpoint.EXTENSION)
 
-    def get_org_list(self):
+    async def get_org_list(self):
         """Returns the list of organizations visible to the user.
 
         :return: a list of objects, where each object contains EntityType.ORG
@@ -1355,7 +1355,7 @@ class Client(object):
 
         :rtype: list
         """
-        orgs = self._get_wk_resource(_WellKnownEndpoint.ORG_LIST)
+        orgs = await self._get_wk_resource(_WellKnownEndpoint.ORG_LIST)
         result = []
         if hasattr(orgs, 'Org'):
             for org in orgs.Org:
@@ -1363,7 +1363,7 @@ class Client(object):
                 result.append(org_resource)
         return result
 
-    def get_org_by_name(self, org_name):
+    async def get_org_by_name(self, org_name):
         """Retrieve an organization.
 
         :param str org_name: name of the organization to be retrieved.
@@ -1382,14 +1382,14 @@ class Client(object):
         # following implementation, we delay the REST call to fetch
         # organization details until we have narrowed down our target to
         # exactly 1 organization.
-        orgs = self._get_wk_resource(_WellKnownEndpoint.ORG_LIST)
+        orgs = await self._get_wk_resource(_WellKnownEndpoint.ORG_LIST)
         if hasattr(orgs, 'Org'):
             for org in orgs.Org:
                 if org.get('name').lower() == org_name.lower():
                     return self.get_resource(org.get('href'))
         raise EntityNotFoundException('org \'%s\' not found' % org_name)
 
-    def get_user_in_org(self, user_name, org_href):
+    async def get_user_in_org(self, user_name, org_href):
         """Retrieve user from a particular organization.
 
         :param str user_name: name of the user to be retrieved.
@@ -1411,12 +1411,12 @@ class Client(object):
             query_result_format=QueryResultFormat.REFERENCES,
             equality_filter=('name', user_name),
             qfilter=org_filter)
-        records = list(query.execute())
+        records = list(await query.execute())
         if len(records) == 0:
             raise EntityNotFoundException('user \'%s\' not found' % user_name)
         elif len(records) > 1:
             raise MultipleRecordsException('multiple users found')
-        return self.get_resource(records[0].get('href'))
+        return await self.get_resource(records[0].get('href'))
 
     async def _get_query_list_map(self):
         if self._query_list_map is None:
@@ -1638,9 +1638,12 @@ class _AbstractQuery(object):
             self._filter,
             self._include_links,
             fields=self.fields)
-        return self._iterator(await self._client.get_resource(query_uri))
+        l = []
+        async for e in self._iterator(await self._client.get_resource(query_uri)):
+            l.append(e)
+        return l
 
-    def _iterator(self, query_results):
+    async def _iterator(self, query_results):
         while True:
             next_page_uri = None
             for r in query_results.iterchildren():
@@ -1652,7 +1655,7 @@ class _AbstractQuery(object):
                     yield r
             if next_page_uri is None:
                 break
-            query_results = self._client.get_resource(
+            query_results = await self._client.get_resource(
                 next_page_uri, objectify_results=True)
 
     def find_unique(self):
@@ -1743,10 +1746,8 @@ class _TypedQuery(_AbstractQuery):
 
     async def _find_query_uri(self, query_result_format):
         (query_media_type, _) = query_result_format.value
-        query_href = \
-            (
-                await self._client._get_query_list_map()
-            ).get(
+        query_list_map = await self._client._get_query_list_map()
+        query_href = query_list_map.get(
                 (query_media_type, self._query_type_name)
             )
         if query_href is None:

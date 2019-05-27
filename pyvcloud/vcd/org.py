@@ -1499,9 +1499,9 @@ class Org(object):
         """
         if self.resource is None:
             await self.reload()
-        sys_admin_resource = self.client.get_admin()
+        sys_admin_resource = await self.client.get_admin()
         system = System(self.client, admin_resource=sys_admin_resource)
-        pvdc = system.get_provider_vdc(provider_vdc_name)
+        pvdc = await system.get_provider_vdc(provider_vdc_name)
         resource_admin = await self.client.get_resource(self.href_admin)
         params = E.CreateVdcParams(
             E.Description(description),
@@ -1519,7 +1519,7 @@ class Org(object):
             E.IsEnabled(is_enabled),
             name=vdc_name)
         for sp in storage_profiles:
-            pvdc_sp = system.get_provider_vdc_storage_profile(sp['name'])
+            pvdc_sp = await system.get_provider_vdc_storage_profile(sp['name'])
             params.append(
                 E.VdcStorageProfile(
                     E.Enabled(sp['enabled']), E.Units(sp['units']),
@@ -1535,7 +1535,7 @@ class Org(object):
         if is_thin_provision is not None:
             params.append(E.IsThinProvision(is_thin_provision))
         if network_pool_name is not None:
-            npr = system.get_network_pool_reference(network_pool_name)
+            npr = await system.get_network_pool_reference(network_pool_name)
             href = npr.get('href')
             params.append(
                 E.NetworkPoolReference(
@@ -1571,10 +1571,6 @@ class Org(object):
         """
         if self.resource is None:
             await self.reload()
-        with open('tmp.xml', 'wb') as f:
-            f.write(
-                etree.tostring(self.resource, pretty_print=True)
-            )
         links = get_links(
             self.resource,
             rel=RelationType.DOWN,

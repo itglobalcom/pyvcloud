@@ -21,6 +21,7 @@ from pyvcloud.vcd.task import Task, TaskStatus
 from pyvcloud.vcd.vapp import VApp, RelationType
 from pyvcloud.vcd.vdc import VDC
 from pyvcloud.vcd.vm import VM
+from pyvcloud.vcd.system import System
 
 
 env.read_envfile()
@@ -434,14 +435,19 @@ async def test_get_vapp_by_id(vapp, vdc):
 
 
 # @pytest.mark.asyncio
-# async def test_get_vapp_resource_windows():
+# async def test_get_vapp_guest_windows(vdc):
 #     vapp_id = 'urn:vcloud:vapp:712c7620-d522-47a2-839a-2867452097a5'
-#         vapp_resource = await vdc.get_vapp_by_id(vapp_id)
-#         with open('tmp.xml', 'wb') as f:
-#             f.write(
-#                 etree.tostring(vapp_resource,
-#                                 pretty_print=True),
-#             )
+#     vapp_resource = await vdc.get_vapp_by_id(vapp_id)
+#     raise ZeroDivisionError(etree.tostring(
+#         vapp_resource,
+#         pretty_print=True
+#     ).decode('utf8'))
+#     vapp = VApp(vdc.client, resource=vapp_resource)
+#     vm_resource = await vapp.get_vm()
+#     vm = VM(vdc.client, resource=vm_resource)
+#     await vm.set_guest_customization_section(
+#         Enabled=False,
+#     )
 
 
 @pytest.mark.asyncio
@@ -462,7 +468,6 @@ async def test_guest_customization_section(vapp):
     )
     await vm.reload()
     guest_xml_new = await vm.get_guest_customization_section()
-    # _save_xml_to_file(guest_xml_new, 'tmp.xml')
     assert guest_xml_new.AdminPassword.text == '12345'
     assert guest_xml_new.ComputerName.text == 'TestComputer3'
     for field_name in ('VirtualMachineId',):
@@ -472,3 +477,11 @@ async def test_guest_customization_section(vapp):
             guest_xml_new, field_name
         ).text
 
+
+# @pytest.mark.asyncio
+# async def test_tmp(client):
+#     sys_admin_resource = await client.get_admin()
+#     system = System(client, admin_resource=sys_admin_resource)
+#     ss = await system.list_provider_vdc_storage_profiles()
+#     ff = await system.list_provider_vdcs()
+#     raise ZeroDivisionError(ss, ff)

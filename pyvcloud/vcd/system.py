@@ -38,10 +38,18 @@ class System(object):
             raise InvalidParameterException(
                 "System initialization failed as arguments are either "
                 "invalid or None")
-        self.admin_href = admin_href
+        self._admin_href = admin_href
         self.admin_resource = admin_resource
         if admin_resource is not None:
-            self.admin_href = self.client.get_admin().get('href')
+            self._admin_href = None
+
+    async def get_admin_href(self):
+        if self._admin_href is None:
+            self._admin_href = (await self.client.get_admin()).get('href')
+        # if self._admin_href is not None:
+        return self._admin_href
+        # return get_admin_href()
+
 
     def create_org(self, org_name, full_org_name, is_enabled=False):
         """Create new organization.
@@ -81,7 +89,7 @@ class System(object):
         org_admin_href = get_admin_href(org_resource.get('href'))
         return self.client.delete_resource(org_admin_href, force, recursive)
 
-    def list_provider_vdcs(self):
+    async def list_provider_vdcs(self):
         """List provider vdcs in the system organization.
 
         :return: a list of object containing ProviderVdcReference XML data.
@@ -89,7 +97,7 @@ class System(object):
         :rtype: list
         """
         if self.admin_resource is None:
-            self.admin_resource = self.client.get_resource(self.admin_href)
+            self.admin_resource = await self.client.get_resource(self.admin_href)
         if hasattr(self.admin_resource, 'ProviderVdcReferences') and \
            hasattr(self.admin_resource.ProviderVdcReferences,
                    'ProviderVdcReference'):
@@ -98,7 +106,7 @@ class System(object):
         else:
             return []
 
-    def get_provider_vdc(self, name):
+    async def get_provider_vdc(self, name):
         """Fetch a provider VDC by name in the system organization.
 
         :return: an object containing ProviderVdcReference XML element which
@@ -109,13 +117,13 @@ class System(object):
         :raises: EntityNotFoundException: if the named provider vdc can not be
             found.
         """
-        for pvdc in self.list_provider_vdcs():
+        for pvdc in await self.list_provider_vdcs():
             if pvdc.get('name') == name:
                 return pvdc
         raise EntityNotFoundException('Provider VDC \'%s\' not found or '
                                       'access to resource is forbidden' % name)
 
-    def list_provider_vdc_storage_profiles(self, name=None):
+    async def list_provider_vdc_storage_profiles(self, name=None):
         """List provider VDC storage profiles in the system organization.
 
         :return: a list of ProviderVdcStorageProfile items
@@ -131,9 +139,9 @@ class System(object):
             query_result_format=QueryResultFormat.RECORDS,
             equality_filter=name_filter)
 
-        return list(q.execute())
+        return list(await q.execute())
 
-    def get_provider_vdc_storage_profile(self, name):
+    async def get_provider_vdc_storage_profile(self, name):
         """Return a provider VDC storage profile by name in the system org.
 
         :return: ProviderVdcStorageProfile item.
@@ -141,14 +149,14 @@ class System(object):
         :raises: EntityNotFoundException: if the named provider vdc can not be
             found.
         """
-        for profile in self.list_provider_vdc_storage_profiles(name):
+        for profile in await self.list_provider_vdc_storage_profiles(name):
             if profile.get('name') == name:
                 return profile
         raise EntityNotFoundException('Storage profile \'%s\' not found or '
                                       'access to resource is forbidden.' %
                                       name)
 
-    def list_network_pools(self):
+    async def list_network_pools(self):
         """List network pools in the system organization.
 
         :return: a list of lxml.objectify.ObjectifiedElement containing
@@ -156,8 +164,8 @@ class System(object):
 
         :rtype: list
         """
-        resource = self.client.get_extension()
-        result = self.client.get_linked_resource(
+        resource = await self.client.get_extension()
+        result = await self.client.get_linked_resource(
             resource, RelationType.DOWN,
             EntityType.NETWORK_POOL_REFERENCES.value)
         if hasattr(result, '{' + NSMAP['vmext'] + '}NetworkPoolReference'):
@@ -165,7 +173,7 @@ class System(object):
         else:
             return []
 
-    def get_network_pool_reference(self, name):
+    async def get_network_pool_reference(self, name):
         """Return a network pool by name in the system organization.
 
         :return: an object containing NetworkPoolReference XML element.
@@ -175,7 +183,7 @@ class System(object):
         :raises: EntityNotFoundException: if the named network pool can not be
             found.
         """
-        for item in self.list_network_pools():
+        for item in await self.list_network_pools():
             if item.get('name') == name:
                 return item
         raise EntityNotFoundException('Network pool \'%s\' not found or '
