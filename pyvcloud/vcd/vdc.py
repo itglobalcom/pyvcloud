@@ -76,7 +76,7 @@ class VDC(object):
         :rtype: lxml.objectify.ObjectifiedElement
         """
         if self.resource is None:
-            self.reload()
+            await self.reload()
         return self.resource
 
     async def get_resource_href(self, name, entity_type=EntityType.VAPP):
@@ -800,7 +800,7 @@ class VDC(object):
         return await self.client.get_linked_resource(
             self.resource, RelationType.DOWN, EntityType.METADATA.value)
 
-    def get_metadata_value(self, key, domain=MetadataDomain.GENERAL):
+    async def get_metadata_value(self, key, domain=MetadataDomain.GENERAL):
         """Fetch a metadata value identified by the domain and key.
 
         :param str key: key of the value to be fetched.
@@ -812,10 +812,10 @@ class VDC(object):
         :rtype: lxml.objectify.ObjectifiedElement
         """
         metadata = Metadata(
-            client=self.client, resource=self.get_all_metadata())
-        return metadata.get_metadata_value(key, domain)
+            client=self.client, resource=await self.get_all_metadata())
+        return await metadata.get_metadata_value(key, domain)
 
-    def set_metadata(self,
+    async def set_metadata(self,
                      key,
                      value,
                      domain=MetadataDomain.GENERAL,
@@ -841,8 +841,8 @@ class VDC(object):
         :rtype: lxml.objectify.ObjectifiedElement
         """
         metadata = Metadata(
-            client=self.client, resource=self.get_all_metadata())
-        return metadata.set_metadata(
+            client=self.client, resource=await self.get_all_metadata())
+        return await metadata.set_metadata(
             key=key,
             value=value,
             domain=domain,
@@ -850,7 +850,7 @@ class VDC(object):
             metadata_value_type=metadata_value_type,
             use_admin_endpoint=True)
 
-    def set_multiple_metadata(self,
+    async def set_multiple_metadata(self,
                               key_value_dict,
                               domain=MetadataDomain.GENERAL,
                               visibility=MetadataVisibility.READ_WRITE,
@@ -874,15 +874,15 @@ class VDC(object):
         :rtype: lxml.objectify.ObjectifiedElement
         """
         metadata = Metadata(
-            client=self.client, resource=self.get_all_metadata())
-        return metadata.set_multiple_metadata(
+            client=self.client, resource=await self.get_all_metadata())
+        return await metadata.set_multiple_metadata(
             key_value_dict=key_value_dict,
             domain=domain,
             visibility=visibility,
             metadata_value_type=metadata_value_type,
             use_admin_endpoint=True)
 
-    def remove_metadata(self, key, domain=MetadataDomain.GENERAL):
+    async def remove_metadata(self, key, domain=MetadataDomain.GENERAL):
         """Remove a metadata entry from the org vdc.
 
         Only admins can perform this operation.
@@ -899,8 +899,8 @@ class VDC(object):
             corresponding to the key provided.
         """
         metadata = Metadata(
-            client=self.client, resource=self.get_all_metadata())
-        return metadata.remove_metadata(
+            client=self.client, resource=await self.get_all_metadata())
+        return await metadata.remove_metadata(
             key=key, domain=domain, use_admin_endpoint=True)
 
     async def get_storage_profile(self, profile_name):

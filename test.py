@@ -38,13 +38,6 @@ CREDS = dict(
 requests.packages.urllib3.disable_warnings()
 
 
-def _save_xml_to_file(resource, fn):
-    with open(fn, 'wb') as f:
-        f.write(
-            etree.tostring(resource, pretty_print=True)
-        )
-
-
 @pytest.fixture()
 async def client():
     cli = Client(
@@ -479,9 +472,20 @@ async def test_guest_customization_section(vapp):
 
 
 # @pytest.mark.asyncio
-# async def test_tmp(client):
-#     sys_admin_resource = await client.get_admin()
-#     system = System(client, admin_resource=sys_admin_resource)
-#     ss = await system.list_provider_vdc_storage_profiles()
-#     ff = await system.list_provider_vdcs()
-#     raise ZeroDivisionError(ss, ff)
+# async def test_tmp(vdc):
+#     # sys_admin_resource = await client.get_admin()
+#     # resource = await vdc.get_resource()
+#     vapp_resource = await vdc.get_vapp_by_id('urn:vcloud:vapp:77d1bfc4-54b1-4c39-a615-b015fad7b401')
+#     from lxml import etree
+#     with open('tmp.xml', 'wb') as f:
+#         f.write(
+#             etree.tostring(
+#                 vapp_resource,
+#                 pretty_print=True
+#             )
+#         )
+#     # system = System(client, admin_resource=sys_admin_resource)
+#     # ss = await system.list_provider_vdc_storage_profiles()
+#     # raise ZeroDivisionError(ss)
+# #     ff = await system.list_provider_vdcs()
+# #     raise ZeroDivisionError(ss, ff)

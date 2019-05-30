@@ -46,7 +46,7 @@ class Metadata(object):
         if resource is not None:
             self.href = resource.get('href')
 
-    def get_resource(self):
+    async def get_resource(self):
         """Fetches the XML representation of the metadata from vCD.
 
         Will serve cached response if possible.
@@ -57,19 +57,19 @@ class Metadata(object):
         :rtype: lxml.objectify.ObjectifiedElement
         """
         if self.resource is None:
-            self.reload()
+            await self.reload()
         return self.resource
 
-    def reload(self):
+    async def reload(self):
         """Reloads the resource representation of the metadata.
 
         This method should be called in between two method invocations on the
         metadata object or it's parent, if the former call changes the
         representation of the metadata in vCD.
         """
-        self.resource = self.client.get_resource(self.href)
+        self.resource = await self.client.get_resource(self.href)
 
-    def get_all_metadata(self, use_admin_endpoint=False):
+    async def get_all_metadata(self, use_admin_endpoint=False):
         """Fetch all metadata entries of the parent object.
 
         :param bool use_admin_endpoint: if True, will use the /api/admin
@@ -82,12 +82,12 @@ class Metadata(object):
         :rtype: lxml.objectify.ObjectifiedElement
         """
         if not use_admin_endpoint:
-            return self.get_resource()
+            return await self.get_resource()
         else:
             admin_href = get_admin_href(self.href)
-            return self.client.get_resource(admin_href)
+            return await self.client.get_resource(admin_href)
 
-    def set_metadata(self,
+    async def set_metadata(self,
                      key,
                      value,
                      domain=MetadataDomain.GENERAL,
@@ -117,14 +117,14 @@ class Metadata(object):
         :rtype: lxml.objectify.ObjectifiedElement
         """
         key_value_dict = {key: value}
-        return self.set_multiple_metadata(
+        return await self.set_multiple_metadata(
             key_value_dict=key_value_dict,
             domain=domain,
             visibility=visibility,
             metadata_value_type=metadata_value_type,
             use_admin_endpoint=use_admin_endpoint)
 
-    def set_multiple_metadata(self,
+    async def set_multiple_metadata(self,
                               key_value_dict,
                               domain=MetadataDomain.GENERAL,
                               visibility=MetadataVisibility.READ_WRITE,
@@ -159,7 +159,7 @@ class Metadata(object):
         if not isinstance(metadata_value_type, MetadataValueType):
             raise InvalidParameterException('Invalid type of value.')
 
-        metadata = self.get_all_metadata(use_admin_endpoint)
+        metadata = await self.get_all_metadata(use_admin_endpoint)
         new_metadata = E.Metadata()
         for k, v in key_value_dict.items():
             entry = E.MetadataEntry(
@@ -170,11 +170,11 @@ class Metadata(object):
                     {'{' + NSMAP['xsi'] + '}type': metadata_value_type.value},
                     E.Value(v)))
             new_metadata.append(entry)
-        return self.client.post_linked_resource(metadata, RelationType.ADD,
+        return await self.client.post_linked_resource(metadata, RelationType.ADD,
                                                 EntityType.METADATA.value,
                                                 new_metadata)
 
-    def get_metadata_value(self,
+    async def get_metadata_value(self,
                            key,
                            domain=MetadataDomain.GENERAL,
                            use_admin_endpoint=False):
@@ -206,9 +206,9 @@ class Metadata(object):
         metadata_entry_href = \
             f"{href}/{domain.value}/{key}"
 
-        return self.client.get_resource(metadata_entry_href)
+        return await self.client.get_resource(metadata_entry_href)
 
-    def remove_metadata(self,
+    async def remove_metadata(self,
                         key,
                         domain=MetadataDomain.GENERAL,
                         use_admin_endpoint=False):
@@ -230,10 +230,10 @@ class Metadata(object):
             indicates that the wrong api endpoint was used viz. /api instead of
             /api/admin.
         """
-        metadata_value = self.get_metadata_value(
+        metadata_value = await self.get_metadata_value(
             key=key,
             domain=domain,
             use_admin_endpoint=use_admin_endpoint)
 
-        return self.client.delete_linked_resource(metadata_value,
+        return await self.client.delete_linked_resource(metadata_value,
                                                   RelationType.REMOVE, None)
