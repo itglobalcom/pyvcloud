@@ -228,6 +228,10 @@ class VM(object):
         """
         return await self.get_power_state(vm_resource) == 2
 
+    async def get_storage_profile_id(self, vm_resource=None):
+        resource = vm_resource or await self.get_resource()
+        return resource.StorageProfile.get('id')
+
     async def _perform_power_operation(self,
                                  rel,
                                  operation_name,

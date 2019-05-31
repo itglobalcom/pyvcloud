@@ -360,7 +360,6 @@ class VApp(object):
 
         :rtype: bool
         """
-        # return await self.get_power_state(vapp_resource) == 2
         resource = await self.get_resource()
         return resource.get('deployed')
 
