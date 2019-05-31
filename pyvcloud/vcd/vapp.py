@@ -238,7 +238,7 @@ class VApp(object):
         return metadata.remove_metadata(
             key=key, domain=domain, use_admin_endpoint=False)
 
-    def get_vm_moid(self, vm_name):
+    async def get_vm_moid(self, vm_name):
         """Fetch the moref of a named vm in the vApp.
 
         :param str vm_name: name of the vm whose moref  we want to retrieve.
@@ -249,7 +249,7 @@ class VApp(object):
 
         :raises: EntityNotFoundException: if the named vm can't be found.
         """
-        vapp = self.get_resource()
+        vapp = await self.get_resource()
         if hasattr(vapp, 'Children') and hasattr(vapp.Children, 'Vm'):
             for vm in vapp.Children.Vm:
                 if vm.get('name') == vm_name:

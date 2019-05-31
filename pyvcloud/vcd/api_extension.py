@@ -175,7 +175,7 @@ class APIExtension(object):
             n += 1
         return ext
 
-    def update_extension(self, name, namespace=None, routing_key=None,
+    async def update_extension(self, name, namespace=None, routing_key=None,
                          exchange=None):
         """Update properties for an existing API extension.
 
@@ -205,10 +205,10 @@ class APIExtension(object):
         params.append(E_VMEXT.Exchange(
             exchange if exchange else record.get('exchange')))
 
-        self.client.put_resource(record.get('href'), params, None)
+        await self.client.put_resource(record.get('href'), params, None)
         return record.get('href')
 
-    def add_extension(self, name, namespace, routing_key, exchange, patterns):
+    async def add_extension(self, name, namespace, routing_key, exchange, patterns):
         """Add an API extension service.
 
         :param str name: name of the new API extension service.
@@ -233,14 +233,14 @@ class APIExtension(object):
             filters.append(
                 E_VMEXT.ApiFilter(E_VMEXT.UrlPattern(pattern.strip())))
         params.append(filters)
-        ext = self.client.get_extension()
-        ext_services = self.client.get_linked_resource(
+        ext = await self.client.get_extension()
+        ext_services = await self.client.get_linked_resource(
             ext, RelationType.DOWN, EntityType.EXTENSION_SERVICES.value)
-        return self.client.post_linked_resource(ext_services, RelationType.ADD,
+        return await self.client.post_linked_resource(ext_services, RelationType.ADD,
                                                 EntityType.ADMIN_SERVICE.value,
                                                 params)
 
-    def enable_extension(self, name, enabled=True, namespace=None):
+    async def enable_extension(self, name, enabled=True, namespace=None):
         """Enable or disable an API extension service.
 
         :param str name: the name of the extension service whose we want to
@@ -269,10 +269,10 @@ class APIExtension(object):
         params.append(E_VMEXT.RoutingKey(record.get('routingKey')))
         params.append(E_VMEXT.Exchange(record.get('exchange')))
 
-        self.client.put_resource(record.get('href'), params, None)
+        await self.client.put_resource(record.get('href'), params, None)
         return record.get('href')
 
-    def delete_extension(self, name, namespace):
+    async def delete_extension(self, name, namespace):
         """Delete an API extension service.
 
         :param str name: the name of the extension service whose we want to
@@ -287,9 +287,9 @@ class APIExtension(object):
             given name and namespace are found.
         """
         href = self.enable_extension(name, enabled=False, namespace=namespace)
-        return self.client.delete_resource(href)
+        return await self.client.delete_resource(href)
 
-    def add_service_right(self, right_name, service_name, namespace,
+    async def add_service_right(self, right_name, service_name, namespace,
                           description, category, bundle_key):
         """Add a new right using API extension service.
 
@@ -316,11 +316,11 @@ class APIExtension(object):
         record = self._get_extension_record(name=service_name,
                                             namespace=namespace,
                                             format=QueryResultFormat.RECORDS)
-        ext_service = self.client.get_resource(record.get('href'))
-        ext_rights = self.client.get_linked_resource(ext_service,
+        ext_service = await self.client.get_resource(record.get('href'))
+        ext_rights = await self.client.get_linked_resource(ext_service,
                                                      RelationType.RIGHTS,
                                                      EntityType.RIGHTS.value)
-        return self.client.post_linked_resource(ext_rights,
+        return await self.client.post_linked_resource(ext_rights,
                                                 RelationType.ADD,
                                                 EntityType.RIGHT.value,
                                                 params)
