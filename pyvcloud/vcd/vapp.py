@@ -285,7 +285,7 @@ class VApp(object):
 
         :param str href: href of the new owner.
         """
-        self.get_resource()
+        await self.get_resource()
         new_owner = self.resource.Owner
         new_owner.User.set('href', href)
         objectify.deannotate(new_owner)
@@ -360,7 +360,9 @@ class VApp(object):
 
         :rtype: bool
         """
-        return await self.get_power_state(vapp_resource) == 2
+        # return await self.get_power_state(vapp_resource) == 2
+        resource = await self.get_resource()
+        return resource.get('deployed')
 
     async def _perform_power_operation(self,
                                  rel,
