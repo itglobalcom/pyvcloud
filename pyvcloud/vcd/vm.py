@@ -86,11 +86,9 @@ class VM(object):
         :rtype: str
         """
         await self.get_resource()
-        for record in self.resource.VCloudExtension[
-                '{' + NSMAP['vmext'] + '}VmVimInfo'].iterchildren():
-            if hasattr(record, '{' + NSMAP['vmext'] + '}VimObjectType'):
-                if 'VIRTUAL_MACHINE' == record.VimObjectType.text:
-                    return record.VimServerRef.get('name')
+        env = self.resource.xpath('ovfenv:Environment', namespaces=NSMAP)
+        if len(env) > 0:
+            return env[0].get('{' + NSMAP['ve'] + '}vCenterId')
         return None
 
     async def get_cpus(self):
