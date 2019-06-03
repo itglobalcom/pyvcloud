@@ -587,7 +587,7 @@ class VDC(object):
             storage_profile = await self.get_storage_profile_by_id(storage_profile_id)
             disk_params.Disk.append(
                 E.StorageProfile(
-                    name=storage_profile_name,
+                    name=storage_profile.get('name'),
                     href=storage_profile.get('href'),
                     type=storage_profile.get('type')))
 
