@@ -543,6 +543,7 @@ class VDC(object):
                     bus_sub_type=None,
                     description=None,
                     storage_profile_name=None,
+                    storage_profile_id=None,
                     iops=None):
         """Request the creation of an independent disk.
 
@@ -576,6 +577,14 @@ class VDC(object):
 
         if storage_profile_name is not None:
             storage_profile = await self.get_storage_profile(storage_profile_name)
+            disk_params.Disk.append(
+                E.StorageProfile(
+                    name=storage_profile_name,
+                    href=storage_profile.get('href'),
+                    type=storage_profile.get('type')))
+
+        if storage_profile_id is not None:
+            storage_profile = await self.get_storage_profile_by_id(storage_profile_id)
             disk_params.Disk.append(
                 E.StorageProfile(
                     name=storage_profile_name,
