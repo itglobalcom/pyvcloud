@@ -227,6 +227,13 @@ async def test_poweroff_shutdown(vapp):
 
 
 @pytest.mark.asyncio
+async def test_get_vm_by_href(vapp_test, vdc):
+    vm_resource = await vapp_test.get_vm()
+    vm_resource2 = await vdc.get_vm_by_href(vm_resource.get('href'))
+    assert vm_resource2 is not None
+
+
+@pytest.mark.asyncio
 async def test_add_resources(vapp, vdc):
     await vapp.reload()
 

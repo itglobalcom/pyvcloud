@@ -144,6 +144,16 @@ class VDC(object):
             raise MultipleRecordsException("Found multiple vApps named '%s'." % id)
         return result[0]
 
+    async def get_resource_href_list(self, entity_type):
+        await self.get_resource()
+        if hasattr(self.resource, 'ResourceEntities') and \
+           hasattr(self.resource.ResourceEntities, 'ResourceEntity'):
+            for resource in self.resource.ResourceEntities.ResourceEntity:
+                if entity_type is None or \
+                   entity_type.value == resource.get('type'):
+                        vapp_href = resource.get('href')
+                        yield await self.client.get_resource(vapp_href)
+
     async def reload(self):
         """Reloads the resource representation of the org vdc.
 
@@ -155,6 +165,12 @@ class VDC(object):
         if self.resource is not None:
             self.name = self.resource.get('name')
             self.href = self.resource.get('href')
+
+    async def get_vm_by_href(self, href):
+        async for vapp_resource in self.get_resource_href_list(EntityType.VAPP):
+            vm_resource = vapp_resource.Children.Vm
+            if vm_resource.get('href') == href:
+                return vm_resource
 
     async def get_vapp(self, name):
         """Fetches XML representation of a vApp in the org vdc from vCD.
