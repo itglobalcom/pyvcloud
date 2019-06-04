@@ -100,7 +100,6 @@ class VDC(object):
         if hasattr(self.resource, 'ResourceEntities') and \
            hasattr(self.resource.ResourceEntities, 'ResourceEntity'):
             for vapp in self.resource.ResourceEntities.ResourceEntity:
-                print('debug', entity_type.value, vapp.get(type), name, vapp.get('name'))
                 if entity_type is None or \
                    entity_type.value == vapp.get('type'):
                     if vapp.get('name') == name:
@@ -178,11 +177,6 @@ class VDC(object):
     async def get_vapp_by_id(self, id):
         return await self.client.get_resource(
             await self.get_resource_href_by_id(id)
-        )
-
-    async def get_vm_by_name(self, name):
-        return await self.client.get_resource(
-            await self.get_resource_href(name, entity_type=EntityType.VM)
         )
 
     async def delete_vapp(self, name, force=False):
