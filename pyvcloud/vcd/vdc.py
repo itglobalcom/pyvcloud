@@ -181,7 +181,7 @@ class VDC(object):
 
     async def get_vm_by_name(self, name):
         return await self.client.get_resource(
-            await self.get_resource_href(name, entity_type=EntityType.VM.value)
+            await self.get_resource_href(name, entity_type=EntityType.VM)
         )
 
     async def delete_vapp(self, name, force=False):
