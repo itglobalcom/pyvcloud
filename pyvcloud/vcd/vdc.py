@@ -100,6 +100,7 @@ class VDC(object):
         if hasattr(self.resource, 'ResourceEntities') and \
            hasattr(self.resource.ResourceEntities, 'ResourceEntity'):
             for vapp in self.resource.ResourceEntities.ResourceEntity:
+                print('debug', entity_type.value, vapp.get(type), name, vapp.get('name'))
                 if entity_type is None or \
                    entity_type.value == vapp.get('type'):
                     if vapp.get('name') == name:
