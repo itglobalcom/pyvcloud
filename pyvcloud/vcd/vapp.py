@@ -683,7 +683,7 @@ class VApp(object):
             vm.get('href') + '/virtualHardwareSection/disks', disk_list,
             EntityType.RASD_ITEMS_LIST.value)
 
-    def get_access_settings(self):
+    async def get_access_settings(self):
         """Get the access settings of the vApp.
 
         :return: an object containing EntityType.CONTROL_ACCESS_PARAMS which
@@ -691,10 +691,10 @@ class VApp(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        acl = Acl(self.client, self.get_resource())
-        return acl.get_access_settings()
+        acl = Acl(self.client, await self.get_resource())
+        return await acl.get_access_settings()
 
-    def add_access_settings(self, access_settings_list=None):
+    async def add_access_settings(self, access_settings_list=None):
         """Add access settings to the vApp.
 
         :param list access_settings_list: list of dictionaries, where each
@@ -711,10 +711,10 @@ class VApp(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        acl = Acl(self.client, self.get_resource())
-        return acl.add_access_settings(access_settings_list)
+        acl = Acl(self.client, await self.get_resource())
+        return await acl.add_access_settings(access_settings_list)
 
-    def remove_access_settings(self,
+    async def remove_access_settings(self,
                                access_settings_list=None,
                                remove_all=False):
         """Remove access settings from the vApp.
@@ -733,10 +733,10 @@ class VApp(object):
 
         :rtype: lxml.objectify.ObjectifiedElement`
         """
-        acl = Acl(self.client, self.get_resource())
-        return acl.remove_access_settings(access_settings_list, remove_all)
+        acl = Acl(self.client, await self.get_resource())
+        return await acl.remove_access_settings(access_settings_list, remove_all)
 
-    def share_with_org_members(self, everyone_access_level='ReadOnly'):
+    async def share_with_org_members(self, everyone_access_level='ReadOnly'):
         """Share the vApp to all members of the organization.
 
         :param everyone_access_level: (str) : access level when sharing the
@@ -748,10 +748,10 @@ class VApp(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        acl = Acl(self.client, self.get_resource())
-        return acl.share_with_org_members(everyone_access_level)
+        acl = Acl(self.client, await self.get_resource())
+        return await acl.share_with_org_members(everyone_access_level)
 
-    def unshare_from_org_members(self):
+    async def unshare_from_org_members(self):
         """Unshare the vApp from all members of current organization.
 
         :return: an object containing EntityType.CONTROL_ACCESS_PARAMS XML
@@ -759,10 +759,10 @@ class VApp(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        acl = Acl(self.client, self.get_resource())
-        return acl.unshare_from_org_members()
+        acl = Acl(self.client, await self.get_resource())
+        return await acl.unshare_from_org_members()
 
-    def get_all_networks(self):
+    async def get_all_networks(self):
         """Helper method that returns the list of networks defined in the vApp.
 
         :return: a smart xpath string that represents the list of vApp
@@ -770,7 +770,7 @@ class VApp(object):
 
         :rtype: xpath string
         """
-        self.get_resource()
+        await self.get_resource()
         return self.resource.xpath(
             '//ovf:NetworkSection/ovf:Network',
             namespaces={'ovf': NSMAP['ovf']})

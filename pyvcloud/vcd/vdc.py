@@ -179,6 +179,11 @@ class VDC(object):
             await self.get_resource_href_by_id(id)
         )
 
+    async def get_vm_by_name(self, name):
+        return await self.client.get_resource(
+            await self.get_resource_href(name, entity_type=EntityType.VM.value)
+        )
+
     async def delete_vapp(self, name, force=False):
         """Delete a vApp in the current org vdc.
 
