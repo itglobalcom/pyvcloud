@@ -549,6 +549,26 @@ class VM(object):
         return await self._perform_power_operation(
             rel=RelationType.POWER_SUSPEND, operation_name='suspend')
 
+    async def detach_disk(self, disk_href):
+        """Detach the independent disk from the vm with the given name.
+
+        :param str disk_href: href of the disk to be detached.
+        :return: an object containing EntityType.TASK XML data which represents
+            the asynchronous task of dettaching the disk.
+
+        :rtype: lxml.objectify.ObjectifiedElement
+
+        :raises: EntityNotFoundException: if the named vm or disk cannot be
+            located.
+        """
+        disk_attach_or_detach_params = E.DiskAttachOrDetachParams(
+            E.Disk(type=EntityType.DISK.value, href=disk_href))
+        vm_resource = await self.get_resource()
+        return await self.client.post_linked_resource(
+            vm_resource, RelationType.DISK_DETACH,
+            EntityType.DISK_ATTACH_DETACH_PARAMS.value,
+            disk_attach_or_detach_params)
+
     async def discard_suspended_state(self):
         """Discard suspended state of the vm.
 
