@@ -166,11 +166,11 @@ class VDC(object):
             self.name = self.resource.get('name')
             self.href = self.resource.get('href')
 
-    async def get_vm_by_href(self, href):
-        async for vapp_resource in self.get_resource_href_list(EntityType.VAPP):
-            vm_resource = vapp_resource.Children.Vm
-            if vm_resource.get('href') == href:
-                return vm_resource
+    # async def get_vm_by_href(self, href):
+    #     async for vapp_resource in self.get_resource_href_list(EntityType.VAPP):
+    #         vm_resource = vapp_resource.Children.Vm
+    #         if vm_resource.get('href') == href:
+    #             return vm_resource
 
     async def get_vapp(self, name):
         """Fetches XML representation of a vApp in the org vdc from vCD.

@@ -549,6 +549,12 @@ class VM(object):
         return await self._perform_power_operation(
             rel=RelationType.POWER_SUSPEND, operation_name='suspend')
 
+    async def get_disks(self):
+        return (
+            await self.get_resource()
+        ).VmSpecSection.DiskSection.DiskSettings
+
+
     async def detach_disk(self, disk_href):
         """Detach the independent disk from the vm with the given name.
 

@@ -226,11 +226,25 @@ async def test_poweroff_shutdown(vapp):
     assert VCLOUD_STATUS_MAP[await vapp.get_power_state()] == 'Powered off'
 
 
+# @pytest.mark.asyncio
+# async def test_get_vm_by_href(vapp_test, vdc):
+#     vm_resource = await vapp_test.get_vm()
+#     vm_resource2 = await vdc.get_vm_by_href(vm_resource.get('href'))
+#     assert vm_resource2 is not None
+
+
 @pytest.mark.asyncio
-async def test_get_vm_by_href(vapp_test, vdc):
+async def test_vm_get_disks(vapp_test):
     vm_resource = await vapp_test.get_vm()
-    vm_resource2 = await vdc.get_vm_by_href(vm_resource.get('href'))
-    assert vm_resource2 is not None
+    vm = VM(vapp_test.client, resource=vm_resource)
+    disk_resource_list = await vm.get_disks()
+    for disk_resource in disk_resource_list:
+        assert disk_resource.DiskId.text
+        assert disk_resource.SizeMb.text
+        assert disk_resource.UnitNumber.text
+        assert disk_resource.BusNumber.text
+        assert disk_resource.AdapterType.text
+        assert disk_resource.StorageProfile.get('id').startswith('urn:')
 
 
 @pytest.mark.asyncio
