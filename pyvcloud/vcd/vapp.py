@@ -1147,7 +1147,7 @@ class VApp(object):
         raise EntityNotFoundException(
             'Can\'t find network \'%s\'' % network_name)
 
-    def delete_vapp_network(self, network_name):
+    async def delete_vapp_network(self, network_name):
         """Deletes a vApp network.
 
         :param str network_name: name of vApp network to be deleted.
@@ -1157,13 +1157,13 @@ class VApp(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        self.get_resource()
+        await self.get_resource()
         network_config_section = deepcopy(self.resource.NetworkConfigSection)
         # find the required network
         for nw in network_config_section.NetworkConfig:
             if nw.get("networkName") == network_name:
                 network_config_section.remove(nw)
-                return self.client.put_linked_resource(
+                return await self.client.put_linked_resource(
                     self.resource.NetworkConfigSection, RelationType.EDIT,
                     EntityType.NETWORK_CONFIG_SECTION.value,
                     network_config_section)
