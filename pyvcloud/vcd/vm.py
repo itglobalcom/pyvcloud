@@ -533,7 +533,7 @@ class VM(object):
         if prim_nic:
             net_conn_section.PrimaryNetworkConnectionIndex = \
                 E.PrimaryNetworkConnectionIndex(prim_nic)
-        return self.client.put_linked_resource(
+        return await self.client.put_linked_resource(
             net_conn_section, RelationType.EDIT,
             EntityType.NETWORK_CONNECTION_SECTION.value, net_conn_section)
 
