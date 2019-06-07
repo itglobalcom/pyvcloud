@@ -463,6 +463,18 @@ class VM(object):
             net_conn_section, RelationType.EDIT,
             EntityType.NETWORK_CONNECTION_SECTION.value, net_conn_section)
 
+    async def set_primary_nic(self, index):
+        # get network connection section.
+        net_conn_section = (await self.get_resource()).NetworkConnectionSection
+        # check if any nics exists
+        if hasattr(net_conn_section, 'PrimaryNetworkConnectionIndex'):
+            net_conn_section.PrimaryNetworkConnectionIndex = \
+                    E.PrimaryNetworkConnectionIndex(index)
+
+        return await self.client.put_linked_resource(
+            net_conn_section, RelationType.EDIT,
+            EntityType.NETWORK_CONNECTION_SECTION.value, net_conn_section)
+
     async def list_nics(self):
         """Lists all the nics of the VM.
 
