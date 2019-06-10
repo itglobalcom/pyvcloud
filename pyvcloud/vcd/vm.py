@@ -16,7 +16,7 @@
 from lxml import etree
 from lxml import objectify
 
-from pyvcloud.vcd.client import E
+from pyvcloud.vcd.client import E, E_OVF
 from pyvcloud.vcd.client import EntityType
 from pyvcloud.vcd.client import IpAddressMode
 from pyvcloud.vcd.client import NSMAP
@@ -30,6 +30,7 @@ from pyvcloud.vcd.exceptions import InvalidParameterException
 from pyvcloud.vcd.exceptions import InvalidStateException
 from pyvcloud.vcd.exceptions import MultipleRecordsException
 from pyvcloud.vcd.exceptions import OperationNotSupportedException
+from pyvcloud.vcd.utils import tag
 
 
 class VM(object):
@@ -548,6 +549,109 @@ class VM(object):
         return await self.client.put_linked_resource(
             net_conn_section, RelationType.EDIT,
             EntityType.NETWORK_CONNECTION_SECTION.value, net_conn_section)
+
+    async def get_product_section(self, *args):
+        if args:
+            keys = set(args)
+        else:
+            keys = None
+
+        uri = self.href + '/productSections'
+        product_section_list = await self.client.get_resource(uri)
+        product_section = getattr(
+            product_section_list,
+            tag('ovf')('ProductSection')
+        )
+        result = dict()
+        for property in getattr(
+            product_section,
+            tag('ovf')('Property'),
+            []
+        ):
+            key = property.get(tag('ovf')('key'))
+            if keys is None or key in keys:
+                result[key] = getattr(
+                    property,
+                    tag('ovf')('Value')
+                ).get(tag('ovf')('value'))
+        return result
+
+    async def del_product_section(self, keys):
+        uri = self.href + '/productSections'
+        product_section_list = await self.client.get_resource(uri)
+        product_section = getattr(
+            product_section_list,
+            tag('ovf')('ProductSection')
+        )
+        for i, property in enumerate(getattr(
+                product_section,
+                tag('ovf')('Property'),
+                []
+        )):
+            if property.get(tag('ovf')('key')) in keys:
+                product_section.remove(property)
+
+        setattr(
+            product_section_list,
+            tag('ovf')('ProductSection'),
+            product_section
+        )
+
+        objectify.deannotate(product_section_list)
+        etree.cleanup_namespaces(product_section_list)
+
+        await self.client.put_resource(
+            uri,
+            product_section_list,
+            EntityType.PRODUCT_SECTION_LIST.value
+        )
+
+    async def add_product_section(self, **kwargs):
+        uri = self.href + '/productSections'
+        product_section_list = await self.client.get_resource(uri)
+        product_section = getattr(
+            product_section_list,
+            tag('ovf')('ProductSection')
+        )
+        for key, value in kwargs.items():
+            product_section.append(
+                E_OVF.Property(
+                    **{
+                        tag('ovf')('key'):key,
+                        tag('ovf')('type'):'string',
+                        tag('ovf')('userConfigurable'): 'true',
+                    }
+                )
+            )
+            getattr(
+                product_section,
+                tag('ovf')('Property')
+            )[-1].Label = key
+            getattr(
+                product_section,
+                '{' + NSMAP['ovf'] + '}Property'
+            )[-1].append(
+                E_OVF.Value(
+                    **{
+                        '{' + NSMAP['ovf'] + '}value': value,
+                    }
+                )
+            )
+
+        setattr(
+            product_section_list,
+            tag('ovf')('ProductSection'),
+            product_section
+        )
+
+        objectify.deannotate(product_section_list)
+        etree.cleanup_namespaces(product_section_list)
+
+        await self.client.put_resource(
+            uri,
+            product_section_list,
+            EntityType.PRODUCT_SECTION_LIST.value
+        )
 
     async def suspend(self):
         """Suspend the vm.

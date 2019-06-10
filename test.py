@@ -448,20 +448,25 @@ async def test_get_vapp_by_id(vapp, vdc):
     assert vapp_name == vapp.name
 
 
-# @pytest.mark.asyncio
-# async def test_get_vapp_guest_windows(vdc):
-#     vapp_id = 'urn:vcloud:vapp:712c7620-d522-47a2-839a-2867452097a5'
-#     vapp_resource = await vdc.get_vapp_by_id(vapp_id)
-#     raise ZeroDivisionError(etree.tostring(
-#         vapp_resource,
-#         pretty_print=True
-#     ).decode('utf8'))
-#     vapp = VApp(vdc.client, resource=vapp_resource)
-#     vm_resource = await vapp.get_vm()
-#     vm = VM(vdc.client, resource=vm_resource)
-#     await vm.set_guest_customization_section(
-#         Enabled=False,
-#     )
+@pytest.mark.asyncio
+async def test_vm_product_section(vdc):
+    vapp_id = 'urn:vcloud:vapp:98d8c12c-e5c7-419f-a603-dd5a50d6b8de'
+    vapp_resource = await vdc.get_vapp_by_id(vapp_id)
+    vapp = VApp(vdc.client, resource=vapp_resource)
+    vm_resource = await vapp.get_vm()
+    vm = VM(vdc.client, resource=vm_resource)
+
+    await vm.del_product_section(('tag1', 'tag2'))
+    await vm.add_product_section(tag1='test1')
+    await vm.add_product_section(tag2='test2')
+    result = await vm.get_product_section('tag1', 'tag2')
+    assert result == {
+        'tag1': 'test1',
+        'tag2': 'test2'
+    }
+    await vm.del_product_section(('tag1', 'tag2'))
+    result = await vm.get_product_section('tag1', 'tag2')
+    assert result == {}
 
 
 @pytest.mark.asyncio

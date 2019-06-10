@@ -375,6 +375,7 @@ class EntityType(Enum):
     ORG_RIGHTS = 'application/vnd.vmware.admin.org.rights+xml'
     ORG_VDC_NETWORK = 'application/vnd.vmware.vcloud.orgVdcNetwork+xml'
     OWNER = 'application/vnd.vmware.vcloud.owner+xml'
+    PRODUCT_SECTION_LIST = 'application/vnd.vmware.vcloud.productSections+xml'
     PROVIDER_VDC = 'application/vnd.vmware.admin.providervdc+xml'
     PROVIDER_VDC_PARAMS = \
         'application/vnd.vmware.admin.createProviderVdcParams+xml'
@@ -1214,6 +1215,7 @@ class Client(object):
             objectify_results=objectify_results,
             params=params)
 
+    @simple_call
     async def put_linked_resource(self, resource, rel, media_type, contents):
         """Puts to a resource link.
 

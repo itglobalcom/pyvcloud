@@ -618,6 +618,7 @@ class VDC(object):
                     new_size=None,
                     new_description=None,
                     new_storage_profile_name=None,
+                    new_storage_profile_id=None,
                     new_iops=None):
         """Update an existing independent disk.
 
@@ -627,6 +628,8 @@ class VDC(object):
         :param str new_size: new size of the disk in bytes.
         :param str new_description: new description of the disk.
         :param str new_storage_profile_name: new storage profile that the disk
+            will be moved to.
+        :param str new_storage_profile_id: new storage profile that the disk
             will be moved to.
         :param int new_iops: new iops requirement of the disk.
 
@@ -658,8 +661,11 @@ class VDC(object):
         if new_description is not None:
             disk_params.append(E.Description(new_description))
 
-        if new_storage_profile_name is not None:
-            new_sp = await self.get_storage_profile(new_storage_profile_name)
+        if new_storage_profile_name is not None or new_storage_profile_id is not None:
+            if new_storage_profile_name is not None:
+                new_sp = await self.get_storage_profile(new_storage_profile_name)
+            else:
+                new_sp = await self.get_storage_profile_by_id(new_storage_profile_id)
             disk_params.append(
                 E.StorageProfile(
                     name=new_storage_profile_name,

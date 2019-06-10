@@ -885,3 +885,9 @@ def build_network_url_from_gateway_url(gateway_href):
         return network_url.replace(_GATEWAY_ADMIN_API_URL, _NETWORK_URL)
 
     return None
+
+
+def tag(class_):
+    def tag(tag_name):
+        return '{' + NSMAP[class_] + '}' + tag_name
+    return tag
