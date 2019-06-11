@@ -616,8 +616,13 @@ class VM(object):
         product_section = getattr(
             product_section_list,
             tag('ovf')('ProductSection'),
-            E_OVF.ProductSection(),
+            None
         )
+        if product_section is None:
+            product_section = E_OVF.ProductSection()
+            product_section.append(
+                E_OVF.Info()
+            )
         for key, value in kwargs.items():
             product_section.append(
                 E_OVF.Property(
