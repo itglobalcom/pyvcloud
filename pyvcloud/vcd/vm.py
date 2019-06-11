@@ -583,37 +583,40 @@ class VM(object):
         product_section_list = await self.client.get_resource(uri)
         product_section = getattr(
             product_section_list,
-            tag('ovf')('ProductSection')
-        )
-        for i, property in enumerate(getattr(
-                product_section,
-                tag('ovf')('Property'),
-                []
-        )):
-            if property.get(tag('ovf')('key')) in keys:
-                product_section.remove(property)
-
-        setattr(
-            product_section_list,
             tag('ovf')('ProductSection'),
-            product_section
+            None
         )
+        if product_section is not None:
+            for i, property in enumerate(getattr(
+                    product_section,
+                    tag('ovf')('Property'),
+                    []
+            )):
+                if property.get(tag('ovf')('key')) in keys:
+                    product_section.remove(property)
 
-        objectify.deannotate(product_section_list)
-        etree.cleanup_namespaces(product_section_list)
+            setattr(
+                product_section_list,
+                tag('ovf')('ProductSection'),
+                product_section
+            )
 
-        await self.client.put_resource(
-            uri,
-            product_section_list,
-            EntityType.PRODUCT_SECTION_LIST.value
-        )
+            objectify.deannotate(product_section_list)
+            etree.cleanup_namespaces(product_section_list)
+
+            await self.client.put_resource(
+                uri,
+                product_section_list,
+                EntityType.PRODUCT_SECTION_LIST.value
+            )
 
     async def add_product_section(self, **kwargs):
         uri = self.href + '/productSections'
         product_section_list = await self.client.get_resource(uri)
         product_section = getattr(
             product_section_list,
-            tag('ovf')('ProductSection')
+            tag('ovf')('ProductSection'),
+            E_OVF.ProductSection(),
         )
         for key, value in kwargs.items():
             product_section.append(
