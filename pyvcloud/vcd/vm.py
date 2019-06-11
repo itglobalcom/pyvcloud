@@ -550,7 +550,7 @@ class VM(object):
             net_conn_section, RelationType.EDIT,
             EntityType.NETWORK_CONNECTION_SECTION.value, net_conn_section)
 
-    async def get_product_section(self, *args):
+    async def get_product_section(self, args=None):
         if args:
             keys = set(args)
         else:
