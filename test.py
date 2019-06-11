@@ -455,17 +455,19 @@ async def test_vm_product_section(vdc):
     vapp = VApp(vdc.client, resource=vapp_resource)
     vm_resource = await vapp.get_vm()
     vm = VM(vdc.client, resource=vm_resource)
-
-    await vm.del_product_section(('tag1', 'tag2'))
-    await vm.add_product_section(tag1='test1')
-    await vm.add_product_section(tag2='test2')
-    result = await vm.get_product_section('tag1', 'tag2')
-    assert result == {
-        'tag1': 'test1',
-        'tag2': 'test2'
-    }
-    await vm.del_product_section(('tag1', 'tag2'))
-    result = await vm.get_product_section('tag1', 'tag2')
+    try:
+        d = await vm.get_product_section(('tag1', 'tag2'))
+        assert d == {}
+        await vm.add_product_section(tag1='test1')
+        await vm.add_product_section(tag2='test2')
+        result = await vm.get_product_section(('tag1', 'tag2'))
+        assert result == {
+            'tag1': 'test1',
+            'tag2': 'test2'
+        }
+    finally:
+        await vm.del_product_section(('tag1', 'tag2'))
+    result = await vm.get_product_section(('tag1', 'tag2'))
     assert result == {}
 
 

@@ -560,20 +560,22 @@ class VM(object):
         product_section_list = await self.client.get_resource(uri)
         product_section = getattr(
             product_section_list,
-            tag('ovf')('ProductSection')
+            tag('ovf')('ProductSection'),
+            None
         )
         result = dict()
-        for property in getattr(
-            product_section,
-            tag('ovf')('Property'),
-            []
-        ):
-            key = property.get(tag('ovf')('key'))
-            if keys is None or key in keys:
-                result[key] = getattr(
-                    property,
-                    tag('ovf')('Value')
-                ).get(tag('ovf')('value'))
+        if product_section is not None:
+            for property in getattr(
+                product_section,
+                tag('ovf')('Property'),
+                []
+            ):
+                key = property.get(tag('ovf')('key'))
+                if keys is None or key in keys:
+                    result[key] = getattr(
+                        property,
+                        tag('ovf')('Value')
+                    ).get(tag('ovf')('value'))
         return result
 
     async def del_product_section(self, keys):
