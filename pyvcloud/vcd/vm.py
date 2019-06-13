@@ -675,6 +675,70 @@ class VM(object):
         return await self._perform_power_operation(
             rel=RelationType.POWER_SUSPEND, operation_name='suspend')
 
+    async def modify_disk(self, disk_id, size=None,
+                          storage_policy_href=None, parent=None,
+                          address_on_parent=None, bus_sub_type=None):
+        """
+        Change size of disk
+        :param disk_id - new disk ID, like 2000
+        :param size - new size of disk in MB
+        :param storage_policy_href
+        :param parent
+        :param address_on_parent
+        :param bus_sub_type
+        """
+        assert size is not None or storage_policy_href is not None or \
+            parent is not None or address_on_parent is not None or bus_sub_type is not None
+        disk_list = await self.client.get_resource(
+            (await self.get_resource()).get('href') + '/virtualHardwareSection/disks')
+        disk_idx = None
+        disk_resource = None
+        for idx, disk in enumerate(disk_list.Item):
+            if disk[tag('rasd')('Description')] == 'Hard disk' and int(disk[tag('rasd')('InstanceID')]) == disk_id:
+                disk_idx = idx
+                disk_resource = disk
+                break
+        assert disk_idx is not None and disk_resource is not None
+        if size is not None:
+            disk_resource[tag('rasd')('VirtualQuantity')] = \
+                size * 1024 * 1024
+            disk_resource[tag('rasd')('HostResource')].set(
+                tag('ns10')('capacity'), str(size)
+            )
+        if storage_policy_href is not None:
+            disk_resource[tag('rasd')('HostResource')].set(
+                tag('ns10')('StorageProfileHref'), storage_policy_href
+            )
+            disk_resource[tag('rasd')('HostResource')].set(
+                tag('ns10')('storageProfileOverrideVmDefault'),
+                'true'
+            )
+        if parent is not None:
+            disk_resource[tag('rasd')('Parent')] = parent
+        if address_on_parent is not None:
+            disk_resource[tag('rasd')('AddressOnParent')] = address_on_parent
+        if bus_sub_type is not None:
+            disk_resource[tag('rasd')('HostResource')].set(
+                tag('ns10')('BusSubType', str(bus_sub_type))
+            )
+        disk_list.Item[disk_idx] = disk_resource
+        return await self.client.put_resource(
+            (await self.get_resource()).get('href') + '/virtualHardwareSection/disks', disk_list,
+            EntityType.RASD_ITEMS_LIST.value)
+
+    async def delete_disk(self, disk_id):
+        disk_list = await self.client.get_resource(
+            (await self.get_resource()).get('href') + '/virtualHardwareSection/disks')
+        for idx, disk_resource in enumerate(disk_list.Item):
+            if int(disk_resource[tag('rasd')('InstanceID')]) == disk_id:
+                del disk_list.Item[idx]
+                break
+        else:
+            raise RuntimeError('No such disk: %s' % disk_id)
+        return await self.client.put_resource(
+            (await self.get_resource()).get('href') + '/virtualHardwareSection/disks', disk_list,
+            EntityType.RASD_ITEMS_LIST.value)
+
     async def get_disks(self):
         return (
             await self.get_resource()

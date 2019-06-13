@@ -118,7 +118,7 @@ async def vapp(vdc):
 
 @pytest.fixture()
 async def vapp_test(vdc):
-    vapp_xml = await vdc.get_vapp_by_id('urn:vcloud:vapp:59067364-2248-40bc-b41b-edbf75e4d9c3')
+    vapp_xml = await vdc.get_vapp_by_id('urn:vcloud:vapp:0a50377b-8072-430a-87e1-4f6e98c68c10')
     vapp = VApp(vdc.client, resource=vapp_xml)
 
     yield vapp
@@ -233,18 +233,29 @@ async def test_poweroff_shutdown(vapp):
 #     assert vm_resource2 is not None
 
 
+@pytest.mark.skip(reason='Not ready')
 @pytest.mark.asyncio
-async def test_vm_get_disks(vapp_test):
+async def test_vm_disk(vapp_test):
     vm_resource = await vapp_test.get_vm()
     vm = VM(vapp_test.client, resource=vm_resource)
-    disk_resource_list = await vm.get_disks()
-    for disk_resource in disk_resource_list:
-        assert disk_resource.DiskId.text
-        assert disk_resource.SizeMb.text
-        assert disk_resource.UnitNumber.text
-        assert disk_resource.BusNumber.text
-        assert disk_resource.AdapterType.text
+    try:
+        disk_resource_list = await vm.get_disks()
+        for disk_resource in disk_resource_list:
+            assert disk_resource.DiskId.text
+            assert disk_resource.SizeMb.text
+            assert disk_resource.UnitNumber.text
+            assert disk_resource.BusNumber.text
+            assert disk_resource.AdapterType.text
+            assert disk_resource.StorageProfile.get('id').startswith('urn:')
+        await vm.modify_disk(int(disk_resource.DiskId.text),
+                             size=35*1024, address_on_parent=0)
+        disk_resource_list = await vm.get_disks()
+        disk_resource = disk_resource_list[-1]  # Get last
+        assert disk_resource.SizeMb.text == str(35 * 1024)
+        assert disk_resource.UnitNumber.text == '0'
         assert disk_resource.StorageProfile.get('id').startswith('urn:')
+    finally:
+        await vm.delete_disk(2048)
 
 
 @pytest.mark.asyncio
@@ -499,21 +510,28 @@ async def test_guest_customization_section(vapp):
         ).text
 
 
-# @pytest.mark.asyncio
-# async def test_tmp(vdc):
-#     # sys_admin_resource = await client.get_admin()
-#     # resource = await vdc.get_resource()
-#     vapp_resource = await vdc.get_vapp_by_id('urn:vcloud:vapp:77d1bfc4-54b1-4c39-a615-b015fad7b401')
-#     from lxml import etree
-#     with open('tmp.xml', 'wb') as f:
-#         f.write(
-#             etree.tostring(
-#                 vapp_resource,
-#                 pretty_print=True
-#             )
-#         )
-#     # system = System(client, admin_resource=sys_admin_resource)
-#     # ss = await system.list_provider_vdc_storage_profiles()
-#     # raise ZeroDivisionError(ss)
-# #     ff = await system.list_provider_vdcs()
-# #     raise ZeroDivisionError(ss, ff)
+# @pytest.mark.skip()
+@pytest.mark.asyncio
+async def test_tmp(vdc):
+    # sys_admin_resource = await client.get_admin()
+    # resource = await vdc.get_resource()
+    vapp_resource = await vdc.get_vapp_by_id(
+        'urn:vcloud:vapp:fc73ec3b-a6db-451a-a56a-f24d441e166e'
+    )
+    # vapp = VApp(vdc.client, resource=vapp_resource)
+    # vm_resource = await vapp.get_vm()
+    # disk_list = await vdc.client.get_resource(
+    #     vm_resource.get('href') + '/virtualHardwareSection/disks')
+    from lxml import etree
+    with open('tmp.xml', 'wb') as f:
+        f.write(
+            etree.tostring(
+                vapp_resource,
+                pretty_print=True
+            )
+        )
+    # system = System(client, admin_resource=sys_admin_resource)
+    # ss = await system.list_provider_vdc_storage_profiles()
+    # raise ZeroDivisionError(ss)
+#     ff = await system.list_provider_vdcs()
+#     raise ZeroDivisionError(ss, ff)

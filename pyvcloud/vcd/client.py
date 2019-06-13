@@ -66,7 +66,8 @@ NSMAP = {
     'xs':
     'http://www.w3.org/2001/XMLSchema',
     'xsi':
-    'http://www.w3.org/2001/XMLSchema-instance'
+    'http://www.w3.org/2001/XMLSchema-instance',
+    'ns10': 'http://www.vmware.com/vcloud/v1.5',
 }
 
 # Convenience objects for building vCloud API XML objects
