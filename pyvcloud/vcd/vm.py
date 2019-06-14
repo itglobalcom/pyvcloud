@@ -574,10 +574,13 @@ class VM(object):
             ):
                 key = property.get(tag('ovf')('key'))
                 if keys is None or key in keys:
-                    result[key] = getattr(
-                        property,
-                        tag('ovf')('Value')
-                    ).get(tag('ovf')('value'))
+                    try:
+                        result[key] = getattr(
+                            property,
+                            tag('ovf')('Value')
+                        ).get(tag('ovf')('value'))
+                    except AttributeError:
+                        result[key] = None
         return result
 
     async def del_product_section(self, keys):
