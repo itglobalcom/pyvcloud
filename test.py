@@ -239,14 +239,10 @@ async def test_vm_disk(vapp_test, vdc):
     vm_resource = await vapp_test.get_vm()
     vm = VM(vapp_test.client, resource=vm_resource)
 
-    storage_profile_href = (
-        await vdc.get_storage_profile_by_id('urn:vcloud:vdcstorageProfile:1db61137-fd0c-4768-9916-464afc21433a')
-    ).get('href')
-
     disk_id = await vm.add_disk(
         'test_add_disk',
         300,
-        storage_profile_href,
+        'urn:vcloud:vdcstorageProfile:1db61137-fd0c-4768-9916-464afc21433a',
         '6',
         'VirtualSCSI'
     )

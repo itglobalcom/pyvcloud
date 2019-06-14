@@ -677,7 +677,7 @@ class VM(object):
         return await self._perform_power_operation(
             rel=RelationType.POWER_SUSPEND, operation_name='suspend')
 
-    async def add_disk(self, name, size, storage_policy_href, bus_type, bus_sub_type):
+    async def add_disk(self, name, size, storage_policy_id, bus_type, bus_sub_type):
         """Add a virtual disk to a virtual machine
 
         It assumes that the vm has already at least one virtual hard disk
@@ -685,7 +685,7 @@ class VM(object):
 
         :param int name: name of the disk to be added.
         :param int size: size of the disk to be added, in MBs.
-        :param int storage_policy_href: storage_policy_href of the disk to be added.
+        :param int storage_policy_id: storage_policy_id of the disk to be added.
         :param int bus_type: bus_type of the disk to be added.
             Bus type. One of:
                 5 (IDE)
@@ -702,6 +702,8 @@ class VM(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
+
+        storage_policy_href = f'{self.client._uri}/api/vdcStorageProfile/' + storage_policy_id.split(':')[-1]
 
         resource = await self.get_resource()
         disk_list = await self.client.get_resource(
