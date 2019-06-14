@@ -495,11 +495,12 @@ async def test_get_vapp_by_id(vapp, vdc):
 
 @pytest.mark.asyncio
 async def test_vm_product_section(vdc):
-    vapp_id = 'urn:vcloud:vapp:98d8c12c-e5c7-419f-a603-dd5a50d6b8de'
+    vapp_id = 'urn:vcloud:vapp:0a50377b-8072-430a-87e1-4f6e98c68c10'
     vapp_resource = await vdc.get_vapp_by_id(vapp_id)
     vapp = VApp(vdc.client, resource=vapp_resource)
     vm_resource = await vapp.get_vm()
     vm = VM(vdc.client, resource=vm_resource)
+    await vm.del_product_section(('tag1', 'tag2'))
     try:
         d = await vm.get_product_section(('tag1', 'tag2'))
         assert d == {}

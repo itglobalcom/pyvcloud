@@ -632,19 +632,29 @@ class VM(object):
             product_section.append(
                 E_OVF.Property(
                     **{
-                        tag('ovf')('key'):key,
-                        tag('ovf')('type'):'string',
+                        tag('ovf')('key'): key,
+                        tag('ovf')('type'): 'string',
                         tag('ovf')('userConfigurable'): 'true',
                     }
                 )
             )
+            try:
+                getattr(
+                    product_section,
+                    tag('ovf')('Property')
+                )[-1].Label = key
+            except AttributeError:
+                getattr(
+                    product_section,
+                    tag('ovf')('Property')
+                )[-1].append(E_OVF.Label())
+                getattr(
+                    product_section,
+                    tag('ovf')('Property')
+                )[-1].Label = key
             getattr(
                 product_section,
                 tag('ovf')('Property')
-            )[-1].Label = key
-            getattr(
-                product_section,
-                '{' + NSMAP['ovf'] + '}Property'
             )[-1].append(
                 E_OVF.Value(
                     **{
