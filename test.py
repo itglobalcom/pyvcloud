@@ -21,7 +21,8 @@ from pyvcloud.vcd.task import Task, TaskStatus
 from pyvcloud.vcd.vapp import VApp, RelationType
 from pyvcloud.vcd.vdc import VDC
 from pyvcloud.vcd.vm import VM
-from pyvcloud.vcd.system import System
+# from pyvcloud.vcd.system import System
+from pyvcloud.vcd.utils import tag
 
 
 env.read_envfile()
@@ -233,29 +234,55 @@ async def test_poweroff_shutdown(vapp):
 #     assert vm_resource2 is not None
 
 
-@pytest.mark.skip(reason='Not ready')
 @pytest.mark.asyncio
-async def test_vm_disk(vapp_test):
+async def test_vm_disk(vapp_test, vdc):
     vm_resource = await vapp_test.get_vm()
     vm = VM(vapp_test.client, resource=vm_resource)
+    disk_id = await vm.add_disk(300)
     try:
+        disk = await vm.get_disk(disk_id)
+        assert disk is not None
         disk_resource_list = await vm.get_disks()
         for disk_resource in disk_resource_list:
-            assert disk_resource.DiskId.text
-            assert disk_resource.SizeMb.text
-            assert disk_resource.UnitNumber.text
-            assert disk_resource.BusNumber.text
-            assert disk_resource.AdapterType.text
-            assert disk_resource.StorageProfile.get('id').startswith('urn:')
-        await vm.modify_disk(int(disk_resource.DiskId.text),
-                             size=35*1024, address_on_parent=0)
-        disk_resource_list = await vm.get_disks()
-        disk_resource = disk_resource_list[-1]  # Get last
-        assert disk_resource.SizeMb.text == str(35 * 1024)
-        assert disk_resource.UnitNumber.text == '0'
-        assert disk_resource.StorageProfile.get('id').startswith('urn:')
+            if getattr(
+                disk_resource,
+                tag('rasd')('InstanceID')
+            ).text == getattr(
+                disk,
+                tag('rasd')('InstanceID')
+            ).text:
+                break
+        else:
+            raise Exception(f'No new disk with id {disk_id} in disk list')
+
+        assert int(
+            getattr(
+                disk,
+                tag('rasd')('HostResource')
+            ).get(
+                tag('ns10')('capacity')
+            )
+        ) == 300
+
+        await vm.modify_disk(disk_id,
+                             size=1024)
+        disk_resource = await vm.get_disk(disk_id)
+        assert int(
+            getattr(
+                disk_resource,
+                tag('rasd')('HostResource')
+            ).get(
+                tag('ns10')('capacity')
+            )
+        ) == 1024
+        storage_profile_href = disk_resource[
+            tag('rasd')('HostResource')
+        ].get(tag('ns10')('storageProfileHref'))
+        resource = await vapp_test.client.get_resource(storage_profile_href)
+        storage_profile_id = resource.get('id')
+        assert storage_profile_id.startswith('urn:')
     finally:
-        await vm.delete_disk(2048)
+        await vm.delete_disk(disk_id)
 
 
 @pytest.mark.asyncio

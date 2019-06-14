@@ -10,7 +10,7 @@ def simple_call(method):
             returned_id = result.get('id')
         except AttributeError:
             task = result
-            returned_id = None
+            returned_id = task.get('id')
         await self.get_task_monitor().wait_for_success(
             task=task
         )

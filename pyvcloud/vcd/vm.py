@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from copy import deepcopy
+
 from lxml import etree
 from lxml import objectify
 
@@ -675,6 +677,46 @@ class VM(object):
         return await self._perform_power_operation(
             rel=RelationType.POWER_SUSPEND, operation_name='suspend')
 
+    async def add_disk(self, disk_size):
+        """Add a virtual disk to a virtual machine
+
+        It assumes that the vm has already at least one virtual hard disk
+        and will attempt to create another one with similar characteristics.
+
+        :param int disk_size: size of the disk to be added, in MBs.
+
+        :return: an object containing EntityType.TASK XML data which represents
+            the asynchronous task that is creating the disk.
+
+        :rtype: lxml.objectify.ObjectifiedElement
+        """
+
+        resource = await self.get_resource()
+        disk_list = await self.client.get_resource(
+            resource.get('href') + '/virtualHardwareSection/disks')
+        last_disk = None
+        for disk in disk_list.Item:
+            if disk['{' + NSMAP['rasd'] + '}Description'] == 'Hard disk':
+                last_disk = disk
+        assert last_disk is not None
+        new_disk = deepcopy(last_disk)
+        addr = int(str(
+            last_disk['{' + NSMAP['rasd'] + '}AddressOnParent'])) + 1
+        instance_id = int(str(
+            last_disk['{' + NSMAP['rasd'] + '}InstanceID'])) + 1
+        new_disk['{' + NSMAP['rasd'] + '}AddressOnParent'] = addr
+        new_disk['{' + NSMAP['rasd'] + '}ElementName'] = 'Hard disk %s' % addr
+        new_disk['{' + NSMAP['rasd'] + '}InstanceID'] = instance_id
+        new_disk['{' + NSMAP['rasd'] + '}VirtualQuantity'] = \
+            disk_size * 1024 * 1024
+        new_disk['{' + NSMAP['rasd'] + '}HostResource'].set(
+            '{' + NSMAP['vcloud'] + '}capacity', str(disk_size))
+        disk_list.append(new_disk)
+        await self.client.put_resource(
+            resource.get('href') + '/virtualHardwareSection/disks', disk_list,
+            EntityType.RASD_ITEMS_LIST.value)
+        return instance_id
+
     async def modify_disk(self, disk_id, size=None,
                           storage_policy_href=None, parent=None,
                           address_on_parent=None, bus_sub_type=None):
@@ -700,8 +742,7 @@ class VM(object):
                 break
         assert disk_idx is not None and disk_resource is not None
         if size is not None:
-            disk_resource[tag('rasd')('VirtualQuantity')] = \
-                size * 1024 * 1024
+            disk_resource[tag('rasd')('VirtualQuantity')] = str(size * 1024 * 1024)
             disk_resource[tag('rasd')('HostResource')].set(
                 tag('ns10')('capacity'), str(size)
             )
@@ -721,7 +762,9 @@ class VM(object):
             disk_resource[tag('rasd')('HostResource')].set(
                 tag('ns10')('BusSubType', str(bus_sub_type))
             )
-        disk_list.Item[disk_idx] = disk_resource
+        del disk_list.Item[disk_idx]
+        disk_list.append(disk_resource)
+        # disk_list.Item[disk_idx] = disk_resource
         return await self.client.put_resource(
             (await self.get_resource()).get('href') + '/virtualHardwareSection/disks', disk_list,
             EntityType.RASD_ITEMS_LIST.value)
@@ -740,9 +783,21 @@ class VM(object):
             EntityType.RASD_ITEMS_LIST.value)
 
     async def get_disks(self):
-        return (
-            await self.get_resource()
-        ).VmSpecSection.DiskSection.DiskSettings
+        disk_list = await self.client.get_resource(
+            (await self.get_resource()).get('href') + '/virtualHardwareSection/disks')
+        return disk_list.Item
+
+
+    async def get_disk(self, disk_id):
+        disk_list = await self.client.get_resource(
+            (await self.get_resource()).get('href') + '/virtualHardwareSection/disks')
+        for disk_resource in disk_list.Item:
+            if int(getattr(
+                disk_resource,
+                tag('rasd')('InstanceID')
+            ).text) == disk_id:
+                return disk_resource
+        raise EntityNotFoundException(disk_id)
 
 
     async def detach_disk(self, disk_href):
