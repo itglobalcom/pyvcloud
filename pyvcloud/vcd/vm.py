@@ -780,7 +780,7 @@ class VM(object):
             (await self.get_resource()).get('href') + '/virtualHardwareSection/disks')
         for idx, disk in enumerate(disk_list.Item):
             # if disk[tag('rasd')('Description')] == 'Hard disk' and int(disk[tag('rasd')('InstanceID')]) == disk_id:
-            if int(disk[tag('rasd')('InstanceID')]) == disk_id:
+            if int(disk[tag('rasd')('InstanceID')].text) == disk_id:
                 disk_idx = idx
                 disk_resource = disk
                 break
@@ -820,7 +820,7 @@ class VM(object):
         disk_list = await self.client.get_resource(
             (await self.get_resource()).get('href') + '/virtualHardwareSection/disks')
         for idx, disk_resource in enumerate(disk_list.Item):
-            if int(disk_resource[tag('rasd')('InstanceID')]) == disk_id:
+            if int(disk_resource[tag('rasd')('InstanceID')].text) == disk_id:
                 del disk_list.Item[idx]
                 break
         else:
