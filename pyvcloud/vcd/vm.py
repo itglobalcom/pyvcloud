@@ -677,16 +677,28 @@ class VM(object):
         return await self._perform_power_operation(
             rel=RelationType.POWER_SUSPEND, operation_name='suspend')
 
-    async def add_disk(self, disk_size):
+    async def add_disk(self, name, size, storage_policy_href, bus_type, bus_sub_type):
         """Add a virtual disk to a virtual machine
 
         It assumes that the vm has already at least one virtual hard disk
         and will attempt to create another one with similar characteristics.
 
-        :param int disk_size: size of the disk to be added, in MBs.
-
-        :return: an object containing EntityType.TASK XML data which represents
-            the asynchronous task that is creating the disk.
+        :param int name: name of the disk to be added.
+        :param int size: size of the disk to be added, in MBs.
+        :param int storage_policy_href: storage_policy_href of the disk to be added.
+        :param int bus_type: bus_type of the disk to be added.
+            Bus type. One of:
+                5 (IDE)
+                6 (SCSI)
+                20 (SATA)
+        :param int bus_sub_type: bus_sub_type of the disk to be added.
+            Hard disk controller type. One of:
+                buslogic
+                lsilogic
+                lsilogicsas
+                VirtualSCSI
+                vmware.sata.ahci
+        :return: disk_id
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
@@ -696,22 +708,31 @@ class VM(object):
             resource.get('href') + '/virtualHardwareSection/disks')
         last_disk = None
         for disk in disk_list.Item:
-            if disk['{' + NSMAP['rasd'] + '}Description'] == 'Hard disk':
+            if disk[tag('rasd')('Description')] == 'Hard disk':
                 last_disk = disk
         assert last_disk is not None
         new_disk = deepcopy(last_disk)
         addr = int(str(
             last_disk['{' + NSMAP['rasd'] + '}AddressOnParent'])) + 1
         instance_id = int(str(
-            last_disk['{' + NSMAP['rasd'] + '}InstanceID'])) + 1
-        new_disk['{' + NSMAP['rasd'] + '}AddressOnParent'] = addr
-        new_disk['{' + NSMAP['rasd'] + '}ElementName'] = 'Hard disk %s' % addr
-        new_disk['{' + NSMAP['rasd'] + '}InstanceID'] = instance_id
-        new_disk['{' + NSMAP['rasd'] + '}VirtualQuantity'] = \
-            disk_size * 1024 * 1024
-        new_disk['{' + NSMAP['rasd'] + '}HostResource'].set(
-            '{' + NSMAP['vcloud'] + '}capacity', str(disk_size))
+            last_disk[tag('rasd')('InstanceID')])) + 1
+        new_disk[tag('rasd')('AddressOnParent')] = addr
+        new_disk[tag('rasd')('ElementName')] = 'Hard disk %s' % addr
+        new_disk[tag('rasd')('InstanceID')] = instance_id
+        new_disk[tag('rasd')('VirtualQuantity')] = \
+            size * 1024 * 1024
+        new_disk[tag('rasd')('HostResource')].set(
+            tag('vcloud')('capacity'), str(size))
+        new_disk[tag('rasd')('ElementName')] = name
+        new_disk[tag('rasd')('HostResource')].set(
+            tag('vcloud')('storageProfileHref'), storage_policy_href)
+        new_disk[tag('rasd')('HostResource')].set(
+            tag('vcloud')('busType'), bus_type)
+        new_disk[tag('rasd')('HostResource')].set(
+            tag('vcloud')('busSubType'), bus_sub_type)
+
         disk_list.append(new_disk)
+
         await self.client.put_resource(
             resource.get('href') + '/virtualHardwareSection/disks', disk_list,
             EntityType.RASD_ITEMS_LIST.value)
@@ -744,14 +765,14 @@ class VM(object):
         if size is not None:
             disk_resource[tag('rasd')('VirtualQuantity')] = str(size * 1024 * 1024)
             disk_resource[tag('rasd')('HostResource')].set(
-                tag('ns10')('capacity'), str(size)
+                tag('vcloud')('capacity'), str(size)
             )
         if storage_policy_href is not None:
             disk_resource[tag('rasd')('HostResource')].set(
-                tag('ns10')('StorageProfileHref'), storage_policy_href
+                tag('vcloud')('StorageProfileHref'), storage_policy_href
             )
             disk_resource[tag('rasd')('HostResource')].set(
-                tag('ns10')('storageProfileOverrideVmDefault'),
+                tag('vcloud')('storageProfileOverrideVmDefault'),
                 'true'
             )
         if parent is not None:
@@ -760,11 +781,10 @@ class VM(object):
             disk_resource[tag('rasd')('AddressOnParent')] = address_on_parent
         if bus_sub_type is not None:
             disk_resource[tag('rasd')('HostResource')].set(
-                tag('ns10')('BusSubType', str(bus_sub_type))
+                tag('vcloud')('BusSubType', str(bus_sub_type))
             )
         del disk_list.Item[disk_idx]
         disk_list.append(disk_resource)
-        # disk_list.Item[disk_idx] = disk_resource
         return await self.client.put_resource(
             (await self.get_resource()).get('href') + '/virtualHardwareSection/disks', disk_list,
             EntityType.RASD_ITEMS_LIST.value)

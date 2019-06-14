@@ -238,15 +238,26 @@ async def test_poweroff_shutdown(vapp):
 async def test_vm_disk(vapp_test, vdc):
     vm_resource = await vapp_test.get_vm()
     vm = VM(vapp_test.client, resource=vm_resource)
-    disk_id = await vm.add_disk(300)
+
+    storage_profile_href = (
+        await vdc.get_storage_profile_by_id('urn:vcloud:vdcstorageProfile:1db61137-fd0c-4768-9916-464afc21433a')
+    ).get('href')
+
+    disk_id = await vm.add_disk(
+        'test_add_disk',
+        300,
+        storage_profile_href,
+        '6',
+        'VirtualSCSI'
+    )
     try:
         disk = await vm.get_disk(disk_id)
         assert disk is not None
         disk_resource_list = await vm.get_disks()
         for disk_resource in disk_resource_list:
             if getattr(
-                disk_resource,
-                tag('rasd')('InstanceID')
+                    disk_resource,
+                    tag('rasd')('InstanceID')
             ).text == getattr(
                 disk,
                 tag('rasd')('InstanceID')
@@ -260,7 +271,7 @@ async def test_vm_disk(vapp_test, vdc):
                 disk,
                 tag('rasd')('HostResource')
             ).get(
-                tag('ns10')('capacity')
+                tag('vcloud')('capacity')
             )
         ) == 300
 
@@ -272,12 +283,12 @@ async def test_vm_disk(vapp_test, vdc):
                 disk_resource,
                 tag('rasd')('HostResource')
             ).get(
-                tag('ns10')('capacity')
+                tag('vcloud')('capacity')
             )
         ) == 1024
         storage_profile_href = disk_resource[
             tag('rasd')('HostResource')
-        ].get(tag('ns10')('storageProfileHref'))
+        ].get(tag('vcloud')('storageProfileHref'))
         resource = await vapp_test.client.get_resource(storage_profile_href)
         storage_profile_id = resource.get('id')
         assert storage_profile_id.startswith('urn:')
