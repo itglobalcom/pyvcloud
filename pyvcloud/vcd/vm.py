@@ -683,15 +683,15 @@ class VM(object):
         It assumes that the vm has already at least one virtual hard disk
         and will attempt to create another one with similar characteristics.
 
-        :param int name: name of the disk to be added.
+        :param str name: name of the disk to be added.
         :param int size: size of the disk to be added, in MBs.
-        :param int storage_policy_id: storage_policy_id of the disk to be added.
-        :param int bus_type: bus_type of the disk to be added.
+        :param str storage_policy_id: storage_policy_id of the disk to be added.
+        :param str bus_type: bus_type of the disk to be added.
             Bus type. One of:
                 5 (IDE)
                 6 (SCSI)
                 20 (SATA)
-        :param int bus_sub_type: bus_sub_type of the disk to be added.
+        :param str bus_sub_type: bus_sub_type of the disk to be added.
             Hard disk controller type. One of:
                 buslogic
                 lsilogic
@@ -726,8 +726,13 @@ class VM(object):
         new_disk[tag('rasd')('HostResource')].set(
             tag('vcloud')('capacity'), str(size))
         new_disk[tag('rasd')('ElementName')] = name
-        new_disk[tag('rasd')('HostResource')].set(
-            tag('vcloud')('storageProfileHref'), storage_policy_href)
+        if storage_policy_href != new_disk[tag('rasd')('HostResource')].get(
+            tag('vcloud')('storageProfileHref')
+        ):
+            new_disk[tag('rasd')('HostResource')].set(
+                tag('vcloud')('storageProfileOverrideVmDefault'), 'true')
+            new_disk[tag('rasd')('HostResource')].set(
+                tag('vcloud')('storageProfileHref'), storage_policy_href)
         new_disk[tag('rasd')('HostResource')].set(
             tag('vcloud')('busType'), bus_type)
         new_disk[tag('rasd')('HostResource')].set(
@@ -742,7 +747,8 @@ class VM(object):
 
     async def modify_disk(self, disk_id, size=None,
                           storage_policy_href=None, parent=None,
-                          address_on_parent=None, bus_sub_type=None):
+                          address_on_parent=None, bus_type=None,
+                          bus_sub_type=None):
         """
         Change size of disk
         :param disk_id - new disk ID, like 2000
@@ -750,7 +756,18 @@ class VM(object):
         :param storage_policy_href
         :param parent
         :param address_on_parent
-        :param bus_sub_type
+        :param int bus_type: bus_type of the disk to be added.
+            Bus type. One of:
+                5 (IDE)
+                6 (SCSI)
+                20 (SATA)
+        :param int bus_sub_type: bus_sub_type of the disk to be added.
+            Hard disk controller type. One of:
+                buslogic
+                lsilogic
+                lsilogicsas
+                VirtualSCSI
+                vmware.sata.ahci
         """
         assert size is not None or storage_policy_href is not None or \
             parent is not None or address_on_parent is not None or bus_sub_type is not None
@@ -781,6 +798,9 @@ class VM(object):
             disk_resource[tag('rasd')('Parent')] = parent
         if address_on_parent is not None:
             disk_resource[tag('rasd')('AddressOnParent')] = address_on_parent
+        if bus_type is not None:
+            disk_resource[tag('rasd')('HostResource')].set(
+                tag('vcloud')('busType'), bus_type)
         if bus_sub_type is not None:
             disk_resource[tag('rasd')('HostResource')].set(
                 tag('vcloud')('BusSubType', str(bus_sub_type))
