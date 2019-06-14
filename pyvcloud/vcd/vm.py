@@ -769,8 +769,10 @@ class VM(object):
                 VirtualSCSI
                 vmware.sata.ahci
         """
-
-        storage_policy_href = f'{self.client._uri}/api/vdcStorageProfile/' + storage_policy_id.split(':')[-1]
+        if storage_policy_id is not None:
+            storage_policy_href = f'{self.client._uri}/api/vdcStorageProfile/' + storage_policy_id.split(':')[-1]
+        else:
+            storage_policy_href = None
 
         assert size is not None or storage_policy_href is not None or \
             parent is not None or address_on_parent is not None or bus_sub_type is not None
