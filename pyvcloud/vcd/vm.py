@@ -678,6 +678,87 @@ class VM(object):
             EntityType.PRODUCT_SECTION_LIST.value
         )
 
+    async def modify_product_section(self, **kwargs):
+        uri = self.href + '/productSections'
+        product_section_list = await self.client.get_resource(uri)
+        product_section = getattr(
+            product_section_list,
+            tag('ovf')('ProductSection'),
+            None
+        )
+        if product_section is None:
+            product_section = E_OVF.ProductSection()
+            product_section.append(
+                E_OVF.Info()
+            )
+
+        if hasattr(
+            product_section,
+            tag('ovf')('Property')
+        ):
+            idx_list = []
+            for idx, prop in enumerate(getattr(
+                product_section,
+                tag('ovf')('Property')
+            )):
+                if prop.get(tag('ovf')('key')) in kwargs.keys():
+                    idx_list.append(idx)
+            for idx in reversed(idx_list):
+                del getattr(
+                    product_section,
+                    tag('ovf')('Property')
+                )[idx]
+
+        for key, value in kwargs.items():
+            product_section.append(
+                E_OVF.Property(
+                    **{
+                        tag('ovf')('key'): key,
+                        tag('ovf')('type'): 'string',
+                        tag('ovf')('userConfigurable'): 'true',
+                    }
+                )
+            )
+            try:
+                getattr(
+                    product_section,
+                    tag('ovf')('Property')
+                )[-1].Label = key
+            except AttributeError:
+                getattr(
+                    product_section,
+                    tag('ovf')('Property')
+                )[-1].append(E_OVF.Label())
+                getattr(
+                    product_section,
+                    tag('ovf')('Property')
+                )[-1].Label = key
+            getattr(
+                product_section,
+                tag('ovf')('Property')
+            )[-1].append(
+                E_OVF.Value(
+                    **{
+                        '{' + NSMAP['ovf'] + '}value': value,
+                    }
+                )
+            )
+
+        setattr(
+            product_section_list,
+            tag('ovf')('ProductSection'),
+            product_section
+        )
+
+        objectify.deannotate(product_section_list)
+        etree.cleanup_namespaces(product_section_list)
+
+        await self.client.put_resource(
+            uri,
+            product_section_list,
+            EntityType.PRODUCT_SECTION_LIST.value
+        )
+
     async def suspend(self):
         """Suspend the vm.
 
