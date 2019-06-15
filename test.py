@@ -518,12 +518,6 @@ async def test_vm_product_section(vdc):
             'tag2': 'test2',
             'tag3': 'test3',
         }
-        await vm.reload()
-        with open('tmp.xml', 'wb') as f:
-            f.write(etree.tostring(
-                await vm.get_resource(),
-                pretty_print=True
-            ))
     finally:
         await vm.del_product_section(('tag1', 'tag2', 'tag3'))
     result = await vm.get_product_section(('tag1', 'tag2'))
