@@ -1094,8 +1094,42 @@ class VM(object):
         await self.reload()
         uri = self.href + '/guestCustomizationSection'
         item = await self.client.get_resource(uri)
-        for k, v in kwargs.items():
-            setattr(item, k, v)
+        last_tag = item.find(tag('ovf')('Info'))
+
+        for xml_tag in item.getchildren():
+            if (
+                    xml_tag.tag != tag('vcloud')('Link')
+                    and xml_tag.tag != tag('ovf')('Info')
+            ):
+                item.remove(xml_tag)
+                if xml_tag.tag not in {
+                    tag('vcloud')(key)
+                    for key in kwargs.keys()
+                }:
+                    kwargs[xml_tag.tag.split('}')[-1]] = xml_tag.text
+        for tag_key in [
+            'Enabled',
+            'ChangeSid',
+            'VirtualMachineId',
+            'JoinDomainEnabled',
+            'UseOrgSettings',
+            'DomainName',
+            'DomainUserName',
+            'DomainUserPassword',
+            'AdminPasswordEnabled',
+            'AdminPasswordAuto',
+            'AdminPassword',
+            'ResetPasswordRequired',
+            'CustomizationScript',
+            'ComputerName',
+        ]:
+            if kwargs.get(tag_key) is not None:
+                k = tag_key
+                v = kwargs.get(tag_key)
+                if v is not None:
+                    element = getattr(E, tag('vcloud')(k))(v)
+                    last_tag.addnext(element)
+                    last_tag = element
 
         objectify.deannotate(item)
         etree.cleanup_namespaces(item)
