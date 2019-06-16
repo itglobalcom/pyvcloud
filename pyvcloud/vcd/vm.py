@@ -494,6 +494,8 @@ class VM(object):
                    'PrimaryNetworkConnectionIndex'):
             primary_index = self.resource.NetworkConnectionSection.\
                 PrimaryNetworkConnectionIndex.text
+        else:
+            primary_index = None
 
         for nc in self.resource.NetworkConnectionSection.NetworkConnection:
             nic = {}
