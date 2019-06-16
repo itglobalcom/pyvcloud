@@ -446,6 +446,8 @@ class VM(object):
             indices = [None] * 10
             insert_index = net_conn_section.index(
                 net_conn_section.PrimaryNetworkConnectionIndex) + 1
+            if not hasattr(net_conn_section, 'NetworkConnection'):
+                net_conn_section.NetworkConnection = ''
             for nc in net_conn_section.NetworkConnection:
                 indices[int(nc.NetworkConnectionIndex.
                             text)] = nc.NetworkConnectionIndex.text
@@ -497,7 +499,10 @@ class VM(object):
         else:
             primary_index = None
 
-        for nc in self.resource.NetworkConnectionSection.NetworkConnection:
+        net_conn_section = self.resource.NetworkConnectionSection
+        if not hasattr(net_conn_section, 'NetworkConnection'):
+            net_conn_section.NetworkConnection = ''
+        for nc in net_conn_section.NetworkConnection:
             nic = {}
             nic[VmNicProperties.INDEX.value] = nc.NetworkConnectionIndex.text
             nic[VmNicProperties.CONNECTED.value] = nc.IsConnected.text
