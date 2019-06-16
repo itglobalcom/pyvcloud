@@ -462,9 +462,10 @@ class VM(object):
         net_conn.append(E.IpAddressAllocationMode(ip_address_mode))
         net_conn.append(E.NetworkAdapterType(adapter_type))
         net_conn_section.insert(insert_index, net_conn)
-        return await self.client.put_linked_resource(
+        await self.client.put_linked_resource(
             net_conn_section, RelationType.EDIT,
             EntityType.NETWORK_CONNECTION_SECTION.value, net_conn_section)
+        return nic_index
 
     async def set_primary_nic(self, index):
         # get network connection section.

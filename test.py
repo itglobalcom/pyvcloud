@@ -454,48 +454,44 @@ async def test_template(template, vdc):
 
 
 @pytest.mark.asyncio
-async def test_network(vapp_off, vdc):
+async def test_vm_network(vapp_test, vdc):
     """
-    Test create, connect and remove network.
+    Test create, connect and remove network connection.
     """
-    test_network_name = 'test_network7'
+    # test_network_name = 'cloudmng-dev-ExternalDedic01'
+    test_network_name = 'test-isolated-1'
+
+    # Connect vapp to network
+    networks = await vapp_test.get_all_networks()
+    network_name_list = []
+    for network in networks:
+        network_name_list.append(
+            network.get(tag('ovf')('name'))
+        )
+    if test_network_name not in network_name_list:
+        await vapp_test.connect_org_vdc_network(test_network_name)
+
+    # Get current vm
+    vm_resource = await vapp_test.get_vm()
+    vm = VM(vapp_test.client, resource=vm_resource)
+
+    # Add a nic
+    idx = await vm.add_nic(
+        NetworkAdapterType.VMXNET3.value,
+        False,
+        True,
+        test_network_name,
+        'DHCP',
+        ''
+    )
     try:
-        # Create route network
-        await vdc.create_routed_vdc_network(
-            test_network_name,
-            'cloudmng-dev-edge',
-            '47.243.181.201/29',
-            'Test network description'
-        )
-
-        # Check that network in list
-        l = await vdc.list_orgvdc_network_records()
-        assert any(
-            dic['name'] == test_network_name for dic in l
-        )
-
-        # Connect vapp to network
-        await vapp_off.connect_org_vdc_network(test_network_name)
-
-        # Get current vm
-        vm_resource = await vapp_off.get_vm()
-        vm = VM(vapp_off.client, resource=vm_resource)
-
-        # Add a nic
-        await vm.add_nic(
-            NetworkAdapterType.VMXNET3.value,
-            False,
-            True,
-            test_network_name,
-            'DHCP',
-            ''
-        )
-
         # Check nic in VM
         assert test_network_name in (dic['network'] for dic in await vm.list_nics())
     finally:
-        await vdc.reload()
-        await vdc.delete_routed_orgvdc_network(test_network_name, force=True)
+        # await vdc.reload()
+        # await vdc.delete_routed_orgvdc_network(test_network_name, force=True)
+        await vm.reload()
+        await vm.delete_nic(idx)
 
 
 @pytest.mark.asyncio

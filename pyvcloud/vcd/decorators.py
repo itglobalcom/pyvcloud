@@ -10,10 +10,11 @@ def simple_call(method):
             returned_id = result.get('id')
         except AttributeError:
             task = result
-            try:
-                returned_id = task.get('id')
-            except AttributeError:
-                returned_id = None
+            # try:
+            #     returned_id = task.get('id')
+            # except AttributeError:
+            #     returned_id = None
+            returned_id = None
         await self.get_task_monitor().wait_for_success(
             task=task
         )
