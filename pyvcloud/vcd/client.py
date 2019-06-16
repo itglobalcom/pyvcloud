@@ -629,6 +629,8 @@ class _TaskMonitor(object):
             _fail_on_statuses = [fail_on_statuses]
         else:
             _fail_on_statuses = fail_on_statuses
+        if isinstance(task, str):
+            task = await self._client.get_resource(task)
         task_href = task.get('href')
         loop = asyncio.get_event_loop()
         start_time = loop.time()

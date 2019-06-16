@@ -427,6 +427,16 @@ async def test_change_name(vapp_off):
 
 
 @pytest.mark.asyncio
+async def test_vm_change_name(vapp_test):
+    vm_resource = await vapp_test.get_vm()
+    vm = VM(vapp_test.client, resource=vm_resource)
+    await vm.change_name('new_test_name2')
+    await vm.reload()
+    vm_resource = await vm.get_resource()
+    assert vm_resource.get('name') == 'new_test_name2'
+
+
+@pytest.mark.asyncio
 async def test_get_vdc_list(org):
     l = org.list_vdcs()
     l = list(map(lambda xml: VDC(org.client, resource=xml), l))

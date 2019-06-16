@@ -1086,6 +1086,24 @@ class VM(object):
         else:
             raise InvalidStateException("VM Must be powered off.")
 
+    async def change_name(self, name):
+        """Edit name and description of the vApp.
+
+        :param str name: New name of the vApp. It is mandatory.
+
+        :return: object containing EntityType.TASK XML data
+            representing the asynchronous task.
+
+        :rtype: lxml.objectify.ObjectifiedElement
+        """
+        if name is None or name.isspace():
+            raise InvalidParameterException("Name can't be None or empty")
+        vm = await self.get_resource()
+        vm.set('name', name.strip())
+
+        return await self.client.put_resource(
+            self.href, vm, EntityType.VM.value)
+
     async def get_guest_customization_section(self):
         guest_xml = (await self.get_resource()).GuestCustomizationSection
         return guest_xml
