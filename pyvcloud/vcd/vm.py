@@ -446,11 +446,10 @@ class VM(object):
             indices = [None] * 10
             insert_index = net_conn_section.index(
                 net_conn_section.PrimaryNetworkConnectionIndex) + 1
-            if not hasattr(net_conn_section, 'NetworkConnection'):
-                net_conn_section.NetworkConnection = ''
-            for nc in net_conn_section.NetworkConnection:
-                indices[int(nc.NetworkConnectionIndex.
-                            text)] = nc.NetworkConnectionIndex.text
+            if hasattr(net_conn_section, 'NetworkConnection'):
+                for nc in net_conn_section.NetworkConnection:
+                    indices[int(nc.NetworkConnectionIndex.
+                                text)] = nc.NetworkConnectionIndex.text
             nic_index = indices.index(None)
             if is_primary:
                 net_conn_section.PrimaryNetworkConnectionIndex = \
@@ -500,23 +499,22 @@ class VM(object):
             primary_index = None
 
         net_conn_section = self.resource.NetworkConnectionSection
-        if not hasattr(net_conn_section, 'NetworkConnection'):
-            net_conn_section.NetworkConnection = ''
-        for nc in net_conn_section.NetworkConnection:
-            nic = {}
-            nic[VmNicProperties.INDEX.value] = nc.NetworkConnectionIndex.text
-            nic[VmNicProperties.CONNECTED.value] = nc.IsConnected.text
-            nic[VmNicProperties.PRIMARY.value] = (
-                primary_index == nc.NetworkConnectionIndex.text)
-            nic[VmNicProperties.ADAPTER_TYPE.
-                value] = nc.NetworkAdapterType.text
-            nic[VmNicProperties.NETWORK.value] = nc.get(
-                VmNicProperties.NETWORK.value)
-            nic[VmNicProperties.IP_ADDRESS_MODE.
-                value] = nc.IpAddressAllocationMode.text
-            if hasattr(nc, 'IpAddress'):
-                nic[VmNicProperties.IP_ADDRESS.value] = nc.IpAddress.text
-            nics.append(nic)
+        if hasattr(net_conn_section, 'NetworkConnection'):
+            for nc in net_conn_section.NetworkConnection:
+                nic = {}
+                nic[VmNicProperties.INDEX.value] = nc.NetworkConnectionIndex.text
+                nic[VmNicProperties.CONNECTED.value] = nc.IsConnected.text
+                nic[VmNicProperties.PRIMARY.value] = (
+                    primary_index == nc.NetworkConnectionIndex.text)
+                nic[VmNicProperties.ADAPTER_TYPE.
+                    value] = nc.NetworkAdapterType.text
+                nic[VmNicProperties.NETWORK.value] = nc.get(
+                    VmNicProperties.NETWORK.value)
+                nic[VmNicProperties.IP_ADDRESS_MODE.
+                    value] = nc.IpAddressAllocationMode.text
+                if hasattr(nc, 'IpAddress'):
+                    nic[VmNicProperties.IP_ADDRESS.value] = nc.IpAddress.text
+                nics.append(nic)
         return nics
 
     async def delete_nic(self, index):
