@@ -1143,6 +1143,7 @@ class VM(object):
             'DomainName',
             'DomainUserName',
             'DomainUserPassword',
+            'MachineObjectOU',
             'AdminPasswordEnabled',
             'AdminPasswordAuto',
             'AdminPassword',
