@@ -330,7 +330,7 @@ class VM(object):
         return await self._perform_power_operation(
             rel=RelationType.POWER_RESET, operation_name='power reset')
 
-    async def deploy(self, power_on=True, force_customization=False):
+    async def deploy(self, power_on=True, force_customization=False, deployment_lease_seconds=None):
         """Deploys the vm.
 
         Deploying the vm will allocate all resources assigned to the vm. If an
@@ -346,6 +346,9 @@ class VM(object):
         deploy_vm_params.set('powerOn', str(power_on).lower())
         deploy_vm_params.set('forceCustomization',
                              str(force_customization).lower())
+        if deployment_lease_seconds is not None:
+            deploy_vm_params.set('deploymentLeaseSeconds',
+                                 str(deployment_lease_seconds).lower())
         return await self._perform_power_operation(
             rel=RelationType.DEPLOY,
             operation_name='deploy',

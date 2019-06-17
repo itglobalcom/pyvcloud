@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 from copy import deepcopy
 
 from lxml import etree
@@ -361,7 +362,7 @@ class VApp(object):
         :rtype: bool
         """
         resource = await self.get_resource()
-        return resource.get('deployed')
+        return json.loads(resource.get('deployed'))
 
     async def _perform_power_operation(self,
                                  rel,
@@ -401,7 +402,7 @@ class VApp(object):
                 'Can\'t {0} vApp. Current state of vApp: {1}.'.format(
                     operation_name, VCLOUD_STATUS_MAP[power_state]))
 
-    async def deploy(self, power_on=None, force_customization=None):
+    async def deploy(self, power_on=None, force_customization=None, deployment_lease_seconds=None):
         """Deploys the vApp.
 
         Deploying the vApp will allocate all resources assigned to the vApp.
@@ -427,6 +428,9 @@ class VApp(object):
         if force_customization is not None:
             deploy_vapp_params.set('forceCustomization',
                                    str(force_customization).lower())
+        if deployment_lease_seconds is not None:
+            deploy_vapp_params.set('deploymentLeaseSeconds',
+                                   str(deployment_lease_seconds).lower())
 
         return await self._perform_power_operation(
             rel=RelationType.DEPLOY,

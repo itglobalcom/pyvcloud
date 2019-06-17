@@ -119,7 +119,8 @@ async def vapp(vdc):
 
 @pytest.fixture()
 async def vapp_test(vdc):
-    vapp_xml = await vdc.get_vapp_by_id('urn:vcloud:vapp:0a50377b-8072-430a-87e1-4f6e98c68c10')
+    # vapp_xml = await vdc.get_vapp_by_id('urn:vcloud:vapp:0a50377b-8072-430a-87e1-4f6e98c68c10')
+    vapp_xml = await vdc.get_vapp_by_id('urn:vcloud:vapp:b9997264-1455-428d-b591-ce7681b684dc')
     # vapp_xml = await vdc.get_vapp_by_id('urn:vcloud:vapp:359a2d6e-63e0-4e55-9a94-3c660f528a21')
     """
     "{"vapp_id": "
@@ -574,7 +575,15 @@ async def test_guest_customization_section(vapp_test):
 
 # @pytest.mark.skip()
 @pytest.mark.asyncio
-async def test_tmp(vdc):
+async def test_tmp(vapp_test):
+    from lxml import etree
+    xml = await vapp_test.get_resource()
+    with open('tmp.xml', 'wb') as f:
+        f.write(etree.tostring(
+            xml,
+            pretty_print=True
+        ))
+    exit()
     # sys_admin_resource = await client.get_admin()
     # resource = await vdc.get_resource()
     vapp_resource = await vdc.get_vapp_by_id(
