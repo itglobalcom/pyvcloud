@@ -515,6 +515,8 @@ class VM(object):
                     VmNicProperties.NETWORK.value)
                 nic[VmNicProperties.IP_ADDRESS_MODE.
                     value] = nc.IpAddressAllocationMode.text
+                nic[VmNicProperties.MAC_ADDRESS.
+                    value] = nc.MACAddress.text
                 if hasattr(nc, 'IpAddress'):
                     nic[VmNicProperties.IP_ADDRESS.value] = nc.IpAddress.text
                 nics.append(nic)
