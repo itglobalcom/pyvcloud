@@ -639,7 +639,10 @@ class VApp(object):
         :raises: EntityNotFoundException: if the named vm could not be found.
         """
         if vm_name is None:
-            return (await self.get_all_vms())[0]
+            vms = await self.get_all_vms()
+            if len(vms) != 1:
+                raise ValueError(f'{len(vms)} VM in VApp')
+            return vms[0]
         for vm in await self.get_all_vms():
             if vm.get('name') == vm_name:
                 return vm
