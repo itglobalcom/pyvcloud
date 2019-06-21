@@ -358,8 +358,11 @@ class VDC(object):
 
         # Configure network of the first vm
         if network_name is not None:
-            primary_index = int(vms[0].NetworkConnectionSection.
-                                PrimaryNetworkConnectionIndex.text)
+            try:
+                primary_index = int(vms[0].NetworkConnectionSection.
+                                    PrimaryNetworkConnectionIndex.text)
+            except:
+                primary_index = 0
             network_connection_param = E.NetworkConnection(
                 E.NetworkConnectionIndex(primary_index), network=network_name)
             if ip_address is not None:
