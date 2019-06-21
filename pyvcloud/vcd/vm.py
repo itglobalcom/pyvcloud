@@ -1055,7 +1055,8 @@ class VM(object):
         return await self.client.post_linked_resource(
             self.resource, RelationType.CONSOLIDATE, None, None)
 
-    async def copy_to(self, source_vapp_name, target_vapp_name, target_vm_name):
+    async def copy_to(self, source_vapp_name, target_vapp_name, target_vm_name, deploy=False,
+                      power_on=False, all_eulas_accepted=True):
         """Copy VM from one vApp to another.
 
         :param: str source vApp name
@@ -1090,9 +1091,9 @@ class VM(object):
                 'target_vm_name': target_vm_name
             }
             return await target_vapp.add_vms([spec],
-                                       deploy=False,
-                                       power_on=False,
-                                       all_eulas_accepted=True
+                                       deploy=deploy,
+                                       power_on=power_on,
+                                       all_eulas_accepted=all_eulas_accepted
                                        )
         else:
             raise InvalidStateException("VM Must be powered off.")
