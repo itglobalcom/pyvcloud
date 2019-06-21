@@ -800,7 +800,7 @@ class VApp(object):
                 'Can\'t find the specified vApp network')
         return networks[index].get('{' + NSMAP['ovf'] + '}name')
 
-    def to_sourced_item(self, spec):
+    async def to_sourced_item(self, spec):
         """Creates a vm SourcedItem from a vm specification.
 
         :param dict spec: a dictionary containing
@@ -827,7 +827,7 @@ class VApp(object):
         :rtype: lxml.objectify.ObjectifiedElement
         """
         source_vapp = VApp(self.client, resource=spec['vapp'])
-        source_vm_resource = source_vapp.get_vm(spec['source_vm_name'])
+        source_vm_resource = await source_vapp.get_vm(spec['source_vm_name'])
 
         sourced_item = E.SourcedItem(
             E.Source(
@@ -903,7 +903,7 @@ class VApp(object):
 
         return sourced_item
 
-    def add_vms(self,
+    async def add_vms(self,
                 specs,
                 deploy=True,
                 power_on=True,
@@ -928,10 +928,10 @@ class VApp(object):
             deploy='true' if deploy else 'false',
             powerOn='true' if power_on else 'false')
         for spec in specs:
-            params.append(self.to_sourced_item(spec))
+            params.append(await self.to_sourced_item(spec))
         if all_eulas_accepted is not None:
             params.append(E.AllEULAsAccepted(all_eulas_accepted))
-        return self.client.post_linked_resource(
+        return await self.client.post_linked_resource(
             self.resource, RelationType.RECOMPOSE,
             EntityType.RECOMPOSE_VAPP_PARAMS.value, params)
 

@@ -1089,7 +1089,7 @@ class VM(object):
                 'source_vm_name': (await self.get_resource()).get('name'),
                 'target_vm_name': target_vm_name
             }
-            return target_vapp.add_vms([spec],
+            return await target_vapp.add_vms([spec],
                                        deploy=False,
                                        power_on=False,
                                        all_eulas_accepted=True

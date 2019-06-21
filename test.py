@@ -78,6 +78,13 @@ async def vdc(org):
     yield vdc_inst
 
 
+@pytest.fixture()
+async def vdc2(org):
+    vdc_resource = await org.get_vdc(env('vdc_name2'))
+    vdc_inst = VDC(org.client, resource=vdc_resource)
+    yield vdc_inst
+
+
 @pytest.mark.asyncio()
 async def test_get_vdc_all(org):
     ls = []
@@ -119,12 +126,7 @@ async def vapp(vdc):
 
 @pytest.fixture()
 async def vapp_test(vdc):
-    # vapp_xml = await vdc.get_vapp_by_id('urn:vcloud:vapp:0a50377b-8072-430a-87e1-4f6e98c68c10')
-    vapp_xml = await vdc.get_vapp_by_id('urn:vcloud:vapp:b9997264-1455-428d-b591-ce7681b684dc')
-    # vapp_xml = await vdc.get_vapp_by_id('urn:vcloud:vapp:359a2d6e-63e0-4e55-9a94-3c660f528a21')
-    """
-    "{"vapp_id": "
-    """
+    vapp_xml = await vdc.get_vapp_by_id('urn:vcloud:vapp:cddbb738-2d57-4ea9-8abf-f97499e3f5dd')
     vapp = VApp(vdc.client, resource=vapp_xml)
 
     yield vapp
@@ -573,21 +575,39 @@ async def test_guest_customization_section(vapp_test):
     #     ).text
 
 
+@pytest.mark.asyncio
+async def test_clone_vapp(vapp_test, vdc, vdc2):
+    test_new_name = 'TestCloneVapp'
+    await vdc2.create_vapp(test_new_name)
+    try:
+        vm_resource = await vapp_test.get_vm()
+        vm = VM(vapp_test.client, resource=vm_resource)
+        await vm.copy_to(vapp_test.name, test_new_name, vm_resource.get('name'))
+        await vdc2.reload()
+        vapp_resource = await vdc2.get_vapp(test_new_name)
+        vapp = VApp(vapp_test.client, resource=vapp_resource)
+        vm_resource_new = await vapp.get_vm()
+        assert vm_resource.get('name') == vm_resource_new.get('name')
+    finally:
+        await vdc2.reload()
+        await vdc2.delete_vapp(test_new_name, force=True)
+
+
 # @pytest.mark.skip()
 @pytest.mark.asyncio
-async def test_tmp(vapp_test):
-    from lxml import etree
-    xml = await vapp_test.get_resource()
-    with open('tmp.xml', 'wb') as f:
-        f.write(etree.tostring(
-            xml,
-            pretty_print=True
-        ))
-    exit()
+async def test_tmp(vdc):
+    # from lxml import etree
+    # xml = await vapp_test.get_resource()
+    # with open('tmp.xml', 'wb') as f:
+    #     f.write(etree.tostring(
+    #         xml,
+    #         pretty_print=True
+    #     ))
+    # exit()
     # sys_admin_resource = await client.get_admin()
     # resource = await vdc.get_resource()
     vapp_resource = await vdc.get_vapp_by_id(
-        'urn:vcloud:vapp:fc73ec3b-a6db-451a-a56a-f24d441e166e'
+        'urn:vcloud:vapp:0a50377b-8072-430a-87e1-4f6e98c68c10'
     )
     # vapp = VApp(vdc.client, resource=vapp_resource)
     # vm_resource = await vapp.get_vm()
