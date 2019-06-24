@@ -458,7 +458,11 @@ class VM(object):
                 net_conn_section.PrimaryNetworkConnectionIndex = \
                     E.PrimaryNetworkConnectionIndex(nic_index)
         else:
-            net_conn_section.PrimaryNetworkConnectionIndex = E.PrimaryNetworkConnectionIndex(nic_index)
+            setattr(
+                net_conn_section,
+                tag('ovf')('PrimaryNetworkConnectionIndex'),
+                E.PrimaryNetworkConnectionIndex(nic_index)
+            )
 
         net_conn = E.NetworkConnection(network=network_name)
         net_conn.append(E.NetworkConnectionIndex(nic_index))
@@ -506,22 +510,25 @@ class VM(object):
         net_conn_section = self.resource.NetworkConnectionSection
         if hasattr(net_conn_section, 'NetworkConnection'):
             for nc in net_conn_section.NetworkConnection:
-                nic = {}
-                nic[VmNicProperties.INDEX.value] = nc.NetworkConnectionIndex.text
-                nic[VmNicProperties.CONNECTED.value] = nc.IsConnected.text
-                nic[VmNicProperties.PRIMARY.value] = (
-                    primary_index == nc.NetworkConnectionIndex.text)
-                nic[VmNicProperties.ADAPTER_TYPE.
-                    value] = nc.NetworkAdapterType.text
-                nic[VmNicProperties.NETWORK.value] = nc.get(
-                    VmNicProperties.NETWORK.value)
-                nic[VmNicProperties.IP_ADDRESS_MODE.
-                    value] = nc.IpAddressAllocationMode.text
-                nic[VmNicProperties.MAC_ADDRESS.
-                    value] = nc.MACAddress.text
-                if hasattr(nc, 'IpAddress'):
-                    nic[VmNicProperties.IP_ADDRESS.value] = nc.IpAddress.text
-                nics.append(nic)
+                try:
+                    nic = {}
+                    nic[VmNicProperties.INDEX.value] = nc.NetworkConnectionIndex.text
+                    nic[VmNicProperties.CONNECTED.value] = nc.IsConnected.text
+                    nic[VmNicProperties.PRIMARY.value] = (
+                        primary_index == nc.NetworkConnectionIndex.text)
+                    nic[VmNicProperties.ADAPTER_TYPE.
+                        value] = nc.NetworkAdapterType.text
+                    nic[VmNicProperties.NETWORK.value] = nc.get(
+                        VmNicProperties.NETWORK.value)
+                    nic[VmNicProperties.IP_ADDRESS_MODE.
+                        value] = nc.IpAddressAllocationMode.text
+                    nic[VmNicProperties.MAC_ADDRESS.
+                        value] = nc.MACAddress.text
+                    if hasattr(nc, 'IpAddress'):
+                        nic[VmNicProperties.IP_ADDRESS.value] = nc.IpAddress.text
+                    nics.append(nic)
+                except AttributeError:
+                    pass
         return nics
 
     async def delete_nic(self, index):
