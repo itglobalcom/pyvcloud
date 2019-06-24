@@ -440,6 +440,23 @@ class VM(object):
         """
         # get network connection section.
         net_conn_section = (await self.get_resource()).NetworkConnectionSection
+        idx_to_remove = []
+        # print(etree.tostring(net_conn_section).decode('utf8'))
+        # raise ZeroDivisionError()
+        if hasattr(
+            net_conn_section,
+            tag('vcloud')('NetworkConnection')
+        ):
+            for idx, network_connection in enumerate(
+                    getattr(
+                        net_conn_section,
+                        tag('vcloud')('NetworkConnection')
+                    )
+            ):
+                if network_connection.get('network') == 'none':
+                    idx_to_remove.append(idx)
+            for idx in reversed(idx_to_remove):
+                del net_conn_section.NetworkConnection[idx]
         nic_index = 0
         insert_index = net_conn_section.index(
             net_conn_section[tag('ovf')('Info')]) + 1
