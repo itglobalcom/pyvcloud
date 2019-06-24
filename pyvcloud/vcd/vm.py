@@ -442,7 +442,7 @@ class VM(object):
         net_conn_section = (await self.get_resource()).NetworkConnectionSection
         nic_index = 0
         insert_index = net_conn_section.index(
-            net_conn_section['{' + NSMAP['ovf'] + '}Info']) + 1
+            net_conn_section[tag('ovf')('Info')]) + 1
         # check if any nics exists
         if hasattr(net_conn_section, 'PrimaryNetworkConnectionIndex'):
             # calculate nic index and create the networkconnection object.
@@ -457,6 +457,8 @@ class VM(object):
             if is_primary:
                 net_conn_section.PrimaryNetworkConnectionIndex = \
                     E.PrimaryNetworkConnectionIndex(nic_index)
+        else:
+            net_conn_section.PrimaryNetworkConnectionIndex = E.PrimaryNetworkConnectionIndex(nic_index)
 
         net_conn = E.NetworkConnection(network=network_name)
         net_conn.append(E.NetworkConnectionIndex(nic_index))
