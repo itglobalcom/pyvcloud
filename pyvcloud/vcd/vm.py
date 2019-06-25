@@ -441,8 +441,6 @@ class VM(object):
         # get network connection section.
         net_conn_section = (await self.get_resource()).NetworkConnectionSection
         idx_to_remove = []
-        # print(etree.tostring(net_conn_section).decode('utf8'))
-        # raise ZeroDivisionError()
         if hasattr(
             net_conn_section,
             tag('vcloud')('NetworkConnection')
