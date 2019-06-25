@@ -128,7 +128,7 @@ class Org(object):
         await self.client.delete_linked_resource(
             catalog_admin_resource, RelationType.REMOVE, media_type=None)
 
-    def list_catalogs(self):
+    async def list_catalogs(self):
         """List all catalogs in the organization.
 
         :return: a list of dictionaries, where each item contains information
@@ -143,7 +143,7 @@ class Org(object):
         result = []
         q = self.client.get_typed_query(
             resource_type, query_result_format=QueryResultFormat.ID_RECORDS)
-        records = list(q.execute())
+        records = list(await q.execute())
         for r in records:
             result.append(
                 to_dict(
@@ -264,7 +264,7 @@ class Org(object):
             media_type=EntityType.OWNER.value,
             contents=owner_resource)
 
-    def list_catalog_items(self, name):
+    async def list_catalog_items(self, name):
         """Retrieve all items in a catalog.
 
         :param str name: name of the catalog whose items need to be retrieved.
@@ -277,7 +277,7 @@ class Org(object):
         :raises: EntityNotFoundException: if the named catalog can not be
             found.
         """
-        catalog_resource = self.get_catalog(name)
+        catalog_resource = await self.get_catalog(name)
         items = []
         for item in catalog_resource.CatalogItems.getchildren():
             items.append({'name': item.get('name'), 'id': item.get('id')})
@@ -1067,15 +1067,15 @@ class Org(object):
         return await self.client.post_linked_resource(
             org_admin_resource, RelationType.ADD, EntityType.ROLE.value, role)
 
-    def delete_role(self, name):
+    async def delete_role(self, name):
         """Deletes specified role from the organization.
 
         :param str name: name of the role to be deleted.
         """
         if self.resource is None:
-            self.reload()
+            await self.reload()
         role_record = self.get_role_record(name)
-        self.client.delete_resource(role_record.get('href'))
+        await self.client.delete_resource(role_record.get('href'))
 
     async def get_role_resource(self, role_name):
         """Retrieves XML resource of a given role.
