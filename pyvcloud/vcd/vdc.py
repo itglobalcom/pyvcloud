@@ -298,27 +298,29 @@ class VDC(object):
         template_networks = template_resource.xpath(
             '//ovf:NetworkSection/ovf:Network',
             namespaces={'ovf': NSMAP['ovf']})
-        assert len(template_networks) > 0
-        network_name_from_template = template_networks[0].get(
-            '{' + NSMAP['ovf'] + '}name')
-        if ((network is None) and (network_name_from_template != 'none')):
-            network = network_name_from_template
+        if len(template_networks) > 0:
+            network_name_from_template = template_networks[0].get(
+                '{' + NSMAP['ovf'] + '}name')
+            if ((network is None) and (network_name_from_template != 'none')):
+                network = network_name_from_template
 
-        # Find the network in vdc referred to by user, using
-        # name of the network
-        network_href = network_name = None
-        if network is not None:
-            if hasattr(self.resource, 'AvailableNetworks') and \
-               hasattr(self.resource.AvailableNetworks, 'Network'):
-                for n in self.resource.AvailableNetworks.Network:
-                    if network == n.get('name'):
-                        network_href = n.get('href')
-                        network_name = n.get('name')
-                        break
-            if network_href is None:
-                raise EntityNotFoundException(
-                    'Network \'%s\' not found in the Virtual Datacenter.' %
-                    network)
+            # Find the network in vdc referred to by user, using
+            # name of the network
+            network_href = network_name = None
+            if network is not None:
+                if hasattr(self.resource, 'AvailableNetworks') and \
+                   hasattr(self.resource.AvailableNetworks, 'Network'):
+                    for n in self.resource.AvailableNetworks.Network:
+                        if network == n.get('name'):
+                            network_href = n.get('href')
+                            network_name = n.get('name')
+                            break
+                if network_href is None:
+                    raise EntityNotFoundException(
+                        'Network \'%s\' not found in the Virtual Datacenter.' %
+                        network)
+        else:
+            network_name = None
 
         # Configure the network of the vApp
         vapp_instantiation_param = None
