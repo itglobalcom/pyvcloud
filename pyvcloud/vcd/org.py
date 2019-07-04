@@ -320,6 +320,22 @@ class Org(object):
                 return
         raise EntityNotFoundException('Catalog item not found.')
 
+    async def delete_catalog_item_by_id(self, name, item_id):
+        """Delete an item from a catalog.
+
+        :param str name: name of the catalog whose item needs to be deleted.
+        :param str item_name: name of the item which needs to be deleted.
+
+        :raises: EntityNotFoundException: if the catalog/named item can not be
+            found.
+        """
+        catalog_resource = await self.get_catalog(name)
+        for item in catalog_resource.CatalogItems.getchildren():
+            if item.get('id') == item_id.split(':')[-1]:
+                await self.client.delete_resource(item.get('href'))
+                return
+        raise EntityNotFoundException('Catalog item not found.')
+
     def _is_enable_download_required(self, entity_resource, item_type):
         """Helper method to determine need for download enabling.
 
@@ -879,11 +895,13 @@ class Org(object):
                         name=item.get('name')))
             except Exception:
                 pass
-        return await self.client.post_linked_resource(
+        await self.client.post_linked_resource(
             catalog_resource,
             rel=RelationType.ADD,
             media_type=EntityType.CAPTURE_VAPP_PARAMS.value,
             contents=contents)
+        resource = await self.get_catalog_item(catalog_resource.get('name'), catalog_item_name)
+        return resource.get('id')
 
     async def create_user(self,
                     user_name,

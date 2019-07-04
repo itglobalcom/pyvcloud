@@ -1436,9 +1436,8 @@ class VApp(object):
         from ESX hosts to spool area (transfer folder).
         """
         await self.get_resource()
-        task = await self.client.post_linked_resource(
+        return await self.client.post_linked_rsnaesource(
             self.resource, RelationType.ENABLE, None, None)
-        self.client.get_task_monitor().wait_for_success(task, 60, 1)
 
     async def download_ova(self, file_name, chunk_size=DEFAULT_CHUNK_SIZE):
         """Downloads a vapp into a local file.
