@@ -173,8 +173,9 @@ async def template(vapp, vdc):
         )
     )
     template_name = uuid.uuid4().hex[:10]
+    catalog_resource = await org.get_catalog('Test')
     await org.capture_vapp(
-        await vdc.get_resource(),
+        catalog_resource,
         vapp.href,
         template_name,
         'Test template'
@@ -241,6 +242,7 @@ async def test_create_delete_getlist_vapp(vapp, vdc):
     assert vapp.name in apps
 
 
+@pytest.mark.skip
 @pytest.mark.asyncio
 async def test_poweroff_shutdown(vapp):
     assert VCLOUD_STATUS_MAP[await vapp.get_power_state()] == 'Powered on'
@@ -260,16 +262,16 @@ async def test_poweroff_shutdown(vapp):
 
 
 # @pytest.mark.asyncio
-# async def test_get_vm_by_href(vapp_test, vdc):
-#     vm_resource = await vapp_test.get_vm()
+# async def test_get_vm_by_href(vapp, vdc):
+#     vm_resource = await vapp.get_vm()
 #     vm_resource2 = await vdc.get_vm_by_href(vm_resource.get('href'))
 #     assert vm_resource2 is not None
 
 
 @pytest.mark.asyncio
-async def test_vm_disk(vapp_test, vdc):
-    vm_resource = await vapp_test.get_vm()
-    vm = VM(vapp_test.client, resource=vm_resource)
+async def test_vm_disk(vapp, vdc):
+    vm_resource = await vapp.get_vm()
+    vm = VM(vapp.client, resource=vm_resource)
 
     disk_id = await vm.add_disk(
         'test_add_disk',
@@ -317,7 +319,7 @@ async def test_vm_disk(vapp_test, vdc):
         storage_profile_href = disk_resource[
             tag('rasd')('HostResource')
         ].get(tag('vcloud')('storageProfileHref'))
-        resource = await vapp_test.client.get_resource(storage_profile_href)
+        resource = await vapp.client.get_resource(storage_profile_href)
         storage_profile_id = resource.get('id')
         assert storage_profile_id.startswith('urn:')
     finally:
@@ -455,9 +457,9 @@ async def test_change_name(vapp_off):
 
 
 @pytest.mark.asyncio
-async def test_vm_change_name(vapp_test):
-    vm_resource = await vapp_test.get_vm()
-    vm = VM(vapp_test.client, resource=vm_resource)
+async def test_vm_change_name(vapp):
+    vm_resource = await vapp.get_vm()
+    vm = VM(vapp.client, resource=vm_resource)
     await vm.change_name('new_test_name2')
     await vm.reload()
     vm_resource = await vm.get_resource()
@@ -482,26 +484,25 @@ async def test_template(template, vdc):
 
 
 @pytest.mark.asyncio
-async def test_vm_network(vapp_test, vdc):
+async def test_vm_network(vapp_off, vdc):
     """
     Test create, connect and remove network connection.
     """
-    # test_network_name = 'cloudmng-dev-ExternalDedic01'
     test_network_name = 'cloudmng-dev-external'
 
     # Connect vapp to network
-    networks = await vapp_test.get_all_networks()
+    networks = await vapp_off.get_all_networks()
     network_name_list = []
     for network in networks:
         network_name_list.append(
             network.get(tag('ovf')('name'))
         )
     if test_network_name not in network_name_list:
-        await vapp_test.connect_org_vdc_network(test_network_name)
+        await vapp_off.connect_org_vdc_network(test_network_name)
 
     # Get current vm
-    vm_resource = await vapp_test.get_vm()
-    vm = VM(vapp_test.client, resource=vm_resource)
+    vm_resource = await vapp_off.get_vm()
+    vm = VM(vapp_off.client, resource=vm_resource)
 
     # Add a nic
     idx = await vm.add_nic(
@@ -517,10 +518,7 @@ async def test_vm_network(vapp_test, vdc):
         # Check nic in VM
         assert test_network_name in [dic['network'] for dic in await vm.list_nics()]
     finally:
-        # await vdc.reload()
-        # await vdc.delete_routed_orgvdc_network(test_network_name, force=True)
         await vm.reload()
-        # await vm.delete_nic(idx)
 
     # Add a nic
     idx2 = await vm.add_nic(
@@ -536,8 +534,6 @@ async def test_vm_network(vapp_test, vdc):
         # Check nic in VM
         assert test_network_name in [dic['network'] for dic in await vm.list_nics()]
     finally:
-        # await vdc.reload()
-        # await vdc.delete_routed_orgvdc_network(test_network_name, force=True)
         await vm.reload()
         await vm.delete_nic(idx)
         await vm.delete_nic(idx2)
@@ -553,10 +549,7 @@ async def test_get_vapp_by_id(vapp, vdc):
 
 
 @pytest.mark.asyncio
-async def test_vm_product_section(vdc):
-    vapp_id = 'urn:vcloud:vapp:0a50377b-8072-430a-87e1-4f6e98c68c10'
-    vapp_resource = await vdc.get_vapp_by_id(vapp_id)
-    vapp = VApp(vdc.client, resource=vapp_resource)
+async def test_vm_product_section(vdc, vapp):
     vm_resource = await vapp.get_vm()
     vm = VM(vdc.client, resource=vm_resource)
     await vm.del_product_section(('tag1', 'tag2'))
@@ -584,10 +577,9 @@ async def test_vm_product_section(vdc):
 
 
 @pytest.mark.asyncio
-# async def test_guest_customization_section(vapp):
-async def test_guest_customization_section(vapp_test):
-    vm_resource = await vapp_test.get_vm()
-    vm = VM(vapp_test.client, resource=vm_resource)
+async def test_guest_customization_section(vapp):
+    vm_resource = await vapp.get_vm()
+    vm = VM(vapp.client, resource=vm_resource)
     guest_xml_old = await vm.get_guest_customization_section()
     for field_name in ('VirtualMachineId', 'ComputerName'):
         assert hasattr(guest_xml_old, field_name)
@@ -622,16 +614,16 @@ async def test_guest_customization_section(vapp_test):
 
 
 @pytest.mark.asyncio
-async def test_clone_vapp(vapp_test, vdc, vdc2):
+async def test_clone_vapp(vapp_off, vdc, vdc2):
     test_new_name = 'TestCloneVapp2'
     await vdc2.create_vapp(test_new_name)
     try:
-        vm_resource = await vapp_test.get_vm()
-        vm = VM(vapp_test.client, resource=vm_resource)
-        await vm.copy_to(vapp_test.name, test_new_name, vm_resource.get('name'))
+        vm_resource = await vapp_off.get_vm()
+        vm = VM(vapp_off.client, resource=vm_resource)
+        await vm.copy_to(vapp_off.name, test_new_name, vm_resource.get('name'))
         await vdc2.reload()
         vapp_resource = await vdc2.get_vapp(test_new_name)
-        vapp = VApp(vapp_test.client, resource=vapp_resource)
+        vapp = VApp(vapp_off.client, resource=vapp_resource)
         vm_resource_new = await vapp.get_vm()
         assert vm_resource.get('name') == vm_resource_new.get('name')
     finally:
@@ -675,20 +667,12 @@ async def test_template_without_networks(vdc):
         await vdc.delete_vapp_by_id(vapp_id, True)
 
 
-# @pytest.mark.skip()
+@pytest.mark.skip()
 @pytest.mark.asyncio
 async def test_tmp(vdc):
     resource = await vdc.get_vapp_by_id(
         'urn:vcloud:vapp:cddbb738-2d57-4ea9-8abf-f97499e3f5dd'
     )
-    # resource = await vdc.get_resource()
-    # resource = await vdc.client.get_resource(
-    #     'https://vcloud-ds1.itglobal.com/api/vAppTemplate/vappTemplate-fb1d2295-3104-4de5-8db2-a039ab1f8f1c'
-    # )
-
-    # vapp_resource = await vdc.get_vapp('shikhalev_template_public')
-    # vapp_resource = await vdc.get_vapp('shikhalev_test')
-    # resource = await vdc.get_resource()
 
     from lxml import etree
     with open('tmp.xml', 'wb') as f:
@@ -698,9 +682,3 @@ async def test_tmp(vdc):
                 pretty_print=True
             )
         )
-
-    # await vdc.instantiate_vapp(
-    #     'test_public_template5',
-    #     'Templates',
-    #     'CentOS 7 x64 (minimal requirements)v9'
-    # )
