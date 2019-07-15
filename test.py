@@ -649,8 +649,8 @@ async def test_clone_vapp(vapp, vdc, vdc2):
         clone_vm_resource = await clone_vapp.get_vm()
 
         assert vm_resource.get('name') == clone_vm_resource.get('name')
-        assert clone_vapp_resource.get('deployed') == 'true'
-        assert await clone_vapp.is_powered_on() == True
+        assert clone_vapp_resource.get('deployed') == 'false'
+        assert await clone_vapp.is_powered_on() == False
     finally:
         await vdc2.delete_vapp_by_id(clone_vapp_id)
 
