@@ -634,7 +634,13 @@ async def test_copy_vm(vapp, vdc, vdc2):
 @pytest.mark.asyncio
 async def test_clone_vapp(vapp, vdc, vdc2):
     test_new_name = 'TestCloneVapp2'
-    clone_vapp_id = await vapp.clone(test_new_name, vdc2.href)
+    clone_vapp_id = await vapp.clone(
+        test_new_name,
+        vdc2.href,
+        deploy=False,
+        power_on=False,
+        linked_clone=False,
+    )
     await vdc2.reload()
     try:
         vm_resource = await vapp.get_vm()
@@ -643,6 +649,8 @@ async def test_clone_vapp(vapp, vdc, vdc2):
         clone_vm_resource = await clone_vapp.get_vm()
 
         assert vm_resource.get('name') == clone_vm_resource.get('name')
+        assert clone_vapp_resource.get('deployed') == 'true'
+        assert await clone_vapp.is_powered_on() == True
     finally:
         await vdc2.delete_vapp_by_id(clone_vapp_id)
 

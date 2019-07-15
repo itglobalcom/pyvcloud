@@ -97,12 +97,12 @@ class VApp(object):
             self.href = self.resource.get('href')
 
     async def clone(self, name, vdc_href, deploy=False,
-                    power_on=False, delete=False):
+                    power_on=False, delete=False, linked_clone=False):
         cloneVAppParams = getattr(E, tag('vcloud')('CloneVAppParams'))(
             deploy='true' if deploy else 'false',
             powerOn='true' if power_on else 'false',
             name=name,
-            linkedClone='false'
+            linkedClone='true' if linked_clone else 'false',
         )
         cloneVAppParams.Description = 'Clone vapp.'
         cloneVAppParams.Source = getattr(E, tag('vcloud')('Source'))(
