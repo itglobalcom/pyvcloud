@@ -427,6 +427,7 @@ class EntityType(Enum):
     VMW_STORAGE_PROFILES = \
         'application/vnd.vmware.admin.vmwStorageProfiles+xml'
     vApp_Network = 'application/vnd.vmware.vcloud.vAppNetwork+xml'
+    CLONE_VAPP_PARAMS = 'application/vnd.vmware.vcloud.cloneVAppParams+xml'
 
 
 class QueryResultFormat(Enum):

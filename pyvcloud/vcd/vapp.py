@@ -40,6 +40,7 @@ from pyvcloud.vcd.metadata import Metadata
 from pyvcloud.vcd.utils import cidr_to_netmask
 from pyvcloud.vcd.vdc import VDC
 from pyvcloud.vcd.vm import VM
+from pyvcloud.vcd.utils import tag
 
 DEFAULT_CHUNK_SIZE = 10 * 1024 * 1024
 LOGGER = get_logger()
@@ -95,7 +96,29 @@ class VApp(object):
             self.name = self.resource.get('name')
             self.href = self.resource.get('href')
 
-    def get_primary_ip(self, vm_name):
+    async def clone(self, name, vdc_href, deploy=False,
+                    power_on=False, delete=False):
+        cloneVAppParams = getattr(E, tag('vcloud')('CloneVAppParams'))(
+            deploy='true' if deploy else 'false',
+            powerOn='true' if power_on else 'false',
+            name=name,
+            linkedClone='false'
+        )
+        cloneVAppParams.Description = 'Clone vapp.'
+        cloneVAppParams.Source = getattr(E, tag('vcloud')('Source'))(
+            href = self.href
+        )
+        setattr(cloneVAppParams, tag('vcloud')('IsSourceDelete'), 'true' if delete else 'false')
+        objectify.deannotate(cloneVAppParams)
+        etree.cleanup_namespaces(cloneVAppParams)
+
+        return await self.client.post_resource(
+            f'{vdc_href}/action/cloneVApp',
+            cloneVAppParams,
+            EntityType.CLONE_VAPP_PARAMS.value
+        )
+
+    async def get_primary_ip(self, vm_name):
         """Fetch the primary ip of a vm (in the vApp) identified by its name.
 
         :param str vm_name: name of the vm whose primary ip we want to
@@ -108,7 +131,7 @@ class VApp(object):
         :raises: Exception: if the named vm or its NIC information can't be
             found.
         """
-        self.get_resource()
+        await self.get_resource()
         if hasattr(self.resource, 'Children') and \
            hasattr(self.resource.Children, 'Vm'):
             for vm in self.resource.Children.Vm:
@@ -123,7 +146,7 @@ class VApp(object):
                                                   '}ipAddress')
         raise Exception('can\'t find ip address')
 
-    def get_admin_password(self, vm_name):
+    async def get_admin_password(self, vm_name):
         """Fetch the admin password of a named vm in the vApp.
 
         :param str vm_name: name of the vm whose admin password we want to
@@ -135,7 +158,7 @@ class VApp(object):
 
         :raises: EntityNotFoundException: if the named vm can't be found.
         """
-        self.get_resource()
+        await self.get_resource()
         if hasattr(self.resource, 'Children') and \
            hasattr(self.resource.Children, 'Vm'):
             for vm in self.resource.Children.Vm:
@@ -145,7 +168,7 @@ class VApp(object):
                         return vm.GuestCustomizationSection.AdminPassword.text
         raise EntityNotFoundException('Can\'t find admin password')
 
-    def get_metadata(self):
+    async def get_metadata(self):
         """Fetch metadata of the vApp.
 
         :return: an object containing EntityType.METADATA XML data which
@@ -153,11 +176,11 @@ class VApp(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        self.get_resource()
-        return self.client.get_linked_resource(
+        await self.get_resource()
+        return await self.client.get_linked_resource(
             self.resource, RelationType.DOWN, EntityType.METADATA.value)
 
-    def set_metadata(self,
+    async def set_metadata(self,
                      domain,
                      visibility,
                      key,
@@ -182,7 +205,7 @@ class VApp(object):
         :return: an object of type EntityType.TASK XML which represents
              the asynchronous task that is updating the metadata on the vApp.
         """
-        metadata = Metadata(client=self.client, resource=self.get_metadata())
+        metadata = Metadata(client=self.client, resource=(await self.get_metadata()))
         return metadata.set_metadata(
             key=key,
             value=value,

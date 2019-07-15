@@ -603,32 +603,48 @@ async def test_guest_customization_section(vapp):
     )
     await vm.reload()
     guest_xml_new = await vm.get_guest_customization_section()
-    # assert guest_xml_new.AdminPassword.text == '12345'
-    # assert guest_xml_new.ComputerName.text == 'TestComputer3'
-    # for field_name in ('VirtualMachineId',):
-    #     assert getattr(
-    #         guest_xml_old, field_name
-    #     ).text == getattr(
-    #         guest_xml_new, field_name
-    #     ).text
+    assert guest_xml_new.AdminPassword.text == '1234567890'
+    assert guest_xml_new.ComputerName.text == 'TestComputer5'
+    for field_name in ('VirtualMachineId',):
+        assert getattr(
+            guest_xml_old, field_name
+        ).text == getattr(
+            guest_xml_new, field_name
+        ).text
 
 
 @pytest.mark.asyncio
-async def test_clone_vapp(vapp_off, vdc, vdc2):
+async def test_copy_vm(vapp, vdc, vdc2):
     test_new_name = 'TestCloneVapp2'
     await vdc2.create_vapp(test_new_name)
     try:
-        vm_resource = await vapp_off.get_vm()
-        vm = VM(vapp_off.client, resource=vm_resource)
-        await vm.copy_to(vapp_off.name, test_new_name, vm_resource.get('name'))
+        vm_resource = await vapp.get_vm()
+        vm = VM(vapp.client, resource=vm_resource)
+        await vm.copy_to(vapp.name, test_new_name, vm_resource.get('name'))
         await vdc2.reload()
         vapp_resource = await vdc2.get_vapp(test_new_name)
-        vapp = VApp(vapp_off.client, resource=vapp_resource)
+        vapp = VApp(vapp.client, resource=vapp_resource)
         vm_resource_new = await vapp.get_vm()
         assert vm_resource.get('name') == vm_resource_new.get('name')
     finally:
         await vdc2.reload()
         await vdc2.delete_vapp(test_new_name, force=True)
+
+
+@pytest.mark.asyncio
+async def test_clone_vapp(vapp, vdc, vdc2):
+    test_new_name = 'TestCloneVapp2'
+    clone_vapp_id = await vapp.clone(test_new_name, vdc2.href)
+    await vdc2.reload()
+    try:
+        vm_resource = await vapp.get_vm()
+        clone_vapp_resource = await vdc2.get_vapp_by_id(clone_vapp_id)
+        clone_vapp = VApp(vapp.client, resource=clone_vapp_resource)
+        clone_vm_resource = await clone_vapp.get_vm()
+
+        assert vm_resource.get('name') == clone_vm_resource.get('name')
+    finally:
+        await vdc2.delete_vapp_by_id(clone_vapp_id)
 
 
 @pytest.mark.asyncio
