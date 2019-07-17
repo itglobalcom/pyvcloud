@@ -1092,12 +1092,15 @@ class VM(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        return self._clone(source_vapp_name=source_vapp_name,
-                           target_vapp_name=target_vapp_name,
-                           target_vm_name=target_vm_name,
-                           source_delete=False)
+        return await self._clone(source_vapp_name=source_vapp_name,
+                                 target_vapp_name=target_vapp_name,
+                                 target_vm_name=target_vm_name,
+                                 deploy=deploy,
+                                 power_on=power_on,
+                                 all_eulas_accepted=all_eulas_accepted,
+                                 source_delete=False)
 
-    def move_to(self, source_vapp_name, target_vapp_name, target_vm_name):
+    async def move_to(self, source_vapp_name, target_vapp_name, target_vm_name):
         """Move VM from one vApp to another.
 
         :param: str source vApp name
@@ -1109,13 +1112,14 @@ class VM(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        return self._clone(source_vapp_name=source_vapp_name,
+        return await self._clone(source_vapp_name=source_vapp_name,
                            target_vapp_name=target_vapp_name,
                            target_vm_name=target_vm_name,
                            source_delete=True)
 
-    def _clone(self, source_vapp_name, target_vapp_name, target_vm_name,
-               source_delete):
+    async def _clone(self, source_vapp_name, target_vapp_name, target_vm_name,
+                     deploy=False, power_on=False, all_eulas_accepted=True,
+                     source_delete=False):
         """Clone VM from one vApp to another.
 
         :param: str source vApp name
@@ -1151,9 +1155,9 @@ class VM(object):
                 'target_vm_name': target_vm_name
             }
             return await target_vapp.add_vms([spec],
-                                       deploy=False,
-                                       power_on=False,
-                                       all_eulas_accepted=True,
+                                       deploy=deploy,
+                                       power_on=power_on,
+                                       all_eulas_accepted=all_eulas_accepted,
                                        source_delete=source_delete)
         else:
             raise InvalidStateException("VM Must be powered off.")

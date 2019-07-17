@@ -1650,7 +1650,7 @@ class Org(object):
         else:
             links = self.client.get_resource_link_from_query_object(
                 self.resource, media_type=EntityType.RECORDS.value, type='vdc')
-         for link in links:
+        for link in links:
             if name == link.name:
                 if is_admin_operation:
                     href = get_admin_href(link.href)

@@ -365,8 +365,6 @@ class EntityType(Enum):
         'application/vnd.vmware.vcloud.guestCustomizationSection+xml'
     INSTANTIATE_VAPP_TEMPLATE_PARAMS = \
         'application/vnd.vmware.vcloud.instantiateVAppTemplateParams+xml'
-    GUEST_CUSTOMIZATION_SECTION = \
-        'application/vnd.vmware.vcloud.guestCustomizationSection+xml'
     LEASE_SETTINGS = 'application/vnd.vmware.vcloud.leaseSettingsSection+xml'
     MEDIA = 'application/vnd.vmware.vcloud.media+xml'
     MEDIA_INSERT_OR_EJECT_PARAMS = \
@@ -440,7 +438,6 @@ class EntityType(Enum):
     VMW_STORAGE_PROFILES = \
         'application/vnd.vmware.admin.vmwStorageProfiles+xml'
     vApp_Network = 'application/vnd.vmware.vcloud.vAppNetwork+xml'
-    CLONE_VAPP_PARAMS = 'application/vnd.vmware.vcloud.cloneVAppParams+xml'
 
 
 class QueryResultFormat(Enum):
