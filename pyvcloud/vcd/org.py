@@ -33,6 +33,9 @@ from pyvcloud.vcd.client import E_OVF
 from pyvcloud.vcd.client import EntityType
 from pyvcloud.vcd.client import find_link
 from pyvcloud.vcd.client import get_links
+from pyvcloud.vcd.client import MetadataDomain
+from pyvcloud.vcd.client import MetadataValueType
+from pyvcloud.vcd.client import MetadataVisibility
 from pyvcloud.vcd.client import NSMAP
 from pyvcloud.vcd.client import QueryResultFormat
 from pyvcloud.vcd.client import RelationType
@@ -41,6 +44,7 @@ from pyvcloud.vcd.exceptions import DownloadException
 from pyvcloud.vcd.exceptions import EntityNotFoundException
 from pyvcloud.vcd.exceptions import InvalidParameterException
 from pyvcloud.vcd.exceptions import UploadException
+from pyvcloud.vcd.metadata import Metadata
 from pyvcloud.vcd.system import System
 from pyvcloud.vcd.utils import get_admin_href
 from pyvcloud.vcd.utils import get_safe_members_in_tar_file
@@ -167,17 +171,32 @@ class Org(object):
         """
         if self.resource is None:
             await self.reload()
-        links = get_links(
-            self.resource,
-            rel=RelationType.DOWN,
-            media_type=EntityType.CATALOG.value)
-        for link in links:
-            if name == link.name:
-                if is_admin_operation:
-                    href = get_admin_href(link.href)
-                else:
-                    href = link.href
-                return await self.client.get_resource(href)
+        if self.client.get_api_version() < ApiVersion.VERSION_33.value:
+            links = get_links(
+                self.resource,
+                rel=RelationType.DOWN,
+                media_type=EntityType.CATALOG.value)
+        else:
+            if hasattr(self.resource, "Catalogs"):
+                catalogs = self.resource.Catalogs
+                for catalog in catalogs:
+                    if hasattr(catalog, "CatalogReference"):
+                        if name == catalog.CatalogReference.get("name"):
+                            href = catalog.CatalogReference.get("href")
+                            return self.client.get_resource(href)
+            else:
+                links = self.client.get_resource_link_from_query_object(
+                    self.resource,
+                    media_type=EntityType.RECORDS.value,
+                    type='catalog')
+        if links:
+            for link in links:
+                if name == link.name:
+                    if is_admin_operation:
+                        href = get_admin_href(link.href)
+                    else:
+                        href = link.href
+                    return await self.client.get_resource(href)
         raise EntityNotFoundException('Catalog not found (or)'
                                       ' Access to resource is forbidden')
 
@@ -1623,11 +1642,15 @@ class Org(object):
         """
         if self.resource is None:
             await self.reload()
-        links = get_links(
-            self.resource,
-            rel=RelationType.DOWN,
-            media_type=EntityType.VDC.value)
-        for link in links:
+        if self.client.get_api_version() < ApiVersion.VERSION_33.value:
+            links = get_links(
+                self.resource,
+                rel=RelationType.DOWN,
+                media_type=EntityType.VDC.value)
+        else:
+            links = self.client.get_resource_link_from_query_object(
+                self.resource, media_type=EntityType.RECORDS.value, type='vdc')
+         for link in links:
             if name == link.name:
                 if is_admin_operation:
                     href = get_admin_href(link.href)
@@ -1674,6 +1697,158 @@ class Org(object):
         if self.resource is None:
             self.reload()
         result = []
-        for v in get_links(self.resource, media_type=EntityType.VDC.value):
+        links = []
+        if self.client.get_api_version() < ApiVersion.VERSION_33.value:
+            links = get_links(self.resource, media_type=EntityType.VDC.value)
+        else:
+            links = self.client.get_resource_link_from_query_object(
+                self.resource, media_type=EntityType.RECORDS.value, type='vdc')
+        for v in links:
             result.append({'name': v.name, 'href': v.href})
         return result
+
+    def get_all_metadata_from_catalog_item(self, catalog_name,
+                                           item_name):
+        """Fetch all metadata entries for the given catalog item.
+
+        :param str catalog_name: name of the catalog that contains the item.
+        :param str item_name: name of the catalog item whose metadata needs
+        to be retrieved.
+
+        :return: object containing Metadata Entries
+
+        :rtype: lxml.objectify.ObjectifiedElement
+        """
+        catalog_item = self.get_catalog_item(catalog_name, item_name)
+        return self.client.get_linked_resource(
+            catalog_item, rel=RelationType.DOWN,
+            media_type=EntityType.METADATA.value)
+
+    def get_metadata_value_from_catalog_item(self, catalog_name,
+                                             item_name, key,
+                                             domain=MetadataDomain.GENERAL):
+        """Fetch metadata value identified by the key and domain.
+
+        :param str catalog_name: name of the catalog that contains the item.
+        :param str item_name: name of the catalog item whose metadata value
+        of the given key needs to be retrieved.
+        :param str key: key of the value to be fetched.
+        :param client.MetadataDomain domain: domain of the value to be fetched.
+
+        :return: an object containing EntityType.METADATA_VALUE XML data which
+        represents the metadata value.
+
+        :rtype: lxml.objectify.ObjectifiedElement
+        """
+        metadata = Metadata(client=self.client,
+                            resource=self.get_all_metadata_from_catalog_item(
+                                catalog_name, item_name))
+        return metadata.get_metadata_value(key, domain)
+
+    def set_metadata_on_catalog_item(self,
+                                     catalog_name,
+                                     item_name,
+                                     key,
+                                     value,
+                                     domain=MetadataDomain.GENERAL,
+                                     visibility=MetadataVisibility.READ_WRITE,
+                                     metadata_value_type=MetadataValueType.
+                                     STRING):
+        """Add metadata entry to the catalog item.
+
+        :param str catalog_name: name of the catalog whose item needs add
+        or update of metadata.
+        :param str item_name: name of the catalog item whose metadata value
+        of the given key needs to be retrieved.
+        :param str key: an arbitrary key name. Length cannot exceed 256 UTF-8
+        characters.
+        :param str value: value of the metadata entry
+        :param client.MetadataDomain domain: domain where the new entry would
+            be put.
+        :param client.MetadataVisibility visibility: visibility of the metadata
+        entry.
+        :param client.MetadataValueType metadata_value_type: type of the value
+
+        :return: an object of type EntityType.TASK XML which represents
+        the asynchronous task that is updating the metadata on the catalog
+        item.
+
+        :rtype: lxml.objectify.ObjectifiedElement
+        """
+        metadata = Metadata(client=self.client,
+                            resource=self.get_all_metadata_from_catalog_item(
+                                catalog_name, item_name))
+        return metadata.set_metadata(
+            key=key,
+            value=value,
+            domain=domain,
+            visibility=visibility,
+            metadata_value_type=metadata_value_type,
+            use_admin_endpoint=False)
+
+    def set_multiple_metadata_on_catalog_item(
+            self,
+            catalog_name,
+            item_name,
+            key_value_dict,
+            domain=MetadataDomain.GENERAL,
+            visibility=MetadataVisibility.READ_WRITE,
+            metadata_value_type=MetadataValueType.STRING):
+        """Add multiple metadata entries to the catalog item.
+
+        :param str catalog_name: name of the catalog whose item needs add
+        or update of metadata.
+        :param str item_name: name of the catalog item whose metadata needs
+        to be added/updated.
+        :param dict key_value_dict: a dict containing key-value pairs to be
+        added/updated.
+        :param client.MetadataDomain domain: domain where the new entry would
+        be put.
+        :param client.MetadataVisibility visibility: visibility of the metadata
+        entry.
+        :param client.MetadataValueType metadata_value_type: type of the value
+
+        :return: an object of type EntityType.TASK XML which represents
+        the asynchronous task that is updating the metadata on the catalog
+        item.
+
+        :rtype: lxml.objectify.ObjectifiedElement
+        """
+        pass
+
+        metadata = Metadata(client=self.client,
+                            resource=self.get_all_metadata_from_catalog_item(
+                                catalog_name, item_name))
+        return metadata.set_multiple_metadata(
+            key_value_dict=key_value_dict,
+            domain=domain,
+            visibility=visibility,
+            metadata_value_type=metadata_value_type,
+            use_admin_endpoint=False)
+
+    def remove_metadata_from_catalog_item(self,
+                                          catalog_name,
+                                          item_name,
+                                          key,
+                                          domain=MetadataDomain.GENERAL):
+        """Remove a metadata entry from the catalog item.
+
+        :param str catalog_name: name of the catalog whose item needs removal
+        of metadata entry.
+        :param str item_name: name of the catalog item whose metadata needs
+        to be removed.
+        :param str key: key of the metadata to be removed
+        :param client.MetadataDomain domain: domain of the entry to be removed.
+
+        :return: an object of type EntityType.TASK XML which represents
+        the asynchronous task that is deleting the metadata on the catalog
+        item.
+
+        :rtype: lxml.objectify.ObjectifiedElement
+        """
+        metadata = Metadata(
+            client=self.client,
+            resource=self.get_all_metadata_from_catalog_item(
+                catalog_name, item_name))
+        return metadata.remove_metadata(key=key, domain=domain,
+                                        use_admin_endpoint=False)

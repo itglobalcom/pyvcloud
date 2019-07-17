@@ -1092,10 +1092,46 @@ class VM(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
+        return self._clone(source_vapp_name=source_vapp_name,
+                           target_vapp_name=target_vapp_name,
+                           target_vm_name=target_vm_name,
+                           source_delete=False)
+
+    def move_to(self, source_vapp_name, target_vapp_name, target_vm_name):
+        """Move VM from one vApp to another.
+
+        :param: str source vApp name
+        :param: str target vApp name
+        :param: str target VM name
+
+        :return: an object containing EntityType.TASK XML data which represents
+                    the asynchronous task that is moving VM
+
+        :rtype: lxml.objectify.ObjectifiedElement
+        """
+        return self._clone(source_vapp_name=source_vapp_name,
+                           target_vapp_name=target_vapp_name,
+                           target_vm_name=target_vm_name,
+                           source_delete=True)
+
+    def _clone(self, source_vapp_name, target_vapp_name, target_vm_name,
+               source_delete):
+        """Clone VM from one vApp to another.
+
+        :param: str source vApp name
+        :param: str target vApp name
+        :param: str target VM name
+        :param: bool source delete option
+
+        :return: an object containing EntityType.TASK XML data which represents
+                 the asynchronous task that is copying VM
+
+        :rtype: lxml.objectify.ObjectifiedElement
+        """
         from pyvcloud.vcd.vapp import VApp
         vm_resource = await self.get_resource()
         resource_type = ResourceType.VAPP.value
-        if await self.is_powered_off(vm_resource):
+        if await self.is_powered_off(vm_resource) or source_delete:
             records1 = await self.___validate_vapp_records(
                 vapp_name=source_vapp_name, resource_type=resource_type)
 
@@ -1115,10 +1151,10 @@ class VM(object):
                 'target_vm_name': target_vm_name
             }
             return await target_vapp.add_vms([spec],
-                                       deploy=deploy,
-                                       power_on=power_on,
-                                       all_eulas_accepted=all_eulas_accepted
-                                       )
+                                       deploy=False,
+                                       power_on=False,
+                                       all_eulas_accepted=True,
+                                       source_delete=source_delete)
         else:
             raise InvalidStateException("VM Must be powered off.")
 
@@ -1210,3 +1246,213 @@ class VM(object):
                                            "'%s'," % vapp_name)
 
         return records
+
+    def delete(self):
+        """Delete the VM.
+
+        :return: an object containing EntityType.TASK XML data which represents
+            the asynchronous task that is deleting the VM.
+        :rtype: lxml.objectify.ObjectifiedElement
+        """
+        self.get_resource()
+        return self.client.delete_linked_resource(self.resource,
+                                                  RelationType.REMOVE, None)
+
+    def general_setting_detail(self):
+        """Get the details of VM general setting.
+
+        :return: Dictionary having VM general setting details.
+        e.g.
+        {'Name': 'testvm', 'Computer Name': 'testvm1', 'Storage Policy' : '*',
+        'OS': 'Microsoft Windows Server 2016 (64-bit)', 'Boot Delay': 0,
+        'OS Family': 'windows9Server64Guest', 'Enter BIOS Setup': False}
+        :rtype: dict
+        """
+        general_setting = {}
+        self.get_resource()
+        general_setting['Name'] = self.resource.get('name')
+        general_setting['Computer Name'] = \
+            self.resource.GuestCustomizationSection.ComputerName
+        if hasattr(self.resource, 'Description'):
+            general_setting['Description'] = self.resource.Description
+        general_setting['OS Family'] = self.resource[
+            '{' + NSMAP['ovf'] +
+            '}OperatingSystemSection'].get('{' + NSMAP['vmw'] + '}osType')
+        general_setting['OS'] = self.resource[
+            '{' + NSMAP['ovf'] + '}OperatingSystemSection'].Description
+        general_setting['Boot Delay'] = self.resource.BootOptions.BootDelay
+        general_setting[
+            'Enter BIOS Setup'] = self.resource.BootOptions.EnterBIOSSetup
+        general_setting['Storage Policy'] = self.resource.StorageProfile.get(
+            'name')
+        return general_setting
+
+    def list_storage_profile(self):
+        """Get the list of storage profile in VM.
+
+        :return: list of stotage profile name of storage profile.
+        e.g.
+        [{'name': 'diskpolicy1'}, {'name': 'diskpolicy2'}]
+        :rtype: list
+        """
+        storage_profile = []
+        self.get_resource()
+        if hasattr(self.resource.VmSpecSection, 'DiskSection'):
+            if hasattr(self.resource.VmSpecSection.DiskSection,
+                       'DiskSettings'):
+                for disk_setting in \
+                        self.resource.VmSpecSection.DiskSection.DiskSettings:
+                    if hasattr(disk_setting, 'StorageProfile'):
+                        storage_profile.append({
+                            'name':
+                            disk_setting.StorageProfile.get('name')
+                        })
+        return storage_profile
+
+    def reload_from_vc(self):
+        """Reload a VM from VC.
+
+        :return: an object containing EntityType.TASK XML data which represents
+                    the asynchronous task that is reloading VM from VC
+
+        :rtype: lxml.objectify.ObjectifiedElement
+        """
+        self.get_resource()
+        return self.client.post_linked_resource(
+            self.resource, RelationType.RELOAD_FROM_VC, None, None)
+
+    def check_compliance(self):
+        """Check compliance of a VM.
+
+        :return: an object containing EntityType.TASK XML data which represents
+                    the asynchronous task that is checking compliance of VM
+
+        :rtype: lxml.objectify.ObjectifiedElement
+        """
+        self.get_resource()
+        return self.client.post_linked_resource(
+            self.resource, RelationType.CHECK_COMPLIANCE, None, None)
+
+    def customize_at_next_power_on(self):
+        """Customize VM at next power on.
+
+        :return: returns 204 No content
+
+        :rtype: lxml.objectify.ObjectifiedElement
+        """
+        self.get_resource()
+        return self.client.post_linked_resource(
+            self.resource, RelationType.CUSTOMIZE_AT_NEXT_POWERON, None, None)
+
+    def update_general_setting(self,
+                               name=None,
+                               description=None,
+                               computer_name=None,
+                               boot_delay=None,
+                               enter_bios_setup=None,
+                               storage_policy_href=None):
+        """Update general settings of VM .
+
+        :param str name: name of VM.
+        :param str description: description of VM.
+        :param str computer_name: computer name of VM.
+        :param int boot_delay: boot delay of VM.
+        :param bool enter_bios_setup: enter bios setup of VM.
+        :param str storage_policy_href: storage policy href.
+        :return: an object containing EntityType.TASK XML data which represents
+            the asynchronous task that is updating general setting of VM.
+        :rtype: lxml.objectify.ObjectifiedElement
+        """
+        self.get_resource()
+        if name is not None:
+            self.resource.set('name', name)
+        guest_customization = self.resource.GuestCustomizationSection
+        if computer_name is not None:
+            guest_customization.remove(guest_customization.ComputerName)
+            cn = E.ComputerName(computer_name)
+            guest_customization.ResetPasswordRequired.addnext(cn)
+        if description is not None:
+            if hasattr(self.resource, 'Description'):
+                self.resource.remove(self.resource.Description)
+            desc = E.Description(description)
+            self.resource.VmSpecSection.addprevious(desc)
+        if boot_delay is not None:
+            if hasattr(self.resource.BootOptions, 'BootDelay'):
+                self.resource.BootOptions.remove(
+                    self.resource.BootOptions.BootDelay)
+            bd = E.BootDelay(boot_delay)
+            self.resource.BootOptions.EnterBIOSSetup.addprevious(bd)
+        if enter_bios_setup is not None:
+            if hasattr(self.resource.BootOptions, 'EnterBIOSSetup'):
+                self.resource.BootOptions.remove(
+                    self.resource.BootOptions.EnterBIOSSetup)
+            ebs = E.EnterBIOSSetup(enter_bios_setup)
+            self.resource.BootOptions.BootDelay.addnext(ebs)
+        if storage_policy_href is not None:
+            storage_policy_res = self.client.get_resource(storage_policy_href)
+            print(storage_policy_href)
+            self.resource.StorageProfile.set('href', storage_policy_href)
+            self.resource.StorageProfile.set('id',
+                                             storage_policy_res.get('id'))
+            self.resource.StorageProfile.set('name',
+                                             storage_policy_res.get('name'))
+        return self.client.post_linked_resource(
+            self.resource, RelationType.RECONFIGURE_VM, EntityType.VM.value,
+            self.resource)
+
+    def power_on_and_force_recustomization(self):
+        """Recustomize VM at power on.
+
+        :return: an object containing EntityType.TASK XML data which represents
+                    the asynchronous task that is force recustomize VM on
+                    power on operation
+
+        :rtype: lxml.objectify.ObjectifiedElement
+        """
+        return self.deploy(power_on=True, force_customization=True)
+
+    def get_guest_customization_status(self):
+        """Get guest customization status.
+
+        :return: returns status of GC.
+
+        :rtype: String
+        """
+        self.get_resource()
+        uri = self.href + '/guestcustomizationstatus/'
+        gc_status_resource = self.client.get_resource(uri)
+        return gc_status_resource.GuestCustStatus
+
+    def get_guest_customization_section(self):
+        """Get guest customization section.
+
+        :return: returns lxml.objectify.ObjectifiedElement resource: object
+            containing EntityType.GUESTCUSTOMIZATIONSECTION XML data
+            representing the guestcustomizationsection.
+
+        :rtype: lxml.objectify.ObjectifiedElement
+        """
+        self.get_resource()
+        uri = self.href + '/guestCustomizationSection/'
+        return self.client.get_resource(uri)
+
+    def enable_guest_customization(self, is_enabled=False):
+        """Enable guest customization.
+
+        :param: bool is_enabled: if True, it will enable guest customization.
+            If False, it will disable guest customization
+
+        :return: returns lxml.objectify.ObjectifiedElement resource: object
+            containing EntityType.GUESTCUSTOMIZATIONSECTION XML data
+            representing the guestcustomizationsection.
+
+        :rtype: lxml.objectify.ObjectifiedElement
+        """
+        self.get_resource()
+        gc_section = self.get_guest_customization_section()
+        if hasattr(gc_section, 'Enabled'):
+            gc_section.Enabled = E.Enabled(is_enabled)
+        uri = self.href + '/guestCustomizationSection/'
+        return self.client.\
+            put_resource(uri, gc_section,
+                         EntityType.GUEST_CUSTOMIZATION_SECTION.value)

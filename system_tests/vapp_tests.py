@@ -26,14 +26,19 @@ from pyvcloud.system_test_framework.utils import \
     create_customized_vapp_from_template
 from pyvcloud.system_test_framework.utils import create_empty_vapp
 
+from pyvcloud.vcd.client import find_link
 from pyvcloud.vcd.client import IpAddressMode
 from pyvcloud.vcd.client import MetadataDomain
 from pyvcloud.vcd.client import MetadataVisibility
 from pyvcloud.vcd.client import NetworkAdapterType
 from pyvcloud.vcd.client import NSMAP
+from pyvcloud.vcd.client import RelationType
+from pyvcloud.vcd.client import EntityType
 from pyvcloud.vcd.client import TaskStatus
 from pyvcloud.vcd.exceptions import EntityNotFoundException
+from pyvcloud.vcd.system import System
 from pyvcloud.vcd.vapp import VApp
+from pyvcloud.vcd.vdc import VDC
 from pyvcloud.vcd.vm import VM
 from pyvcloud.vcd.utils import metadata_to_dict
 from pyvcloud.system_test_framework.depends import depends
@@ -89,6 +94,9 @@ class TestVApp(BaseTestCase):
     _new_vapp_network_dns_suffix = 'newexample.com'
     _allocate_ip_address = '90.80.70.10'
     _ova_file_name = 'test.ova'
+    _vapp_copy_name = 'customized_vApp_copy_' + str(uuid1())
+    _ovdc_name = 'test_vdc2_ ' + str(uuid1())
+    _ovdc_network_name = 'test-direct-vdc-network'
 
     def test_0000_setup(self):
         """Setup the vApps required for the other tests in this module.
@@ -98,6 +106,10 @@ class TestVApp(BaseTestCase):
         This test passes if the two vApp hrefs are not None.
         """
         logger = Environment.get_default_logger()
+        TestVApp._pvdc_name = Environment.get_test_pvdc_name()
+        TestVApp._config = Environment.get_config()
+        TestVApp._default_org_name = TestVApp._config['vcd'][
+            'default_org_name']
         TestVApp._client = Environment.get_client_in_default_org(
             TestVApp._test_runner_role)
         TestVApp._sys_admin_client = Environment.get_sys_admin_client()
@@ -128,6 +140,7 @@ class TestVApp(BaseTestCase):
             nw_adapter_type=TestVApp._customized_vapp_vm_network_adapter_type)
         TestVApp._customized_vapp_owner_name = Environment.\
             get_username_for_role_in_test_org(TestVApp._test_runner_role)
+        TestVApp._create_org_vdc()
 
         self.assertIsNotNone(TestVApp._empty_vapp_href)
         self.assertIsNotNone(TestVApp._customized_vapp_href)
@@ -658,6 +671,33 @@ class TestVApp(BaseTestCase):
                 return True
         return False
 
+    def test_0111_connect_vapp_network_to_ovdc_network(self):
+        vapp = Environment.get_vapp_in_test_vdc(
+            client=TestVApp._sys_admin_client,
+            vapp_name=TestVApp._customized_vapp_name)
+
+        # connect vapp network to org vdc network
+        task = vapp.connect_vapp_network_to_ovdc_network(
+            TestVApp._vapp_network_name, TestVApp._ovdc_network_name)
+        result = TestVApp._client.get_task_monitor().wait_for_success(task)
+        self.assertEqual(result.get('status'), TaskStatus.SUCCESS.value)
+        vapp_network_href = find_link(
+            resource=vapp.resource,
+            rel=RelationType.DOWN,
+            media_type=EntityType.vApp_Network.value,
+            name=TestVApp._vapp_network_name).href
+        vapp_net_res = TestVApp._client.get_resource(vapp_network_href)
+        self.assertEqual(
+            vapp_net_res.Configuration.ParentNetwork.get('name'),
+            TestVApp._ovdc_network_name)
+
+    def test_0112_sync_syslog_settings(self):
+        vapp = Environment.get_vapp_in_test_vdc(
+            client=TestVApp._client, vapp_name=TestVApp._customized_vapp_name)
+        task = vapp.sync_syslog_settings(TestVApp._vapp_network_name)
+        result = TestVApp._client.get_task_monitor().wait_for_success(task)
+        self.assertEqual(result.get('status'), TaskStatus.SUCCESS.value)
+
     def test_0120_reset_vapp_network(self):
         """Test the method vapp.reset_vapp_network().
 
@@ -804,6 +844,21 @@ class TestVApp(BaseTestCase):
         list_ip_address = vapp.list_ip_allocations(TestVApp._vapp_network_name)
         self.assertTrue(len(list_ip_address) > 0)
 
+    def test_0127_dns_detail_of_vapp_network(self):
+        vapp = Environment.get_vapp_in_test_vdc(
+            client=TestVApp._client, vapp_name=TestVApp._customized_vapp_name)
+        result = vapp.dns_detail_of_vapp_network(TestVApp._vapp_network_name)
+        self.assertEqual(result['Dns1'], TestVApp._vapp_network_dns1)
+        self.assertEqual(result['Dns2'], TestVApp._vapp_network_dns2)
+        self.assertEqual(result['DnsSuffix'],
+                         TestVApp._vapp_network_dns_suffix)
+
+    def test_0129_get_vapp_network_list(self):
+        vapp = Environment.get_vapp_in_test_vdc(
+            client=TestVApp._client, vapp_name=TestVApp._customized_vapp_name)
+        list_of_vapp_net = vapp.get_vapp_network_list()
+        self.assertNotEqual(len(list_of_vapp_net), 0)
+
     def test_0130_delete_vapp_network(self):
         """Test the method vapp.delete_vapp_network().
 
@@ -820,6 +875,26 @@ class TestVApp(BaseTestCase):
         self.assertFalse(
             self._is_network_present(vapp, TestVApp._vapp_network_name))
 
+    def test_0131_list_vapp_details(self):
+        """Test the method list_vapp_details().
+
+        This test passes if the expected vApp list can be successfully retrieved.
+        """
+        org_vdc = Environment.get_test_vdc(TestVApp._sys_admin_client)
+        resource_type = 'adminVApp'
+
+        vapp_filter = None
+        vapp_list = org_vdc.list_vapp_details(resource_type, vapp_filter)
+        self.assertTrue(len(vapp_list) > 0)
+
+        vapp_filter = 'name==' + TestVApp._customized_vapp_name
+        vapp_list = org_vdc.list_vapp_details(resource_type, vapp_filter)
+        self.assertTrue(len(vapp_list) > 0)
+
+        vapp_filter = 'ownerName==' + TestVApp._customized_vapp_owner_name
+        vapp_list = org_vdc.list_vapp_details(resource_type, vapp_filter)
+        self.assertTrue(len(vapp_list) > 0)
+
     def test_0140_upgrade_virtual_hardware(self):
         logger = Environment.get_default_logger()
         vapp_name = TestVApp._customized_vapp_name
@@ -835,6 +910,99 @@ class TestVApp(BaseTestCase):
         logger.debug('Upgrading virtual hardware of vApp ' + vapp_name)
         no_of_vm_upgraded = vapp.upgrade_virtual_hardware()
         self.assertEqual(no_of_vm_upgraded, len(vapp.get_all_vms()))
+
+    def test_0150_copy_to(self):
+        logger = Environment.get_default_logger()
+        vapp = Environment.get_vapp_in_test_vdc(
+            client=TestVApp._sys_admin_client,
+            vapp_name=TestVApp._customized_vapp_name)
+        vdc = Environment.get_test_vdc(TestVApp._client)
+        logger.debug('Copy vApp ' + TestVApp._customized_vapp_name)
+        task = vapp.copy_to(vdc.href, TestVApp._vapp_copy_name, None)
+        result = TestVApp._sys_admin_client.get_task_monitor(
+        ).wait_for_success(task)
+        self.assertEqual(result.get('status'), TaskStatus.SUCCESS.value)
+        vdc = Environment.get_test_vdc(TestVApp._sys_admin_client)
+        task = vdc.delete_vapp(name=TestVApp._vapp_copy_name, force=True)
+        result = TestVApp._sys_admin_client.get_task_monitor(
+        ).wait_for_success(task)
+        self.assertEqual(result.get('status'), TaskStatus.SUCCESS.value)
+
+    def _create_org_vdc():
+        # creating a org vdc
+        org = Environment.get_test_org(TestVApp._sys_admin_client)
+        storage_profiles = [{
+            'name':
+            TestVApp._config['vcd']['default_storage_profile_name'],
+            'enabled':
+            True,
+            'units':
+            'MB',
+            'limit':
+            0,
+            'default':
+            True
+        }]
+        system = System(
+            TestVApp._sys_admin_client,
+            admin_resource=TestVApp._sys_admin_client.get_admin())
+        netpool_to_use = Environment._get_netpool_name_to_use(system)
+        org.create_org_vdc(
+            TestVApp._ovdc_name,
+            TestVApp._pvdc_name,
+            network_pool_name=netpool_to_use,
+            network_quota=TestVApp._config['vcd']['default_network_quota'],
+            storage_profiles=storage_profiles,
+            uses_fast_provisioning=True,
+            is_thin_provision=True)
+
+    def test_0160_move_to(self):
+        org = Environment.get_test_org(TestVApp._client)
+        target_vdc = org.get_vdc(TestVApp._ovdc_name)
+        logger = Environment.get_default_logger()
+        vapp = Environment.get_vapp_in_test_vdc(
+            client=TestVApp._sys_admin_client,
+            vapp_name=TestVApp._customized_vapp_name)
+
+        logger.debug('Move vApp ' + TestVApp._customized_vapp_name)
+        task = vapp.move_to(target_vdc.get('href'))
+        result = TestVApp._sys_admin_client.get_task_monitor(
+        ).wait_for_success(task)
+        self.assertEqual(result.get('status'), TaskStatus.SUCCESS.value)
+
+        target_vdc = org.get_vdc(TestVApp._ovdc_name)
+        target_vdc_obj = VDC(
+            TestVApp._sys_admin_client, href=target_vdc.get('href'))
+        vapp_resource = target_vdc_obj.get_vapp(TestVApp._customized_vapp_name)
+        vapp = VApp(TestVApp._sys_admin_client, resource=vapp_resource)
+
+        target_vdc = Environment.get_test_vdc(TestVApp._client)
+        logger.debug('Move back vApp ' + TestVApp._customized_vapp_name)
+        task = vapp.move_to(target_vdc.href)
+        result = TestVApp._sys_admin_client.get_task_monitor(
+        ).wait_for_success(task)
+        self.assertEqual(result.get('status'), TaskStatus.SUCCESS.value)
+
+    def test_0170_create_snapshot(self):
+        vapp = Environment.get_vapp_in_test_vdc(
+            client=TestVApp._client, vapp_name=TestVApp._customized_vapp_name)
+        task = vapp.create_snapshot()
+        result = TestVApp._client.get_task_monitor().wait_for_success(task)
+        self.assertEqual(result.get('status'), TaskStatus.SUCCESS.value)
+
+    def test_0180_snapshot_revert_to_current(self):
+        vapp = Environment.get_vapp_in_test_vdc(
+            client=TestVApp._client, vapp_name=TestVApp._customized_vapp_name)
+        task = vapp.snapshot_revert_to_current()
+        result = TestVApp._client.get_task_monitor().wait_for_success(task)
+        self.assertEqual(result.get('status'), TaskStatus.SUCCESS.value)
+
+    def test_0190_snapshot_remove(self):
+        vapp = Environment.get_vapp_in_test_vdc(
+            client=TestVApp._client, vapp_name=TestVApp._customized_vapp_name)
+        task = vapp.snapshot_remove()
+        result = TestVApp._client.get_task_monitor().wait_for_success(task)
+        self.assertEqual(result.get('status'), TaskStatus.SUCCESS.value)
 
     @developerModeAware
     def test_9998_teardown(self):

@@ -90,7 +90,6 @@ client = Client(cfg.vcd_host, verify_ssl_certs=False,
                 log_requests=True,
                 log_headers=True,
                 log_bodies=True)
-client.set_highest_supported_version()
 client.set_credentials(BasicLoginCredentials(cfg.vcd_admin_user,
                        "System", cfg.vcd_admin_password))
 
@@ -159,9 +158,9 @@ except Exception:
 # permissions.  As with VDC's we reload the org if we create a catalog
 # so that it's visible in future calls.
 try:
-    catalog_resource = org.get_catalog_resource(cfg.catalog['name'])
+    catalog_resource = org.get_catalog(cfg.catalog['name'])
     print("Catalog already exists: {0}".format(cfg.catalog['name']))
-except Exception:
+except Exception as e:
     print("Catalog does not exist, creating: {0}".format(cfg.catalog['name']))
     catalog_kwargs = cfg.catalog
     catalog_resource = org.create_catalog(**catalog_kwargs)

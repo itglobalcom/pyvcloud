@@ -930,7 +930,8 @@ class VApp(object):
                 specs,
                 deploy=True,
                 power_on=True,
-                all_eulas_accepted=None):
+                all_eulas_accepted=None,
+                source_delete=False):
         """Recompose the vApp and add vms.
 
         :param dict specs: vm specifications, see `to_sourced_item()` method
@@ -950,8 +951,11 @@ class VApp(object):
         params = E.RecomposeVAppParams(
             deploy='true' if deploy else 'false',
             powerOn='true' if power_on else 'false')
+
         for spec in specs:
             params.append(await self.to_sourced_item(spec))
+        if source_delete:
+            params.SourcedItem.set('sourceDelete', 'true')
         if all_eulas_accepted is not None:
             params.append(E.AllEULAsAccepted(all_eulas_accepted))
         return await self.client.post_linked_resource(
@@ -1335,7 +1339,7 @@ class VApp(object):
                                 dns_suffix=None):
         """Add DNS details to vApp network.
 
-        :param str network_name: name of vApp network.
+        :param str network_name: name of App network.
         :param str primary_dns_ip: primary DNS IP.
         :param str secondary_dns_ip: secondary DNS IP.
         :param str dns_suffix: DNS suffix.
@@ -1353,6 +1357,30 @@ class VApp(object):
                     self.resource.NetworkConfigSection, RelationType.EDIT,
                     EntityType.NETWORK_CONFIG_SECTION.value,
                     self.resource.NetworkConfigSection)
+        raise EntityNotFoundException(
+            'Can\'t find network \'%s\'' % network_name)
+
+    def dns_detail_of_vapp_network(self, network_name):
+        """DNS details of vApp network.
+
+        :param str network_name: name of App network.
+        :return:  Dictionary having Dns1, Dns2 and DnsSuffix.
+        e.g.
+        {'Dns1': '10.1.1.1', 'Dns2': '10.1.1.2', 'DnsSuffix':'example.com'}
+        :rtype: dict
+        :raises: Exception: if the network can't be found.
+        """
+        for network_config in self.resource.NetworkConfigSection.NetworkConfig:
+            if network_config.get('networkName') == network_name:
+                ip_scope = network_config.Configuration.IpScopes.IpScope
+                dns_details = {}
+                if hasattr(ip_scope, 'Dns1'):
+                    dns_details['Dns1'] = ip_scope.Dns1
+                if hasattr(ip_scope, 'Dns2'):
+                    dns_details['Dns2'] = ip_scope.Dns2
+                if hasattr(ip_scope, 'DnsSuffix'):
+                    dns_details['DnsSuffix'] = ip_scope.DnsSuffix
+                return dns_details
         raise EntityNotFoundException(
             'Can\'t find network \'%s\'' % network_name)
 
@@ -1501,3 +1529,178 @@ class VApp(object):
             LOGGER.error('Operation not supported  for vm ' +
                          vm.get('name'))
         return no_of_vm_upgraded
+
+    def vapp_clone(self, vdc_href, vapp_name, description, source_delete):
+        """Copy a vapp to vdc with given name.
+
+        :param str vdc_href: link of vdc where vapp is going to copy.
+        :param str vapp_name: name of vapp.
+        :param str description: description of vapp.
+        :param bool source_delete: if source_delete is true it will delete
+            source vapp.
+        :return: an object containing EntityType.TASK XML data which represents
+            the asynchronous task that is copying the vApp.
+        :rtype: lxml.objectify.ObjectifiedElement
+        """
+        resource = E.CloneVAppParams(name=vapp_name)
+        if description is not None:
+            resource.append(E.Description(description))
+        resource.append(E.Source(href=self.resource.get('href')))
+        if source_delete:
+            resource.append(E.IsSourceDelete(True))
+        else:
+            resource.append(E.IsSourceDelete(False))
+        for vm in self.get_all_vms():
+            sourced_vm_instantiation_params = E.SourcedVmInstantiationParams()
+            sourced_vm_instantiation_params.append(
+                E.Source(href=vm.get('href')))
+            sourced_vm_instantiation_params.append(
+                E.StorageProfile(href=vm.StorageProfile.get('href')))
+            resource.append(sourced_vm_instantiation_params)
+        vdc_resource = self.client.get_resource(vdc_href)
+        result = self.client.post_linked_resource(
+            vdc_resource, RelationType.ADD, EntityType.CLONE_VAPP_PARAMS.value,
+            resource)
+        return result.Tasks.Task[0]
+
+    def copy_to(self, vdc_href, vapp_new_name, description):
+        """Copy a vapp to vdc with given name.
+
+        :param str vdc_href: link of vdc where vapp is going to copy.
+        :param str vapp_new_name: name of vapp.
+        :param str description: description of vapp.
+
+        :return: an object containing EntityType.TASK XML data which represents
+            the asynchronous task that is copying the vApp.
+        :rtype: lxml.objectify.ObjectifiedElement
+        """
+        return self.vapp_clone(vdc_href, vapp_new_name, description, False)
+
+    def move_to(self, vdc_href):
+        """Move a vapp to another vdc.
+
+        :param str vdc_href: link of vdc where vapp is going to move.
+
+        :return: an object containing EntityType.TASK XML data which represents
+            the asynchronous task that is moving the vApp.
+        :rtype: lxml.objectify.ObjectifiedElement
+        """
+        vapp_name = self.resource.get('name')
+        return self.vapp_clone(vdc_href, vapp_name, None, True)
+
+    def create_snapshot(self, memory=False, quiesce=False):
+        """Create snapshot of vapp.
+
+        :param bool memory: True, if the snapshot should include the virtual
+            machine's memory.
+        :param bool quiesce: True, if the file system of the virtual machine
+            should be quiesced before the snapshot is created. Requires VMware
+            tools to be installed on the vm.
+
+        :return: an object containing EntityType.TASK XML data which represents
+            the asynchronous task that is moving the vApp.
+        :rtype: lxml.objectify.ObjectifiedElement
+        """
+        snapshot_vapp_params = E.CreateSnapshotParams()
+        snapshot_vapp_params.set('memory', str(memory).lower())
+        snapshot_vapp_params.set('quiesce', str(quiesce).lower())
+        return self.client.post_linked_resource(
+            self.resource, RelationType.SNAPSHOT_CREATE,
+            EntityType.SNAPSHOT_CREATE.value, snapshot_vapp_params)
+
+    def snapshot_revert_to_current(self):
+        """Reverts a vapp to the current snapshot, if any.
+
+        :return: an object containing EntityType.TASK XML data which represents
+            the asynchronous task that is reverting the snapshot.
+
+        :rtype: lxml.objectify.ObjectifiedElement
+        """
+        self.get_resource()
+        return self.client.post_linked_resource(
+            self.resource, RelationType.SNAPSHOT_REVERT_TO_CURRENT, None, None)
+
+    def snapshot_remove(self):
+        """Remove snapshots of a vapp.
+
+        :return: an object containing EntityType.TASK XML data which represents
+            the asynchronous task removing the snapshots.
+
+        :rtype: lxml.objectify.ObjectifiedElement
+        """
+        self.get_resource()
+        return self.client.post_linked_resource(
+            self.resource, RelationType.SNAPSHOT_REMOVE_ALL, None, None)
+
+    def get_vapp_network_list(self):
+        """Returns the list of vapp network defined in the vApp.
+
+        :return: list of the vapp network name.
+
+        :rtype: list
+        """
+        self.get_resource()
+        vapp_network_list = []
+        for network_config in self.resource.NetworkConfigSection.NetworkConfig:
+            if network_config.get('networkName') != 'none':
+                vapp_network_list.append({
+                    'name':
+                    network_config.get('networkName')
+                })
+        return vapp_network_list
+
+    def sync_syslog_settings(self, network_name):
+        """Sync syslog settings of vApp network.
+
+        :param str network_name: name of App network.
+        :return: an object containing EntityType.TASK XML data which represents
+            the asynchronous task that is updating the vApp network.
+        :rtype: lxml.objectify.ObjectifiedElement
+        :raises: Exception: if the network can't be found.
+        """
+        for network_config in self.resource.NetworkConfigSection.NetworkConfig:
+            if network_config.get('networkName') == network_name:
+                return self.client.post_linked_resource(
+                    resource=network_config,
+                    rel=RelationType.SYNC_SYSLOG_SETTINGS,
+                    media_type=EntityType.TASK.value,
+                    contents=None)
+        raise EntityNotFoundException(
+            'Can\'t find network \'%s\'' % network_name)
+
+    def connect_vapp_network_to_ovdc_network(self, network_name,
+                                             orgvdc_network_name):
+        """Connect vapp network to org vdc network.
+
+        :param str network_name: name of App network.
+        :param str orgvdc_network_name: org vdc network name.
+        :return: an object containing EntityType.TASK XML data which represents
+            the asynchronous task that is updating the vApp network.
+        :rtype: lxml.objectify.ObjectifiedElement
+        """
+        vdc = VDC(
+            self.client,
+            href=find_link(self.resource, RelationType.UP,
+                           EntityType.VDC.value).href)
+        orgvdc_network_href = vdc.get_orgvdc_network_admin_href_by_name(
+            orgvdc_network_name)
+        ovdc_net_res = self.client.get_resource(orgvdc_network_href)
+        vapp_network_href = find_link(
+            resource=self.resource,
+            rel=RelationType.DOWN,
+            media_type=EntityType.vApp_Network.value,
+            name=network_name).href
+        vapp_net_res = self.client.get_resource(vapp_network_href)
+        parent_network = E.ParentNetwork()
+        parent_network.set('href', orgvdc_network_href)
+        parent_network.set('id', ovdc_net_res.get('id'))
+        parent_network.set('name', ovdc_net_res.get('name'))
+        vapp_net_res.Configuration.FenceMode.addprevious(parent_network)
+        vapp_net_res.Configuration.remove(vapp_net_res.Configuration.FenceMode)
+        vapp_net_res.Configuration.ParentNetwork.addnext(
+            E.FenceMode(FenceMode.NAT_ROUTED.value))
+        return self.client.put_linked_resource(
+            resource=vapp_net_res,
+            rel=RelationType.EDIT,
+            media_type=EntityType.vApp_Network.value,
+            contents=vapp_net_res)
