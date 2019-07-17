@@ -15,6 +15,7 @@
 from lxml import etree
 
 from pyvcloud.vcd.acl import Acl
+from pyvcloud.vcd.client import ApiVersion
 from pyvcloud.vcd.client import E
 from pyvcloud.vcd.client import E_OVF
 from pyvcloud.vcd.client import EdgeGatewayType
@@ -30,6 +31,7 @@ from pyvcloud.vcd.client import NSMAP
 from pyvcloud.vcd.client import QueryResultFormat
 from pyvcloud.vcd.client import RelationType
 from pyvcloud.vcd.client import ResourceType
+from pyvcloud.vcd.client import SIZE_1MB
 from pyvcloud.vcd.exceptions import EntityNotFoundException
 from pyvcloud.vcd.exceptions import InvalidParameterException
 from pyvcloud.vcd.exceptions import MultipleRecordsException
@@ -38,6 +40,7 @@ from pyvcloud.vcd.org import Org
 from pyvcloud.vcd.platform import Platform
 from pyvcloud.vcd.utils import cidr_to_netmask
 from pyvcloud.vcd.utils import get_admin_href
+from pyvcloud.vcd.utils import is_admin
 from pyvcloud.vcd.utils import netmask_to_cidr_prefix_len
 
 
@@ -60,9 +63,11 @@ class VDC(object):
                 "or None")
         self.href = href
         self.resource = resource
+
         if resource is not None:
             self.name = resource.get('name')
             self.href = resource.get('href')
+        self.is_admin = is_admin(self.href)
         self.href_admin = get_admin_href(self.href)
 
     def get_resource(self):
@@ -252,8 +257,11 @@ class VDC(object):
         self.get_resource()
 
         # Get hold of the template
+        media_type = EntityType.ORG.value
+        if self.is_admin:
+            media_type = EntityType.ADMIN_ORG.value
         org_href = find_link(self.resource, RelationType.UP,
-                             EntityType.ORG.value).href
+                             media_type).href
         org = Org(self.client, href=org_href)
         catalog_item = org.get_catalog_item(catalog, template)
         template_resource = self.client.get_resource(
@@ -264,12 +272,12 @@ class VDC(object):
         template_networks = template_resource.xpath(
             '//ovf:NetworkSection/ovf:Network',
             namespaces={'ovf': NSMAP['ovf']})
-        assert len(template_networks) > 0
-        network_name_from_template = template_networks[0].get(
-            '{' + NSMAP['ovf'] + '}name')
-        if ((network is None) and (network_name_from_template != 'none')):
-            network = network_name_from_template
-
+        #        assert len(template_networks) > 0
+        if len(template_networks) > 0:
+            network_name_from_template = template_networks[0].get(
+                '{' + NSMAP['ovf'] + '}name')
+            if ((network is None) and (network_name_from_template != 'none')):
+                network = network_name_from_template
         # Find the network in vdc referred to by user, using
         # name of the network
         network_href = network_name = None
@@ -456,9 +464,16 @@ class VDC(object):
         vapp_template_params.append(sourced_item)
 
         vapp_template_params.append(E.AllEULAsAccepted(all_eulas_accepted))
+        non_admin_resource = self.resource
+        if self.is_admin:
+            alternate_href = find_link(self.resource,
+                                       rel=RelationType.ALTERNATE,
+                                       media_type=EntityType.VDC.value).href
+            non_admin_resource = self.client.get_resource(
+                alternate_href)
 
         return self.client.post_linked_resource(
-            self.resource, RelationType.ADD,
+            non_admin_resource, RelationType.ADD,
             EntityType.INSTANTIATE_VAPP_TEMPLATE_PARAMS.value,
             vapp_template_params)
 
@@ -535,8 +550,12 @@ class VDC(object):
         :rtype: lxml.objectify.ObjectifiedElement
         """
         self.get_resource()
-
-        disk_params = E.DiskCreateParams(E.Disk(name=name, size=str(size)))
+        if self.client.get_api_version() < ApiVersion.VERSION_33.value:
+            disk = E.Disk(name=name, size=str(size))
+        else:
+            size = int(int(size) / SIZE_1MB)
+            disk = E.Disk(name=name, sizeMb=str(size))
+        disk_params = E.DiskCreateParams(disk)
         if iops is not None:
             disk_params.Disk.set('iops', iops)
 
@@ -599,9 +618,14 @@ class VDC(object):
             disk_params.set('name', disk.get('name'))
 
         if new_size is not None:
-            disk_params.set('size', str(new_size))
+            size = str(new_size)
         else:
-            disk_params.set('size', disk.get('size'))
+            size = disk.get('size')
+        if self.client.get_api_version() < ApiVersion.VERSION_33.value:
+            disk_params.set('size', size)
+        else:
+            size = int(int(size) / SIZE_1MB)
+            disk_params.set('sizeMb', str(size))
 
         if new_description is not None:
             disk_params.append(E.Description(new_description))
@@ -2032,3 +2056,113 @@ class VDC(object):
             raise MultipleRecordsException("Found multiple gateway named "
                                            "'%s'," % name)
         return records[0]
+
+    def list_vapp_details(self, resource_type, filter=None):
+        """List vApp details.
+
+        :param str filter: filter to fetch the vApp Details based on filter,
+        e.g.,
+        ownerName==<owner-name*>
+        name==<vapp-name>
+        numberOfVMs==<number>
+        vdcName==<vdcname>
+
+        :return: list of vApp based on filter
+        e.g.
+        [{'containerName': 'vapp1', 'ownerName': 'system' ,
+         'numberOfVMs':'7','status':'POWERED_ON','vdcName':'Ovdc1'}]
+        :rtype: list
+
+        """
+        out_list = []
+        query = self.client.get_typed_query(
+            resource_type,
+            query_result_format=QueryResultFormat.RECORDS,
+            qfilter=filter)
+        out_list = list(query.execute())
+
+        return out_list
+
+    def _fetch_compute_policies(self):
+        """Fetch References vDC compute policies.
+
+        :return: an object containing VdcComputePolicyReferences XML element
+        that refers to individual VdcComputePolicies.
+
+        :rtype: lxml.objectify.ObjectifiedElement
+        """
+        self.get_resource()
+        return self.client.get_linked_resource(
+            self.resource, rel=RelationType.DOWN,
+            media_type=EntityType.VDC_COMPUTE_POLICY_REFERENCES.value)
+
+    def list_compute_policies(self):
+        """List VdcComputePolicy references.
+
+        :return: list of VdcComputePolicyReference XML elements each of which
+        refers to VcdComputePolicy.
+
+        :rtype: list of lxml.objectify.StringElement
+        """
+        policy_references = self._fetch_compute_policies()
+        policy_list = []
+        for policy_reference in policy_references.VdcComputePolicyReference:
+            policy_list.append(policy_reference)
+        return policy_reference
+
+    def add_compute_policy(self, href):
+        """Add a VdcComputePolicy.
+
+        :param str href: URI of the compute policy
+
+        :return: an object containing VdcComputePolicyReferences XML element
+        that refers to individual VdcComputePolicies.
+
+        :rtype: lxml.objectify.ObjectifiedElement
+        """
+        policy_references = self._fetch_compute_policies()
+        policy_id = self._retrieve_compute_policy_id_from_href(href)
+        policy_reference_element = E.VdcComputePolicyReference()
+        policy_reference_element.set('href', href)
+        policy_reference_element.set('id', policy_id)
+        policy_references.append(policy_reference_element)
+        return self.client.put_linked_resource(
+            self.resource, RelationType.DOWN,
+            EntityType.VDC_COMPUTE_POLICY_REFERENCES.value,
+            policy_references)
+
+    def remove_compute_policy(self, href):
+        """Delete a VdcComputePolicy.
+
+        :param str href: URI of the compute policy to be deleted
+
+        :return: an object containing VdcComputePolicyReferences XML element
+        that refers to individual VdcComputePolicies.
+
+        :rtype: lxml.objectify.ObjectifiedElement
+
+        :raises: EntityNotFoundException: if the VdcComputePolicy cannot
+            be located.
+        """
+        policy_references = self._fetch_compute_policies()
+        policy_id = self._retrieve_compute_policy_id_from_href(href)
+        for policy_reference in policy_references.VdcComputePolicyReference:
+            if policy_id == policy_reference.get('id'):
+                policy_references.remove(policy_reference)
+                return self.client.put_linked_resource(
+                    self.resource, RelationType.DOWN,
+                    EntityType.VDC_COMPUTE_POLICY_REFERENCES.value,
+                    policy_references)
+        raise EntityNotFoundException(f"VdcComputePolicyReference "
+                                      f"with href '{href}' not found")
+
+    def _retrieve_compute_policy_id_from_href(self, href):
+        """Extract compute policy id from href.
+
+        :param str href: URI of the compute policy
+
+        :return: compute policy id
+
+        :rtype: str
+        """
+        return href.split('/')[-1]

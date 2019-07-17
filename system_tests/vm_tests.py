@@ -26,6 +26,7 @@ from pyvcloud.system_test_framework.utils import create_empty_vapp
 
 from pyvcloud.vcd.client import IpAddressMode
 from pyvcloud.vcd.client import NetworkAdapterType
+from pyvcloud.vcd.client import NSMAP
 from pyvcloud.vcd.client import TaskStatus
 from pyvcloud.vcd.client import VmNicProperties
 from pyvcloud.vcd.exceptions import EntityNotFoundException
@@ -61,6 +62,23 @@ class TestVM(BaseTestCase):
 
     _target_vm_name = 'targetvm'
 
+    _idisk_name = 'SCSI'
+    _idisk_size = '5242880'
+    _idisk_description = '5Mb SCSI disk'
+
+    _computer_name = 'testvm1'
+    _boot_delay = 0
+    _enter_bios_setup = False
+    _description = ''
+    _vm_name_update = 'VMupdatedname'
+    _description_update = 'Description after update'
+    _computer_name_update = 'mycom'
+    _boot_delay_update = 60
+    _enter_bios_setup_update = True
+
+    _test_vapp_vmtools_name = 'test_vApp_vmtools_' + str(uuid1())
+    _test_vapp_vmtools_vm_name = 'yVM'
+
     def test_0000_setup(self):
         """Setup the vms required for the other tests in this module.
 
@@ -91,6 +109,7 @@ class TestVM(BaseTestCase):
         self.assertIsNotNone(TestVM._test_vapp_href)
 
         vapp = VApp(TestVM._client, href=TestVM._test_vapp_href)
+        TestVM._test_vapp = vapp
         vm_resource = vapp.get_vm(TestVM._test_vapp_first_vm_name)
         TestVM._test_vapp_first_vm_href = vm_resource.get('href')
 
@@ -104,6 +123,54 @@ class TestVM(BaseTestCase):
                               description=TestVM._empty_vapp_description)
         TestVM._empty_vapp_owner_name = Environment. \
             get_username_for_role_in_test_org(TestVM._test_runner_role)
+
+        #Create independent disk
+        TestVM._idisk = vdc.create_disk(name=self._idisk_name,
+                                 size=self._idisk_size,
+                                 description=self._idisk_description)
+
+        # Upload template with vm tools.
+        catalog_author_client = Environment.get_client_in_default_org(
+            CommonRoles.CATALOG_AUTHOR)
+        org_admin_client = Environment.get_client_in_default_org(
+            CommonRoles.ORGANIZATION_ADMINISTRATOR)
+        org = Environment.get_test_org(org_admin_client)
+        catalog_name = Environment.get_config()['vcd']['default_catalog_name']
+        catalog_items = org.list_catalog_items(catalog_name)
+        template_name = Environment.get_config()['vcd'][
+            'default_template_vmtools_file_name']
+        catalog_item_flag = False
+        for item in catalog_items:
+            if item.get('name').lower() == template_name.lower():
+                logger.debug('Reusing existing template ' +
+                             template_name)
+                catalog_item_flag = True
+                break
+        if not catalog_item_flag:
+            logger.debug('Uploading template ' + template_name +
+                         ' to catalog ' + catalog_name + '.')
+            org.upload_ovf(catalog_name=catalog_name, file_name=template_name)
+            # wait for the template import to finish in vCD.
+            catalog_item = org.get_catalog_item(
+                name=catalog_name, item_name=template_name)
+            template = catalog_author_client.get_resource(
+                catalog_item.Entity.get('href'))
+            catalog_author_client.get_task_monitor().wait_for_success(
+                task=template.Tasks.Task[0])
+        # Create Vapp with template of vmware tools
+        logger.debug('Creating vApp ' + TestVM._test_vapp_vmtools_name + '.')
+        TestVM._test_vapp_vmtools_href = create_customized_vapp_from_template(
+            client=TestVM._client,
+            vdc=vdc,
+            name=TestVM._test_vapp_vmtools_name,
+            catalog_name=catalog_name,
+            template_name=template_name)
+        self.assertIsNotNone(TestVM._test_vapp_href)
+        vapp = VApp(TestVM._client, href=TestVM._test_vapp_vmtools_href)
+        TestVM._test_vapp_vmtools = vapp
+        vm_resource = vapp.get_vm(TestVM._test_vapp_vmtools_vm_name)
+        TestVM._test_vapp_vmtools_vm_href = vm_resource.get('href')
+        self.assertIsNotNone(TestVM._test_vapp_vmtools_vm_href)
 
     def test_0010_list_vms(self):
         """Test the method VApp.get_all_vms().
@@ -424,6 +491,38 @@ class TestVM(BaseTestCase):
         result = TestVM._client.get_task_monitor().wait_for_success(task)
         self.assertEqual(result.get('status'), TaskStatus.SUCCESS.value)
 
+    def test_0073_move_to(self):
+        """Test the method related to move VM from one vapp to another.
+        This test passes if move VM operation is successful.
+        """
+        target_vapp_name = TestVM._test_vapp_name
+
+        source_vapp_name = TestVM._empty_vapp_name
+        target_vm_name = TestVM._target_vm_name
+
+        vapp = VApp(TestVM._client, href=TestVM._empty_vapp_href)
+        vm_resource = vapp.get_vm(TestVM._target_vm_name)
+        TestVM._target_vm_href = vm_resource.get('href')
+
+        vm = VM(TestVM._client, href=TestVM._target_vm_href)
+        task = vm.move_to(source_vapp_name=source_vapp_name,
+                   target_vapp_name=target_vapp_name,
+                   target_vm_name=target_vm_name)
+        result = TestVM._client.get_task_monitor().wait_for_success(task)
+        self.assertEqual(result.get('status'), TaskStatus.SUCCESS.value)
+
+    def test_0074_delete_vm(self):
+        """Test the method related to delete VM.
+        This test passes if delete VM operation is successful.
+        """
+        vapp = VApp(TestVM._client, href=TestVM._test_vapp_href)
+        vm_resource = vapp.get_vm(TestVM._target_vm_name)
+        TestVM._target_vm_href = vm_resource.get('href')
+        vm = VM(TestVM._client, href=TestVM._target_vm_href)
+        task = vm.delete()
+        result = TestVM._client.get_task_monitor().wait_for_success(task)
+        self.assertEqual(result.get('status'), TaskStatus.SUCCESS.value)
+
     def test_0080_vm_nic_operations(self):
         """Test the method add_nic vm.py.
 
@@ -454,27 +553,221 @@ class TestVM(BaseTestCase):
         vm.reload()
         self.assertTrue(len(vm.list_nics()) == 1)
 
-    def def_0100_upgrade_virtual_hardware(self):
+    def test_0100_upgrade_virtual_hardware(self):
         vm = VM(TestVM._client, href=TestVM._test_vapp_first_vm_href)
         task = vm.upgrade_virtual_hardware()
         result = TestVM._client.get_task_monitor().wait_for_success(task=task)
         self.assertEqual(result.get('status'), TaskStatus.SUCCESS.value)
 
+    def test_0110_attach_independent_disk(self):
+        vdc = Environment.get_test_vdc(TestVM._client)
+        idisk = vdc.get_disk(name=TestVM._idisk_name)
+        task = TestVM._test_vapp.\
+            attach_disk_to_vm(disk_href=idisk.get('href'),
+                              vm_name=TestVM._test_vapp_first_vm_name)
+        result = TestVM._client.get_task_monitor().wait_for_success(task=task)
+        self.assertEqual(result.get('status'), TaskStatus.SUCCESS.value)
+
+        is_disk_attached = self.__validate_is_attached_disk(is_disk_attached=False)
+        self.assertTrue(is_disk_attached)
+
+    def test_0120_detach_independent_disk(self):
+        vdc = Environment.get_test_vdc(TestVM._client)
+        idisk = vdc.get_disk(name=TestVM._idisk_name)
+        task = TestVM._test_vapp. \
+            detach_disk_from_vm(disk_href=idisk.get('href'),
+                                vm_name=TestVM._test_vapp_first_vm_name)
+        result = TestVM._client.get_task_monitor().wait_for_success(task=task)
+        self.assertEqual(result.get('status'), TaskStatus.SUCCESS.value)
+
+        is_disk_attached = self.__validate_is_attached_disk(is_disk_attached=False)
+        self.assertFalse(is_disk_attached)
+
+    def test_0130_general_setting_detail(self):
+        vm = VM(TestVM._client, href=TestVM._test_vapp_first_vm_href)
+        result = vm.general_setting_detail()
+        self.assertNotEqual(len(result), 0)
+
+    def test_0140_list_storage_profile(self):
+        vm = VM(TestVM._client, href=TestVM._test_vapp_first_vm_href)
+        result = vm.list_storage_profile()
+        self.assertNotEqual(len(result), 0)
+
+    def __validate_is_attached_disk(self,is_disk_attached=False):
+        vm = VM(TestVM._client, href=TestVM._test_vapp_first_vm_href)
+        vm.reload()
+        vm_resource = vm.get_resource()
+        disk_list = TestVM._client.get_resource(
+            vm_resource.get('href') + '/virtualHardwareSection/disks')
+        for disk in disk_list.Item:
+            if disk['{' + NSMAP['rasd'] + '}Description'] == 'Hard disk':
+                if disk.xpath('rasd:HostResource', namespaces=NSMAP)[
+                    0].attrib.get('{' + NSMAP['vcloud'] + '}disk'):
+                    is_disk_attached = True
+                    break
+
+        return is_disk_attached
+
+    def test_0150_reload_from_vc(self):
+        """Test the method related to reload_from_vc in vm.py.
+        This test passes if reload from VC operation is successful.
+        """
+        logger = Environment.get_default_logger()
+        vm_name = TestVM._test_vapp_first_vm_name
+        vm = VM(TestVM._sys_admin_client, href=TestVM._test_vapp_first_vm_href)
+        vm.reload()
+        logger.debug('Reloading VM:  ' + vm_name + ' from VC.')
+        task = vm.reload_from_vc()
+        result = TestVM._sys_admin_client.\
+            get_task_monitor().wait_for_success(task=task)
+        self.assertEqual(result.get('status'), TaskStatus.SUCCESS.value)
+
+    def test_0160_check_compliance(self):
+        """Test the method related to check_compliance in vm.py.
+        This test passes if check compliance operation is successful.
+        """
+        logger = Environment.get_default_logger()
+        vm_name = TestVM._test_vapp_first_vm_name
+        vm = VM(TestVM._sys_admin_client, href=TestVM._test_vapp_first_vm_href)
+        vm.reload()
+        logger.debug('Checking compliance of VM:  ' + vm_name)
+        task = vm.check_compliance()
+        result = TestVM._sys_admin_client.\
+            get_task_monitor().wait_for_success(task=task)
+        self.assertEqual(result.get('status'), TaskStatus.SUCCESS.value)
+
+    def test_0170_customize_at_next_power_on(self):
+        """Test the method related to customize_at_next_power_on in vm.py.
+        This test passes if customize at next power on operation is successful.
+        """
+        logger = Environment.get_default_logger()
+        vm_name = TestVM._test_vapp_first_vm_name
+        vm = VM(TestVM._sys_admin_client, href=TestVM._test_vapp_first_vm_href)
+        vm.reload()
+        vm.customize_at_next_power_on()
+        task = vm.power_on()
+        TestVM._sys_admin_client. \
+            get_task_monitor().wait_for_success(task=task)
+        status = vm.get_guest_customization_status()
+        self.assertEqual(status, 'GC_PENDING')
+
+
+    def test_0180_update_general_setting(self):
+        """Test the method related to update general setting in vm.py.
+        This test passes if general setting update successful.
+        """
+        vm_name = TestVM._test_vapp_first_vm_name
+        vm = VM(TestVM._sys_admin_client, href=TestVM._test_vapp_first_vm_href)
+        vm.reload()
+        # Updating general setting of vm
+        task = vm.update_general_setting(
+            name=TestVM._vm_name_update,
+            description=TestVM._description_update,
+            computer_name=TestVM._computer_name_update,
+            boot_delay=TestVM._boot_delay_update,
+            enter_bios_setup=TestVM._enter_bios_setup_update)
+        result = TestVM._sys_admin_client.\
+            get_task_monitor().wait_for_success(task=task)
+        self.assertEqual(result.get('status'), TaskStatus.SUCCESS.value)
+        vm.reload()
+        result = vm.general_setting_detail()
+        self.assertEqual(result['Name'], TestVM._vm_name_update)
+        self.assertEqual(result['Description'], TestVM._description_update)
+        self.assertEqual(result['Computer Name'], TestVM._computer_name_update)
+        self.assertEqual(result['Boot Delay'], TestVM._boot_delay_update)
+        self.assertEqual(result['Enter BIOS Setup'],
+                         TestVM._enter_bios_setup_update)
+        # Reverting back general setting of vm
+        task = vm.update_general_setting(
+            name=TestVM._test_vapp_first_vm_name,
+            description=TestVM._description,
+            computer_name=TestVM._computer_name,
+            boot_delay=TestVM._boot_delay,
+            enter_bios_setup=TestVM._enter_bios_setup)
+        result = TestVM._sys_admin_client.\
+            get_task_monitor().wait_for_success(task=task)
+        self.assertEqual(result.get('status'), TaskStatus.SUCCESS.value)
+
+    def test_0190_enable_gc(self):
+        """Test the method related to enable_guest_customization in vm.py.
+        This test passes if enable GC operation is successful.
+        """
+        vm = VM(TestVM._sys_admin_client,
+                href=TestVM._test_vapp_vmtools_vm_href)
+        # Power off VM
+        task = vm.power_off()
+        TestVM._sys_admin_client. \
+            get_task_monitor().wait_for_success(task=task)
+        vm.reload()
+        task = vm.enable_guest_customization(is_enabled=True)
+        TestVM._sys_admin_client. \
+            get_task_monitor().wait_for_success(task=task)
+        vm.reload()
+        gc_section = vm.get_guest_customization_section()
+        self.assertTrue(gc_section.Enabled)
+
+    def test_0200_get_gc_status(self):
+        """Test the method related to get_guest_customization_status in vm.py.
+        This test passes if it gives guest customization status.
+        """
+        vm = VM(TestVM._sys_admin_client,
+                href=TestVM._test_vapp_vmtools_vm_href)
+
+        status = vm.get_guest_customization_status()
+        self.assertEqual(status, 'GC_PENDING')
+
+    def test_0210_poweron_and_force_recustomization(self):
+        """Test the method related to power_on_and_force_recustomization in
+        vm.py. This test passes if force customization at power on operation is
+        successful.
+        """
+        vm = VM(TestVM._sys_admin_client,
+                href=TestVM._test_vapp_vmtools_vm_href)
+
+        if vm.is_powered_on():
+            task = vm.power_off()
+            TestVM._sys_admin_client. \
+                get_task_monitor().wait_for_success(task=task)
+        task = vm.undeploy()
+        TestVM._sys_admin_client. \
+            get_task_monitor().wait_for_success(task=task)
+        vm.reload()
+        task = vm.power_on_and_force_recustomization()
+        result = TestVM._sys_admin_client. \
+            get_task_monitor().wait_for_success(task=task)
+        status = vm.get_guest_customization_status()
+        self.assertEqual(status, 'GC_PENDING')
+
     @developerModeAware
     def test_9998_teardown(self):
         """Delete the vApp created during setup.
-
         This test passes if the task for deleting the vApp succeed.
         """
         vapps_to_delete = []
         if TestVM._test_vapp_href is not None:
             vapps_to_delete.append(TestVM._test_vapp_name)
+            vapp = VApp(TestVM._client, href=TestVM._test_vapp_href)
+            if vapp.is_powered_on():
+                task = vapp.power_off()
+                TestVM._client.get_task_monitor().wait_for_success(task)
+                task = vapp.undeploy()
+                TestVM._client.get_task_monitor().wait_for_success(task)
 
         if TestVM._empty_vapp_href is not None:
             vapps_to_delete.append(TestVM._empty_vapp_name)
 
-        vdc = Environment.get_test_vdc(TestVM._client)
+        if TestVM._test_vapp_vmtools_href is not None:
+            vapps_to_delete.append(TestVM._test_vapp_vmtools_name)
+            vapp = VApp(TestVM._client, href=TestVM._test_vapp_vmtools_href)
+            if vapp.is_powered_on():
+                task = vapp.power_off()
+                TestVM._client.get_task_monitor().wait_for_success(task)
+                task = vapp.undeploy()
+                TestVM._client.get_task_monitor().wait_for_success(task)
 
+        vdc = Environment.get_test_vdc(TestVM._sys_admin_client)
+        vdc.delete_disk(name=self._idisk_name)
+        vdc = Environment.get_test_vdc(TestVM._client)
         for vapp_name in vapps_to_delete:
             task = vdc.delete_vapp(name=vapp_name, force=True)
             result = TestVM._client.get_task_monitor().wait_for_success(task)
