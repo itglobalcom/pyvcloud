@@ -1,6 +1,85 @@
 CHANGES
 =======
 
+* fix tests.clone
+* add linked\_resource to VApp.clone() method
+* add VApp.clone()
+* fix tests
+* add test to create/delete template
+* fix create VApp from template without networks
+* add async to several methods in Org class
+* remove 2 line comments
+* remove network none from connection section
+* fix VM network
+* add primary network connection index if it not exists
+* fix vdc:instantiate\_vapp
+* add parameters to VM.copy\_to
+* add test for VM.copy\_to
+* add mac address to get\_nic()
+* add check of 1 VM in VApp
+* add MachineObjectOU to guest\_customization
+* add leaseSeconds to vm/vapp.deploy
+* fix test\_network
+* fix test\_network
+* fix VM.list\_nics()
+* fix test\_network
+* add method VM.change\_name()
+* fix VM.set\_guest\_customization\_section()
+* remove save to file from test
+* add VM.modify\_product\_section()
+* fix VM.add\_product\_section
+* fix VM.get\_product\_section()
+* exclude contorllers from VM.get\_disks()
+* fix VM.add\_disk()
+* fix storagepolicy href/id in VM.modify\_disk
+* fix VM.modify\_disk
+* fix storagepolicy href/id in VM.modify\_disk
+* fix VM.modify\_disk
+* fix VM.add\_disk()
+* fix VM.add\_disk()
+* add several method to VM to work with disks, write test\_vm\_disk()
+* add VM.modify\_disk and VM.delete\_disk
+* fix VM.set\_product\_section()
+* fix bug in VM.add\_product\_section
+* fix VM.get\_product\_section()
+* fix bug in VM.get\_product\_section
+* add add/del/get ProductionSection
+* add VM.set\_primary\_nic
+* fix VM.delete\_nic
+* VApp.delete\_vapp\_network
+* add VM.get\_disks()
+* add vdc.get\_vm\_by\_href
+* remove bad methods
+* debug
+* fix
+* add method VM.detach\_disk
+* add VDC.get\_vm\_by\_name method
+* fix add storage\_profile\_id to VDC.create\_disk
+* add storage\_profile\_id to VDC.create\_disk
+* add VM.is\_vmtools\_installed()
+* add VM.is\_vmtools\_installed()
+* VM.get\_vc()
+* add method VM.get\_storage\_profile\_id
+* change method VApp.is\_deployed()
+* async api\_extension.py and method VApp.get\_vm\_moid()
+* fix several async/await calls
+* add several async/await in modules
+* storage\_profile -> storage\_profile\_id
+* storage\_profile -> storage\_profile\_id
+* fix tests
+* fix test guestcustomizationsecion
+* fix some methods
+* change method POST/PUT/DELETE from tasks using to async-servial
+* Add VM.get/set\_guest\_customization\_section methods
+* add async several methods of VApp
+* add async several methods of VApp
+* add async to several VApp methods
+* remove POWERSTATES\_DICT
+* add POWERSTATES\_DICT
+* remove status \'7\'
+* add status in wait for success
+* fix storage\_profile await
+* fix Org async method
 * fix typo
 * change project to aiohttp & change unittest to pytest
 * add async do\_request

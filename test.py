@@ -269,6 +269,35 @@ async def test_poweroff_shutdown(vapp):
 
 
 @pytest.mark.asyncio
+async def test_vm_change_storage_policy(vapp, vdc):
+    """
+    <StorageProfile
+        href="https://vcloud-ds1.itglobal.com/api/vdcStorageProfile/1db61137-fd0c-4768-9916-464afc21433a"
+        id="urn:vcloud:vdcstorageProfile:1db61137-fd0c-4768-9916-464afc21433a"
+        name="CLOUDMNG SSD 01"
+        type="application/vnd.vmware.vcloud.vdcStorageProfile+xml"
+    />
+    """
+    storage_profile_id = "urn:vcloud:vdcstorageProfile:d8086067-c5c0-44fb-9a33-83a18bf48be3"
+    vm_resource = await vapp.get_vm()
+    vm = VM(vapp.client, resource=vm_resource)
+    vdc_resource = await vdc.get_resource()
+    for profile in vdc_resource.VdcStorageProfiles.VdcStorageProfile:
+        print('test', profile.get('id'), storage_profile_id, profile.get('id') == storage_profile_id)
+        if profile.get('id') == storage_profile_id:
+            storage_profile = profile
+            break
+    else:
+        raise ValueError('No this StorageProfile with id={}'.format(storage_profile_id))
+
+    await vm.update_general_setting(storage_policy_href=storage_profile.get('href'))
+
+    await vm.reload()
+    assert (await vm.get_storage_profile_id()) == storage_profile_id
+
+
+
+@pytest.mark.asyncio
 async def test_vm_disk(vapp, vdc):
     vm_resource = await vapp.get_vm()
     vm = VM(vapp.client, resource=vm_resource)
@@ -322,6 +351,18 @@ async def test_vm_disk(vapp, vdc):
         resource = await vapp.client.get_resource(storage_profile_href)
         storage_profile_id = resource.get('id')
         assert storage_profile_id.startswith('urn:')
+
+        # Change storage profile
+        storage_policy_id_2 = 'urn:vcloud:vdcstorageProfile:d8086067-c5c0-44fb-9a33-83a18bf48be3'
+        await vm.modify_disk(disk_id, storage_policy_id=storage_policy_id_2)
+        await vm.reload()
+        disk_resource = await vm.get_disk(disk_id)
+        storage_profile_href = disk_resource[
+            tag('rasd')('HostResource')
+        ].get(tag('vcloud')('storageProfileHref'))
+        resource = await vapp.client.get_resource(storage_profile_href)
+        storage_profile_id = resource.get('id')
+        assert storage_profile_id == storage_policy_id_2
     finally:
         await vm.delete_disk(disk_id)
 
@@ -613,6 +654,7 @@ async def test_guest_customization_section(vapp):
         ).text
 
 
+@pytest.mark.skip
 @pytest.mark.asyncio
 async def test_copy_vm(vapp, vdc, vdc2):
     test_new_name = 'TestCloneVapp2'
@@ -620,12 +662,18 @@ async def test_copy_vm(vapp, vdc, vdc2):
     try:
         vm_resource = await vapp.get_vm()
         vm = VM(vapp.client, resource=vm_resource)
+        # await vm.power_off()
+        await vapp.power_off()
+        await vapp.reload()
+        await vm.reload()
         await vm.copy_to(vapp.name, test_new_name, vm_resource.get('name'))
         await vdc2.reload()
         vapp_resource = await vdc2.get_vapp(test_new_name)
         vapp = VApp(vapp.client, resource=vapp_resource)
         vm_resource_new = await vapp.get_vm()
         assert vm_resource.get('name') == vm_resource_new.get('name')
+
+        await vm.power_on()
     finally:
         await vdc2.reload()
         await vdc2.delete_vapp(test_new_name, force=True)
@@ -694,12 +742,10 @@ async def test_template_without_networks(vdc):
 @pytest.mark.skip()
 @pytest.mark.asyncio
 async def test_tmp(vdc):
-    resource = await vdc.get_vapp_by_id(
-        'urn:vcloud:vapp:cddbb738-2d57-4ea9-8abf-f97499e3f5dd'
-    )
+    resource = await vdc.get_resource()
 
     from lxml import etree
-    with open('tmp.xml', 'wb') as f:
+    with open('vdc_tmp.xml', 'wb') as f:
         f.write(
             etree.tostring(
                 resource,

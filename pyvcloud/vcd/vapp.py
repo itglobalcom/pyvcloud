@@ -805,7 +805,7 @@ class VApp(object):
             '//ovf:NetworkSection/ovf:Network',
             namespaces={'ovf': NSMAP['ovf']})
 
-    def get_vapp_network_name(self, index=0):
+    async def get_vapp_network_name(self, index=0):
         """Returns the name of the network defined in the vApp by index.
 
         :param int index: index of the vApp network to retrieve. 0 if omitted.
@@ -817,7 +817,7 @@ class VApp(object):
         :raises: EntityNotFoundException: if the named network could not be
             found.
         """
-        networks = self.get_all_networks()
+        networks = await self.get_all_networks()
         if networks is None or len(networks) < index + 1:
             raise EntityNotFoundException(
                 'Can\'t find the specified vApp network')
@@ -930,7 +930,7 @@ class VApp(object):
                 specs,
                 deploy=True,
                 power_on=True,
-                all_eulas_accepted=None,
+                all_eulas_accepted=False,
                 source_delete=False):
         """Recompose the vApp and add vms.
 
@@ -957,7 +957,7 @@ class VApp(object):
         if source_delete:
             params.SourcedItem.set('sourceDelete', 'true')
         if all_eulas_accepted is not None:
-            params.append(E.AllEULAsAccepted(all_eulas_accepted))
+            params.append(E.AllEULAsAccepted('true' if all_eulas_accepted else 'false'))
         return await self.client.post_linked_resource(
             self.resource, RelationType.RECOMPOSE,
             EntityType.RECOMPOSE_VAPP_PARAMS.value, params)

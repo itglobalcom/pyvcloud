@@ -237,6 +237,11 @@ class VM(object):
         resource = vm_resource or await self.get_resource()
         return resource.StorageProfile.get('id')
 
+    async def set_storage_profile(self, storage_profile):
+        return await self.client.post_linked_resource(
+            self.resource, ResourceType.ORG_VDC_STORAGE_PROFILE,
+            EntityType.VMW_PVDC_STORAGE_PROFILE.value, storage_profile)
+
     async def _perform_power_operation(self,
                                  rel,
                                  operation_name,
@@ -882,7 +887,7 @@ class VM(object):
         Change size of disk
         :param disk_id - new disk ID, like 2000
         :param size - new size of disk in MB
-        :param storage_policy_href
+        :param storage_policy_id
         :param parent
         :param address_on_parent
         :param int bus_type: bus_type of the disk to be added.
@@ -914,7 +919,7 @@ class VM(object):
                 disk_resource = disk
                 break
         else:
-            raise EntityNotFoundException(disk_id)
+            raise EntityNotFoundException("Disk", disk_id)
         if size is not None:
             disk_resource[tag('rasd')('VirtualQuantity')] = str(size * 1024 * 1024)
             disk_resource[tag('rasd')('HostResource')].set(
@@ -922,7 +927,7 @@ class VM(object):
             )
         if storage_policy_href is not None:
             disk_resource[tag('rasd')('HostResource')].set(
-                tag('vcloud')('StorageProfileHref'), storage_policy_href
+                tag('vcloud')('storageProfileHref'), storage_policy_href
             )
             disk_resource[tag('rasd')('HostResource')].set(
                 tag('vcloud')('storageProfileOverrideVmDefault'),
@@ -939,8 +944,26 @@ class VM(object):
             disk_resource[tag('rasd')('HostResource')].set(
                 tag('vcloud')('BusSubType', str(bus_sub_type))
             )
+
+
+        # if storage_policy_href:
+        #     from lxml import etree
+        #     """
+        #     <rasd:Address xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:AddressOnParent>0</rasd:AddressOnParent><rasd:AllocationUnits xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:AutomaticAllocation xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:AutomaticDeallocation xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:Caption xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:ChangeableType xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:ConfigurationName xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:ConsumerVisibility xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:Description>Hard disk</rasd:Description><rasd:ElementName>Hard disk 1</rasd:ElementName><rasd:Generation xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:HostResource xmlns:ns10="http://www.vmware.com/vcloud/v1.5" ns10:storageProfileHref="https://vcloud-ds1.itglobal.com/api/vdcStorageProfile/1db61137-fd0c-4768-9916-464afc21433a" ns10:busType="6" ns10:busSubType="VirtualSCSI" ns10:capacity="8192" ns10:iops="0" ns10:storageProfileOverrideVmDefault="false"/><rasd:InstanceID>2000</rasd:InstanceID><rasd:Limit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:MappingBehavior xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:OtherResourceType xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:Parent>2</rasd:Parent><rasd:PoolID xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:Reservation xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:ResourceSubType xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:ResourceType>17</rasd:ResourceType><rasd:VirtualQuantity>8589934592</rasd:VirtualQuantity><rasd:VirtualQuantityUnits>byte</rasd:VirtualQuantityUnits><rasd:Weight xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/></Item><Item><rasd:Address>0</rasd:Address><rasd:AddressOnParent xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:AllocationUnits xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:AutomaticAllocation xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:AutomaticDeallocation xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:Caption xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:ChangeableType xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:ConfigurationName xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:ConsumerVisibility xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:Description>IDE Controller</rasd:Description><rasd:ElementName>IDE Controller 0</rasd:ElementName><rasd:Generation xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:InstanceID>3</rasd:InstanceID><rasd:Limit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:MappingBehavior xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:OtherResourceType xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:Parent xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:PoolID xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:Reservation xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:ResourceSubType xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:ResourceType>5</rasd:ResourceType><rasd:VirtualQuantity xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:VirtualQuantityUnits xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:Weight xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/></Item><Item xmlns:ns1="http://www.vmware.com/vcloud/v1.5"><rasd:Address xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:AddressOnParent>1</rasd:AddressOnParent><rasd:AllocationUnits xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:AutomaticAllocation xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:AutomaticDeallocation xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:Caption xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:ChangeableType xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:ConfigurationName xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:ConsumerVisibility xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:Description>Hard disk</rasd:Description><rasd:ElementName>Hard disk 2</rasd:ElementName><rasd:Generation xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:HostResource ns1:storageProfileHref="https://vcloud-ds1.itglobal.com/api/vdcStorageProfile/1db61137-fd0c-4768-9916-464afc21433a" ns1:busType="6" ns1:busSubType="VirtualSCSI" ns1:capacity="1024" ns1:iops="0" ns1:storageProfileOverrideVmDefault="true"/><rasd:InstanceID>2001</rasd:InstanceID><rasd:Limit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:MappingBehavior xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:OtherResourceType xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:Parent>2</rasd:Parent><rasd:PoolID xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:Reservation xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:ResourceSubType xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:ResourceType>17</rasd:ResourceType><rasd:VirtualQuantity xmlns:py="http://codespeak.net/lxml/objectify/pytype" py:pytype="str">1073741824</rasd:VirtualQuantity><rasd:VirtualQuantityUnits>byte</rasd:VirtualQuantityUnits><rasd:Weight xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/></Item></RasdItemsList>
+        #
+        #
+        #     ns10:storageProfileHref="https://vcloud-ds1.itglobal.com/api/vdcStorageProfile/1db61137-fd0c-4768-9916-464afc21433a" ns0:storageProfileHref="https://vcloud-ds1.itglobal.com/api/vdcStorageProfile/1db61137-fd0c-4768-9916-464afc21433a" ns0:busType="6" ns0:busSubType="VirtualSCSI" ns0:capacity="1024" ns0:iops="0" ns0:storageProfileOverrideVmDefault="true" rasd:StorageProfileHref="https://vcloud-ds1.itglobal.com/api/api/vdcStorageProfile/d8086067-c5c0-44fb-9a33-83a18bf48be3" rasd:storageProfileOverrideVmDefault="true"/><rasd:InstanceID>2001</rasd:InstanceID><rasd:Limit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:MappingBehavior xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:OtherResourceType xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:Parent>2</rasd:Parent><rasd:PoolID xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:Reservation xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:ResourceSubType xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:ResourceType>17</rasd:ResourceType><rasd:VirtualQuantity>1073741824</rasd:VirtualQuantity><rasd:VirtualQuantityUnits>byte</rasd:VirtualQuantityUnits><rasd:Weight xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/></Item></RasdItemsList>
+        #
+        #
+        #     ns10:storageProfileHref="https://vcloud-ds1.itglobal.com/api/vdcStorageProfile/1db61137-fd0c-4768-9916-464afc21433a" ns10:busType="6" ns10:busSubType="VirtualSCSI" ns10:capacity="8192" ns10:iops="0" ns10:storageProfileOverrideVmDefault="false"/><rasd:InstanceID>2000</rasd:InstanceID><rasd:Limit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:MappingBehavior xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:OtherResourceType xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:Parent>2</rasd:Parent><rasd:PoolID xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:Reservation xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:ResourceSubType xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:ResourceType>17</rasd:ResourceType><rasd:VirtualQuantity>8589934592</rasd:VirtualQuantity><rasd:VirtualQuantityUnits>byte</rasd:VirtualQuantityUnits><rasd:Weight xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/></Item><Item><rasd:Address>0</rasd:Address><rasd:AddressOnParent xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:AllocationUnits xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:AutomaticAllocation xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:AutomaticDeallocation xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:Caption xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:ChangeableType xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:ConfigurationName xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:ConsumerVisibility xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:Description>IDE Controller</rasd:Description><rasd:ElementName>IDE Controller 0</rasd:ElementName><rasd:Generation xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:InstanceID>3</rasd:InstanceID><rasd:Limit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:MappingBehavior xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:OtherResourceType xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:Parent xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:PoolID xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:Reservation xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:ResourceSubType xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:ResourceType>5</rasd:ResourceType><rasd:VirtualQuantity xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:VirtualQuantityUnits xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:Weight xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/></Item><Item xmlns:ns0="http://www.vmware.com/vcloud/v1.5"><rasd:Address xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:AddressOnParent>1</rasd:AddressOnParent><rasd:AllocationUnits xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:AutomaticAllocation xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:AutomaticDeallocation xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:Caption xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:ChangeableType xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:ConfigurationName xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:ConsumerVisibility xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:Description>Hard disk</rasd:Description><rasd:ElementName>Hard disk 2</rasd:ElementName><rasd:Generation xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:HostResource ns0:storageProfileHref="https://vcloud-ds1.itglobal.com/api/vdcStorageProfile/1db61137-fd0c-4768-9916-464afc21433a" ns0:busType="6" ns0:busSubType="VirtualSCSI" ns0:capacity="1024" ns0:iops="0" ns0:storageProfileOverrideVmDefault="true" ns0:StorageProfileHref="https://vcloud-ds1.itglobal.com/api/api/vdcStorageProfile/d8086067-c5c0-44fb-9a33-83a18bf48be3"/><rasd:InstanceID>2001</rasd:InstanceID><rasd:Limit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:MappingBehavior xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:OtherResourceType xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:Parent>2</rasd:Parent><rasd:PoolID xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:Reservation xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:ResourceSubType xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/><rasd:ResourceType>17</rasd:ResourceType><rasd:VirtualQuantity>1073741824</rasd:VirtualQuantity><rasd:VirtualQuantityUnits>byte</rasd:VirtualQuantityUnits><rasd:Weight xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/></Item></RasdItemsList>
+        #     """
+        #     raise Exception(
+        #         etree.tostring(disk_list).decode('utf8')
+        #     )
+
         del disk_list.Item[disk_idx]
         disk_list.append(disk_resource)
+
         return await self.client.put_resource(
             (await self.get_resource()).get('href') + '/virtualHardwareSection/disks', disk_list,
             EntityType.RASD_ITEMS_LIST.value)
@@ -1079,37 +1102,27 @@ class VM(object):
         return await self.client.post_linked_resource(
             self.resource, RelationType.CONSOLIDATE, None, None)
 
-    async def copy_to(self, source_vapp_name, target_vapp_name, target_vm_name, deploy=False,
-                      power_on=False, all_eulas_accepted=True):
+    async def copy_to(self, source_vapp_name, target_vapp_name, target_vm_name):
         """Copy VM from one vApp to another.
-
         :param: str source vApp name
         :param: str target vApp name
         :param: str target VM name
-
         :return: an object containing EntityType.TASK XML data which represents
                     the asynchronous task that is copying VM
-
         :rtype: lxml.objectify.ObjectifiedElement
         """
         return await self._clone(source_vapp_name=source_vapp_name,
-                                 target_vapp_name=target_vapp_name,
-                                 target_vm_name=target_vm_name,
-                                 deploy=deploy,
-                                 power_on=power_on,
-                                 all_eulas_accepted=all_eulas_accepted,
-                                 source_delete=False)
+                           target_vapp_name=target_vapp_name,
+                           target_vm_name=target_vm_name,
+                           source_delete=False)
 
     async def move_to(self, source_vapp_name, target_vapp_name, target_vm_name):
         """Move VM from one vApp to another.
-
         :param: str source vApp name
         :param: str target vApp name
         :param: str target VM name
-
         :return: an object containing EntityType.TASK XML data which represents
                     the asynchronous task that is moving VM
-
         :rtype: lxml.objectify.ObjectifiedElement
         """
         return await self._clone(source_vapp_name=source_vapp_name,
@@ -1118,24 +1131,20 @@ class VM(object):
                            source_delete=True)
 
     async def _clone(self, source_vapp_name, target_vapp_name, target_vm_name,
-                     deploy=False, power_on=False, all_eulas_accepted=True,
-                     source_delete=False):
+               source_delete):
         """Clone VM from one vApp to another.
-
         :param: str source vApp name
         :param: str target vApp name
         :param: str target VM name
         :param: bool source delete option
-
         :return: an object containing EntityType.TASK XML data which represents
                  the asynchronous task that is copying VM
-
         :rtype: lxml.objectify.ObjectifiedElement
         """
         from pyvcloud.vcd.vapp import VApp
         vm_resource = await self.get_resource()
         resource_type = ResourceType.VAPP.value
-        if await self.is_powered_off(vm_resource) or source_delete:
+        if (await self.is_powered_off(vm_resource)) or source_delete:
             records1 = await self.___validate_vapp_records(
                 vapp_name=source_vapp_name, resource_type=resource_type)
 
@@ -1151,16 +1160,100 @@ class VM(object):
             await target_vapp.reload()
             spec = {
                 'vapp': (await source_vapp.get_resource()),
-                'source_vm_name': (await self.get_resource()).get('name'),
+                'source_vm_name': (await source_vapp.get_vm()).get('name'),
                 'target_vm_name': target_vm_name
             }
             return await target_vapp.add_vms([spec],
-                                       deploy=deploy,
-                                       power_on=power_on,
-                                       all_eulas_accepted=all_eulas_accepted,
-                                       source_delete=source_delete)
+                                       deploy=False,
+                                       power_on=False,
+                                       all_eulas_accepted=True,
+                                       source_delete=source_delete
+                                       )
         else:
             raise InvalidStateException("VM Must be powered off.")
+
+    # async def copy_to(self, source_vapp_name, target_vapp_name, target_vm_name, deploy=False,
+    #                   power_on=False, all_eulas_accepted=False):
+    #     """Copy VM from one vApp to another.
+    #
+    #     :param: str source vApp name
+    #     :param: str target vApp name
+    #     :param: str target VM name
+    #
+    #     :return: an object containing EntityType.TASK XML data which represents
+    #                 the asynchronous task that is copying VM
+    #
+    #     :rtype: lxml.objectify.ObjectifiedElement
+    #     """
+    #     return await self._clone(source_vapp_name=source_vapp_name,
+    #                              target_vapp_name=target_vapp_name,
+    #                              target_vm_name=target_vm_name,
+    #                              deploy=deploy,
+    #                              power_on=power_on,
+    #                              all_eulas_accepted=all_eulas_accepted,
+    #                              source_delete=False)
+    #
+    # async def move_to(self, source_vapp_name, target_vapp_name, target_vm_name):
+    #     """Move VM from one vApp to another.
+    #
+    #     :param: str source vApp name
+    #     :param: str target vApp name
+    #     :param: str target VM name
+    #
+    #     :return: an object containing EntityType.TASK XML data which represents
+    #                 the asynchronous task that is moving VM
+    #
+    #     :rtype: lxml.objectify.ObjectifiedElement
+    #     """
+    #     return await self._clone(source_vapp_name=source_vapp_name,
+    #                        target_vapp_name=target_vapp_name,
+    #                        target_vm_name=target_vm_name,
+    #                        source_delete=True)
+    #
+    # async def _clone(self, source_vapp_name, target_vapp_name, target_vm_name,
+    #                  deploy=False, power_on=False, all_eulas_accepted=False,
+    #                  source_delete=False):
+    #     """Clone VM from one vApp to another.
+    #
+    #     :param: str source vApp name
+    #     :param: str target vApp name
+    #     :param: str target VM name
+    #     :param: bool source delete option
+    #
+    #     :return: an object containing EntityType.TASK XML data which represents
+    #              the asynchronous task that is copying VM
+    #
+    #     :rtype: lxml.objectify.ObjectifiedElement
+    #     """
+    #     from pyvcloud.vcd.vapp import VApp
+    #     vm_resource = await self.get_resource()
+    #     resource_type = ResourceType.VAPP.value
+    #     if (await self.is_powered_off(vm_resource)) or source_delete:
+    #         records1 = await self.___validate_vapp_records(
+    #             vapp_name=source_vapp_name, resource_type=resource_type)
+    #
+    #         source_vapp_href = records1[0].get('href')
+    #
+    #         records2 = await self.___validate_vapp_records(
+    #             vapp_name=target_vapp_name, resource_type=resource_type)
+    #
+    #         target_vapp_href = records2[0].get('href')
+    #
+    #         source_vapp = VApp(self.client, href=source_vapp_href)
+    #         target_vapp = VApp(self.client, href=target_vapp_href)
+    #         await target_vapp.reload()
+    #         spec = {
+    #             'vapp': (await source_vapp.get_resource()),
+    #             'source_vm_name': (await self.get_resource()).get('name'),
+    #             'target_vm_name': target_vm_name
+    #         }
+    #         return await target_vapp.add_vms([spec],
+    #                                    deploy=deploy,
+    #                                    power_on=power_on,
+    #                                    all_eulas_accepted=all_eulas_accepted,
+    #                                    source_delete=source_delete)
+    #     else:
+    #         raise InvalidStateException("VM Must be powered off.")
 
     async def change_name(self, name):
         """Edit name and description of the vApp.
@@ -1179,10 +1272,6 @@ class VM(object):
 
         return await self.client.put_resource(
             self.href, vm, EntityType.VM.value)
-
-    async def get_guest_customization_section(self):
-        guest_xml = (await self.get_resource()).GuestCustomizationSection
-        return guest_xml
 
     async def set_guest_customization_section(self, **kwargs):
         await self.reload()
@@ -1251,16 +1340,16 @@ class VM(object):
 
         return records
 
-    def delete(self):
+    async def delete(self):
         """Delete the VM.
 
         :return: an object containing EntityType.TASK XML data which represents
             the asynchronous task that is deleting the VM.
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        self.get_resource()
-        return self.client.delete_linked_resource(self.resource,
-                                                  RelationType.REMOVE, None)
+        await self.get_resource()
+        return await self.client.delete_linked_resource(self.resource,
+                                                        RelationType.REMOVE, None)
 
     def general_setting_detail(self):
         """Get the details of VM general setting.
@@ -1337,18 +1426,18 @@ class VM(object):
         return self.client.post_linked_resource(
             self.resource, RelationType.CHECK_COMPLIANCE, None, None)
 
-    def customize_at_next_power_on(self):
+    async def customize_at_next_power_on(self):
         """Customize VM at next power on.
 
         :return: returns 204 No content
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        self.get_resource()
-        return self.client.post_linked_resource(
+        await self.get_resource()
+        return await self.client.post_linked_resource(
             self.resource, RelationType.CUSTOMIZE_AT_NEXT_POWERON, None, None)
 
-    def update_general_setting(self,
+    async def update_general_setting(self,
                                name=None,
                                description=None,
                                computer_name=None,
@@ -1367,7 +1456,7 @@ class VM(object):
             the asynchronous task that is updating general setting of VM.
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        self.get_resource()
+        await self.get_resource()
         if name is not None:
             self.resource.set('name', name)
         guest_customization = self.resource.GuestCustomizationSection
@@ -1393,14 +1482,14 @@ class VM(object):
             ebs = E.EnterBIOSSetup(enter_bios_setup)
             self.resource.BootOptions.BootDelay.addnext(ebs)
         if storage_policy_href is not None:
-            storage_policy_res = self.client.get_resource(storage_policy_href)
+            storage_policy_res = await self.client.get_resource(storage_policy_href)
             print(storage_policy_href)
             self.resource.StorageProfile.set('href', storage_policy_href)
             self.resource.StorageProfile.set('id',
                                              storage_policy_res.get('id'))
             self.resource.StorageProfile.set('name',
                                              storage_policy_res.get('name'))
-        return self.client.post_linked_resource(
+        return await self.client.post_linked_resource(
             self.resource, RelationType.RECONFIGURE_VM, EntityType.VM.value,
             self.resource)
 
@@ -1415,19 +1504,19 @@ class VM(object):
         """
         return self.deploy(power_on=True, force_customization=True)
 
-    def get_guest_customization_status(self):
+    async def get_guest_customization_status(self):
         """Get guest customization status.
 
         :return: returns status of GC.
 
         :rtype: String
         """
-        self.get_resource()
+        await self.get_resource()
         uri = self.href + '/guestcustomizationstatus/'
-        gc_status_resource = self.client.get_resource(uri)
+        gc_status_resource = await self.client.get_resource(uri)
         return gc_status_resource.GuestCustStatus
 
-    def get_guest_customization_section(self):
+    async def get_guest_customization_section(self):
         """Get guest customization section.
 
         :return: returns lxml.objectify.ObjectifiedElement resource: object
@@ -1436,11 +1525,11 @@ class VM(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        self.get_resource()
+        await self.get_resource()
         uri = self.href + '/guestCustomizationSection/'
-        return self.client.get_resource(uri)
+        return await self.client.get_resource(uri)
 
-    def enable_guest_customization(self, is_enabled=False):
+    async def enable_guest_customization(self, is_enabled=False):
         """Enable guest customization.
 
         :param: bool is_enabled: if True, it will enable guest customization.
@@ -1452,11 +1541,11 @@ class VM(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        self.get_resource()
-        gc_section = self.get_guest_customization_section()
+        await self.get_resource()
+        gc_section = await self.get_guest_customization_section()
         if hasattr(gc_section, 'Enabled'):
             gc_section.Enabled = E.Enabled(is_enabled)
         uri = self.href + '/guestCustomizationSection/'
-        return self.client.\
+        return await self.client.\
             put_resource(uri, gc_section,
                          EntityType.GUEST_CUSTOMIZATION_SECTION.value)
