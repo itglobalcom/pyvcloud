@@ -739,16 +739,25 @@ async def test_template_without_networks(vdc):
         await vdc.delete_vapp_by_id(vapp_id, True)
 
 
+@pytest.mark.asyncio
+async def test_get_mediaq(vapp):
+    vm_resource = await vapp.get_vm()
+    vm = VM(vapp.client, resource=vm_resource)
+    _ = await vm.get_media()
+
+
 @pytest.mark.skip()
 @pytest.mark.asyncio
-async def test_tmp(vdc):
-    resource = await vdc.get_resource()
-
+async def test_tmp(vapp):
+    vm_resource = await vapp.get_vm()
+    vm = VM(vapp.client, resource=vm_resource)
+    media_resources = await vm.get_media()
+    print(repr(media_resources))
     from lxml import etree
-    with open('vdc_tmp.xml', 'wb') as f:
-        f.write(
-            etree.tostring(
-                resource,
-                pretty_print=True
-            )
-        )
+    print(
+        'media_resources',
+        # etree.tostring(
+            media_resources,
+            # pretty_print=True
+        # ).decode('utf8')
+    )
