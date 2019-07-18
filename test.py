@@ -740,7 +740,7 @@ async def test_template_without_networks(vdc):
 
 
 @pytest.mark.asyncio
-async def test_get_mediaq(vapp):
+async def test_get_media(vapp):
     vm_resource = await vapp.get_vm()
     vm = VM(vapp.client, resource=vm_resource)
     _ = await vm.get_media()
