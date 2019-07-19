@@ -1,18 +1,49 @@
 CHANGES
 =======
 
+* rename VM.get\_media to VM.get\_medias
+* fix typo
+* add VM.get\_media()
+* remove print(...)
+* fix tests after merge with master
+* fix bugs after merge
+* merge with master
+* Support for list,add,remove compute policy reference added
+* VP-2021,VP-2676,VP-2689 :Power on with force Recustomization for a VM (#559)
 * fix tests.clone
 * add linked\_resource to VApp.clone() method
 * add VApp.clone()
+* VP-2065: [PySDK]Update selected VM general properties
+* remove metadata on catalog item
+* VP-2079: [PySDK] CUstomize at Next Power ON (#556)
+* VP-1399 : [PySdk] Synchronize syslog server settings VP-2598 : [PySdk] Make connection of vapp network
+* set metadata on catalog item
+* Getter methods for all metadata and specific metadata-value for the given key for given catalog item
+* VP-2074: [PySDK] Check compliance (#554)
+* VP-2072: [PySDK] Reload from VC (#553)
+* Docstyle issue with flake8. This issue is due to pydocstyle version 4.0. "flake8-docstrings" failed during execution due to "module 'pydocstyle' has no attribute 'tokenize\_open'" RROR: InvocationError for command /data/jenkins/jenkins-Preflight-pysdk-1.0-STF-272/.tox/flake8/bin/flake8 pyvcloud/vcd (exited with code 1)
+* VP-2049: [PySDK] Detach Disk (#536)
+* VP-2593 :[PySDK] Show DNS detail of Vapp Network
 * fix tests
+* Fix CToT failure in case of file\_name is not provided. (#551)
+* Fix flake8 issue (#549)
+* Adding support for log roll over (#548)
 * add test to create/delete template
+* VP-2067: [pySDK] List Storage profiles
+* Bug effectively renders function useless as only empty orgs can be deleted Fixes Issue #508 Issue provides a detailed analysis of the issue and resolution
+* VP-2063: [PySDK]List selected VM general properties
+* Fix get\_catalog for API version less than 33 (#545)
 * fix create VApp from template without networks
+* C to t failure (#544)
+* Disk test failure due to API version 33
+* VP-2496 : Upgrade pysdk and CLI for API version 33 (#542)
 * add async to several methods in Org class
 * remove 2 line comments
 * remove network none from connection section
 * fix VM network
 * add primary network connection index if it not exists
 * fix vdc:instantiate\_vapp
+* VP-2112 : [PySDK] List vApp Networks
 * add parameters to VM.copy\_to
 * add test for VM.copy\_to
 * add mac address to get\_nic()
@@ -39,6 +70,7 @@ CHANGES
 * fix VM.add\_disk()
 * add several method to VM to work with disks, write test\_vm\_disk()
 * add VM.modify\_disk and VM.delete\_disk
+* VP-2047: [pySdk] Attach Disk (#535)
 * fix VM.set\_product\_section()
 * fix bug in VM.add\_product\_section
 * fix VM.get\_product\_section()
@@ -63,11 +95,22 @@ CHANGES
 * change method VApp.is\_deployed()
 * async api\_extension.py and method VApp.get\_vm\_moid()
 * fix several async/await calls
+* VP-2108 and VP-2110 (#534)
+* VP-2106 : [PySDK] create snapshot of vapp. This CLN contains creating a snapshot of a vapp. create\_snapshot() method is exposed in vapp.py class and corresponding test case added
+* VP-2037: [PySDK]Move To VM from one vapp to another (#532)
+* VP-2102 : [PySDK] Move to vapp (#531)
 * add several async/await in modules
+* VP-2409: [PYSDK] Feature to add test files automatically. (#530)
 * storage\_profile -> storage\_profile\_id
 * storage\_profile -> storage\_profile\_id
 * fix tests
+* VP-2372: Fix - CI/CD of PYSDK for API version 32.0 (#528)
+* VP-2396: [PYSDK] Add missing test case classes to include in CI/CD. (#527)
 * fix test guestcustomizationsecion
+* VP-2396: [PYSDK] Add missing test case classes to include in CI/CD. (#526)
+* VP-2100 : [PySDK] Copy to vapp
+* VP-2394: [PYSDK]idisk test case fix (#525)
+* VP-2393: PYPI api version fix (#524)
 * fix some methods
 * change method POST/PUT/DELETE from tasks using to async-servial
 * Add VM.get/set\_guest\_customization\_section methods
@@ -82,10 +125,12 @@ CHANGES
 * fix Org async method
 * fix typo
 * change project to aiohttp & change unittest to pytest
+* VP-2039: [PySDK] Delete VM (#521)
 * add async do\_request
 * Add client.async\_wait\_for\_success method
 * Add method ORG.get\_vdc\_by\_id
 * Add method VDC.get\_vapp\_by\_id
+* Added method list\_vapp\_details() and test-case for list\_vapp\_details() (#516)
 * VP-2035: [PYSDK]Copy to VM from one vApp to another (#514)
 * VP-2041: [PySDK]Consolidate VM (#513)
 * VP-2094 : [PySDK] Upgrade Virtual Hardware version vapp

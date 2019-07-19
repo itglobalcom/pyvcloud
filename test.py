@@ -122,14 +122,14 @@ async def vapp(vdc, client):
     try:
         await vdc.reload()
     except:
-        vdc = VDC(client, resource=vdc.resource)  # Hack for "server disconnected" bag
+        vdc = VDC(client, resource=vdc.resource)  # Hack for "server disconnected" bug
         await vdc.reload()
     await vdc.delete_vapp_by_id(vapp.id, force=True)
 
 
 @pytest.fixture()
 async def vapp_test(vdc):
-    vapp_xml = await vdc.get_vapp_by_id('urn:vcloud:vapp:cddbb738-2d57-4ea9-8abf-f97499e3f5dd')
+    vapp_xml = await vdc.get_vapp_by_id('urn:vcloud:vapp:9508d5e3-14bf-4e8f-9a02-0f4c72ceca6f')
     vapp = VApp(vdc.client, resource=vapp_xml)
 
     yield vapp
@@ -746,18 +746,24 @@ async def test_get_media(vapp):
     _ = await vm.get_medias()
 
 
-@pytest.mark.skip()
 @pytest.mark.asyncio
-async def test_tmp(vapp):
+async def test_mks_ticket(vapp):
     vm_resource = await vapp.get_vm()
     vm = VM(vapp.client, resource=vm_resource)
-    media_resources = await vm.get_media()
-    print(repr(media_resources))
-    from lxml import etree
+    dic = await vm.get_mks_ticket()
+    assert 'host' in dic
+    assert 'port' in dic
+    assert 'vmx' in dic
+    assert 'ticket' in dic
+
+
+@pytest.mark.skip()
+@pytest.mark.asyncio
+async def test_tmp(vapp_test):
+    vm_resource = await vapp_test.get_vm()
+    vm = VM(vapp_test.client, resource=vm_resource)
+    dic = await vm.get_mks_ticket()
     print(
         'media_resources',
-        # etree.tostring(
-            media_resources,
-            # pretty_print=True
-        # ).decode('utf8')
+        dic
     )

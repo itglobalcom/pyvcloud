@@ -438,6 +438,7 @@ class EntityType(Enum):
     VMW_STORAGE_PROFILES = \
         'application/vnd.vmware.admin.vmwStorageProfiles+xml'
     vApp_Network = 'application/vnd.vmware.vcloud.vAppNetwork+xml'
+    MKS_TICKET = 'application/vnd.vmware.vcloud.mksTicket+xml'
 
 
 class QueryResultFormat(Enum):
