@@ -743,7 +743,7 @@ async def test_template_without_networks(vdc):
 async def test_get_media(vapp):
     vm_resource = await vapp.get_vm()
     vm = VM(vapp.client, resource=vm_resource)
-    _ = await vm.get_media()
+    _ = await vm.get_medias()
 
 
 @pytest.mark.skip()
