@@ -5,7 +5,7 @@ def simple_call(method):
     @wraps(method)
     async def wrapper(self, *args, **kwargs):
         result = await method(self, *args, **kwargs)
-        if result.tag.endswith('}MksTicket'):
+        if hasattr(result, 'tag') and result.tag.endswith('}MksTicket'):
             return result
         else:
             try:

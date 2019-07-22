@@ -759,11 +759,12 @@ async def test_mks_ticket(vapp):
 
 @pytest.mark.skip()
 @pytest.mark.asyncio
-async def test_tmp(vapp_test):
-    vm_resource = await vapp_test.get_vm()
-    vm = VM(vapp_test.client, resource=vm_resource)
-    dic = await vm.get_mks_ticket()
-    print(
-        'media_resources',
-        dic
-    )
+async def test_tmp(vdc):
+    vdc_resource = await vdc.get_resource()
+    with open('tmp_vdc.xml', 'wb') as f:
+        f.write(
+            etree.tostring(
+                vdc_resource,
+                pretty_print=True
+            )
+        )
