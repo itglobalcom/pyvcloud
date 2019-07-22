@@ -954,7 +954,6 @@ class VM(object):
 
     async def get_mks_ticket(self):
         uri = (await self.get_resource()).get('href') + '/screen/action/acquireMksTicket'
-        xml = getattr(E, tag('vcloud')('CloneVAppParams'))()
         resource = await self.client.post_resource(uri, None, EntityType.MKS_TICKET.value)
         return {
                'host': resource['Host'],
