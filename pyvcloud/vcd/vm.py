@@ -956,10 +956,10 @@ class VM(object):
         uri = (await self.get_resource()).get('href') + '/screen/action/acquireMksTicket'
         resource = await self.client.post_resource(uri, None, EntityType.MKS_TICKET.value)
         return {
-               'host': resource['Host'],
-               'vmx': resource['Vmx'],
-               'ticket': resource['Ticket'],
-               'port': resource['Port'],
+               'host': str(resource['Host']),
+               'vmx': str(resource['Vmx']),
+               'ticket': str(resource['Ticket']),
+               'port': str(resource['Port']),
         }
 
     async def delete_disk(self, disk_id):
