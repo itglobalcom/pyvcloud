@@ -751,10 +751,10 @@ async def test_mks_ticket(vapp):
     vm_resource = await vapp.get_vm()
     vm = VM(vapp.client, resource=vm_resource)
     dic = await vm.get_mks_ticket()
-    assert 'host' in dic
-    assert 'port' in dic
-    assert 'vmx' in dic
-    assert 'ticket' in dic
+    assert isinstance(dic['host'], str)
+    assert isinstance(dic['port'], str)
+    assert isinstance(dic['vmx'], str)
+    assert isinstance(dic['ticket'], str)
 
 
 @pytest.mark.skip()
