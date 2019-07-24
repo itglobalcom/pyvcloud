@@ -45,6 +45,8 @@ from pyvcloud.vcd.exceptions import AccessForbiddenException, \
 SIZE_1MB = 1024 * 1024
 
 NSMAP = {
+    'ns10':
+    'http://www.vmware.com/vcloud/v1.5',
     'ovf':
     'http://schemas.dmtf.org/ovf/envelope/1',
     'ovfenv':
@@ -199,6 +201,7 @@ class RelationType(Enum):
     INSERT_MEDIA = 'media:insertMedia'
     INSTALL_VMWARE_TOOLS = 'installVmwareTools'
     LINK_TO_TEMPLATE = 'linkToTemplate'
+    METRICS = 'metrics'
     MIGRATE_VMS = 'migrateVms'
     MODIFY_FORM_FACTOR = 'edgeGateway:modifyFormFactor'
     NEXT_PAGE = 'nextPage'
@@ -338,7 +341,10 @@ class EntityType(Enum):
     CLONE_VAPP_PARAMS = 'application/vnd.vmware.vcloud.cloneVAppParams+xml'
     COMPOSE_VAPP_PARAMS = \
         'application/vnd.vmware.vcloud.composeVAppParams+xml'
+    COMPLIANCE_RESULT = 'application/vnd.vmware.vm.complianceResult+xml'
     CONTROL_ACCESS_PARAMS = 'application/vnd.vmware.vcloud.controlAccess+xml'
+    CURRENT_USAGE = \
+        'application/vnd.vmware.vcloud.metrics.currentUsageSpec+xml'
     DEFAULT_CONTENT_TYPE = 'application/*+xml'
     DEPLOY = 'application/vnd.vmware.vcloud.deployVAppParams+xml'
     DISK = 'application/vnd.vmware.vcloud.disk+xml'
@@ -361,6 +367,8 @@ class EntityType(Enum):
         'application/vnd.vmware.vcloud.instantiateVAppTemplateParams+xml'
     GUEST_CUSTOMIZATION_SECTION = \
         'application/vnd.vmware.vcloud.guestCustomizationSection+xml'
+    HISTORIC_USAGE = \
+        'application/vnd.vmware.vcloud.metrics.historicUsageSpec+xml'
     LEASE_SETTINGS = 'application/vnd.vmware.vcloud.leaseSettingsSection+xml'
     MEDIA = 'application/vnd.vmware.vcloud.media+xml'
     MEDIA_INSERT_OR_EJECT_PARAMS = \
@@ -381,6 +389,7 @@ class EntityType(Enum):
     ORG_RIGHTS = 'application/vnd.vmware.admin.org.rights+xml'
     ORG_VDC_NETWORK = 'application/vnd.vmware.vcloud.orgVdcNetwork+xml'
     OWNER = 'application/vnd.vmware.vcloud.owner+xml'
+    PRODUCT_SECTIONS = 'application/vnd.vmware.vcloud.productSections+xml'
     PROVIDER_VDC = 'application/vnd.vmware.admin.providervdc+xml'
     PROVIDER_VDC_PARAMS = \
         'application/vnd.vmware.admin.createProviderVdcParams+xml'
@@ -402,6 +411,7 @@ class EntityType(Enum):
     RIGHT = 'application/vnd.vmware.admin.right+xml'
     RIGHTS = 'application/vnd.vmware.admin.rights+xml'
     SNAPSHOT_CREATE = 'application/vnd.vmware.vcloud.createSnapshotParams+xml'
+    STARTUP_SECTION = 'application/vnd.vmware.vcloud.startupSection+xml'
     SYSTEM_SETTINGS = 'application/vnd.vmware.admin.systemSettings+xml'
     TASK = 'application/vnd.vmware.vcloud.task+xml'
     TASKS_LIST = 'application/vnd.vmware.vcloud.tasksList+xml'
