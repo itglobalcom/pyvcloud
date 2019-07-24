@@ -552,6 +552,16 @@ class TestVApp(BaseTestCase):
             wait_for_success(task=task)
         self.assertEqual(result.get('status'), TaskStatus.SUCCESS.value)
 
+    def test_0081_get_lease(self):
+        vapp_name = TestVApp._empty_vapp_name
+        vapp = Environment.get_vapp_in_test_vdc(
+            client=TestVApp._client, vapp_name=vapp_name)
+        result = vapp.get_lease()
+        self.assertEqual(result['DeploymentLeaseInSeconds'],
+                         TestVApp._empty_vapp_runtime_lease)
+        self.assertEqual(result['StorageLeaseInSeconds'],
+                         TestVApp._empty_vapp_storage_lease)
+
     def test_0090_change_vapp_owner(self):
         """Test the method vapp.change_owner().
 
@@ -1003,6 +1013,71 @@ class TestVApp(BaseTestCase):
         task = vapp.snapshot_remove()
         result = TestVApp._client.get_task_monitor().wait_for_success(task)
         self.assertEqual(result.get('status'), TaskStatus.SUCCESS.value)
+
+    def test_0200_create_vapp_network_from_ovdc_network(self):
+        vapp = Environment.get_vapp_in_test_vdc(
+            client=TestVApp._sys_admin_client,
+            vapp_name=TestVApp._customized_vapp_name)
+        task = vapp.create_vapp_network_from_ovdc_network(
+            TestVApp._ovdc_network_name)
+        result = TestVApp._sys_admin_client.get_task_monitor(
+        ).wait_for_success(task)
+        self.assertEqual(result.get('status'), TaskStatus.SUCCESS.value)
+        vapp.reload()
+        vapp_network_href = find_link(
+            resource=vapp.resource,
+            rel=RelationType.DOWN,
+            media_type=EntityType.vApp_Network.value,
+            name=TestVApp._ovdc_network_name).href
+        self.assertIsNotNone(vapp_network_href)
+
+    def test_0201_enable_fence_mode(self):
+        vapp = Environment.get_vapp_in_test_vdc(
+            client=TestVApp._sys_admin_client,
+            vapp_name=TestVApp._customized_vapp_name)
+        task = vapp.enable_fence_mode()
+        result = TestVApp._sys_admin_client.get_task_monitor(
+        ).wait_for_success(task)
+        self.assertEqual(result.get('status'), TaskStatus.SUCCESS.value)
+        vapp.reload()
+        task = vapp.delete_vapp_network(TestVApp._ovdc_network_name)
+        result = TestVApp._sys_admin_client.get_task_monitor(
+        ).wait_for_success(task)
+        self.assertEqual(result.get('status'), TaskStatus.SUCCESS.value)
+
+    def test_0210_update_startup_section(self):
+        vapp = Environment.get_vapp_in_test_vdc(
+            client=TestVApp._sys_admin_client,
+            vapp_name=TestVApp._customized_vapp_name)
+        task = vapp.update_startup_section('custom-vm', 4, 'powerOn', 4,
+                                           'powerOff', 4)
+        result = TestVApp._sys_admin_client.get_task_monitor(
+        ).wait_for_success(task)
+        self.assertEqual(result.get('status'), TaskStatus.SUCCESS.value)
+
+    def test_0220_get_startup_section(self):
+        vapp = Environment.get_vapp_in_test_vdc(
+            client=TestVApp._sys_admin_client,
+            vapp_name=TestVApp._customized_vapp_name)
+        result = vapp.get_startup_section()
+        self.assertNotEqual(len(result), 0)
+        self.assertEqual(result[0]['Id'], TestVApp._customized_vapp_vm_name)
+
+    def test_0230_update_product_section(self):
+        vapp = Environment.get_vapp_in_test_vdc(
+            client=TestVApp._sys_admin_client,
+            vapp_name=TestVApp._customized_vapp_name)
+        task = vapp.update_product_section(key='admin', value='admin')
+        result = TestVApp._sys_admin_client.get_task_monitor(
+        ).wait_for_success(task)
+        self.assertEqual(result.get('status'), TaskStatus.SUCCESS.value)
+
+    def test_0240_get_product_sections(self):
+        vapp = Environment.get_vapp_in_test_vdc(
+            client=TestVApp._sys_admin_client,
+            vapp_name=TestVApp._customized_vapp_name)
+        result = vapp.get_product_sections()
+        self.assertNotEqual(len(result), 0)
 
     @developerModeAware
     def test_9998_teardown(self):
