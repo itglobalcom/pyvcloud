@@ -45,10 +45,10 @@ async def client():
         env('host'),
         api_version='31.0',
         verify_ssl_certs=False,
-        log_file='pyvcloud.log',
-        log_requests=True,
-        log_headers=True,
-        log_bodies=True
+        log_file=None,
+        log_requests=False,
+        log_headers=False,
+        log_bodies=False
     )
     login_credentials = BasicLoginCredentials(
         env('user'),
@@ -106,9 +106,9 @@ async def vapp(vdc, client):
     name = uuid.uuid4().hex[:5]
     await vdc.instantiate_vapp(
         name,
-        'Test',
-        'Ubuntu 18.04 x64 v3 (minimal requirements)',
-        storage_profile_id='urn:vcloud:vdcstorageProfile:1db61137-fd0c-4768-9916-464afc21433a',
+        env('catalog'),
+        env('template_name'),
+        storage_profile_id=env('storage_profile_id'),
     )
 
     await vdc.reload()
@@ -146,8 +146,9 @@ async def vapp_off(vdc):
     name = uuid.uuid4().hex[:5]
     await vdc.instantiate_vapp(
         name,
-        'Test',
-        'Ubuntu 18.04 x64 v3 (minimal requirements)',
+        env('catalog'),
+        env('template_name'),
+        storage_profile_id=env('storage_profile_id'),
         deploy=False,
         power_on=False,
     )
@@ -173,7 +174,7 @@ async def template(vapp, vdc):
         )
     )
     template_name = uuid.uuid4().hex[:10]
-    catalog_resource = await org.get_catalog('Test')
+    catalog_resource = await org.get_catalog(env('catalog'))
     await org.capture_vapp(
         catalog_resource,
         vapp.href,
@@ -199,7 +200,7 @@ async def test_create_delete_template(vapp):
             await vapp.client.get_org()
         )
     )
-    catalog_resource = await org.get_catalog('Test')
+    catalog_resource = await org.get_catalog(env('catalog'))
     template_name = uuid.uuid4().hex[:10]
     template_id = await org.capture_vapp(
         catalog_resource,
@@ -270,21 +271,14 @@ async def test_poweroff_shutdown(vapp):
 
 @pytest.mark.asyncio
 async def test_vm_change_storage_policy(vapp, vdc):
-    """
-    <StorageProfile
-        href="https://vcloud-ds1.itglobal.com/api/vdcStorageProfile/1db61137-fd0c-4768-9916-464afc21433a"
-        id="urn:vcloud:vdcstorageProfile:1db61137-fd0c-4768-9916-464afc21433a"
-        name="CLOUDMNG SSD 01"
-        type="application/vnd.vmware.vcloud.vdcStorageProfile+xml"
-    />
-    """
-    storage_profile_id = "urn:vcloud:vdcstorageProfile:d8086067-c5c0-44fb-9a33-83a18bf48be3"
+    storage_profile_id = env('storage_profile_id')
+    storage_profile_id2 = env('storage_profile_id2')
     vm_resource = await vapp.get_vm()
     vm = VM(vapp.client, resource=vm_resource)
     vdc_resource = await vdc.get_resource()
     for profile in vdc_resource.VdcStorageProfiles.VdcStorageProfile:
         print('test', profile.get('id'), storage_profile_id, profile.get('id') == storage_profile_id)
-        if profile.get('id') == storage_profile_id:
+        if profile.get('id') == storage_profile_id2:
             storage_profile = profile
             break
     else:
@@ -293,7 +287,7 @@ async def test_vm_change_storage_policy(vapp, vdc):
     await vm.update_general_setting(storage_policy_href=storage_profile.get('href'))
 
     await vm.reload()
-    assert (await vm.get_storage_profile_id()) == storage_profile_id
+    assert (await vm.get_storage_profile_id()) == storage_profile_id2
 
 
 
@@ -305,7 +299,7 @@ async def test_vm_disk(vapp, vdc):
     disk_id = await vm.add_disk(
         'test_add_disk',
         300,
-        'urn:vcloud:vdcstorageProfile:1db61137-fd0c-4768-9916-464afc21433a',
+        env('storage_profile_id'),
         '6',
         'VirtualSCSI'
     )
@@ -353,7 +347,7 @@ async def test_vm_disk(vapp, vdc):
         assert storage_profile_id.startswith('urn:')
 
         # Change storage profile
-        storage_policy_id_2 = 'urn:vcloud:vdcstorageProfile:d8086067-c5c0-44fb-9a33-83a18bf48be3'
+        storage_policy_id_2 = env('storage_profile_id')
         await vm.modify_disk(disk_id, storage_policy_id=storage_policy_id_2)
         await vm.reload()
         disk_resource = await vm.get_disk(disk_id)
@@ -529,7 +523,7 @@ async def test_vm_network(vapp_off, vdc):
     """
     Test create, connect and remove network connection.
     """
-    test_network_name = 'cloudmng-dev-external'
+    test_network_name = env('test_network_name')
 
     # Connect vapp to network
     networks = await vapp_off.get_all_networks()
@@ -724,8 +718,9 @@ async def test_networks(vdc):
 async def test_template_without_networks(vdc):
     vapp_id = await vdc.instantiate_vapp(
         'TestTemplateWithoutNetwork',
-        'Test',
-        'Client139_Template73',
+        env('catalog'),
+        env('template_name'),
+        storage_profile_id=env('storage_profile_id'),
     )
     try:
         await vdc.reload()
@@ -734,6 +729,7 @@ async def test_template_without_networks(vdc):
         vm_resource = await vapp.get_vm()
         vm = VM(client, resource=vm_resource)
         nics = await vm.list_nics()
+        nics = [nic for nic in nics if nic['connected'] == True]
         assert len(nics) == 0
     finally:
         await vdc.delete_vapp_by_id(vapp_id, True)

@@ -102,12 +102,19 @@ class VM(object):
 
         :rtype: dict
         """
-        await self.get_resource()
+        # await self.get_resource()
+        # return {
+        #     'num_cpus':
+        #     int(self.resource.VmSpecSection.NumCpus.text),
+        #     'num_cores_per_socket':
+        #     int(self.resource.VmSpecSection.NumCoresPerSocket.text)
+        # }
+
+        uri = self.href + '/virtualHardwareSection/cpu'
+        item = await self.client.get_resource(uri)
         return {
-            'num_cpus':
-            int(self.resource.VmSpecSection.NumCpus.text),
-            'num_cores_per_socket':
-            int(self.resource.VmSpecSection.NumCoresPerSocket.text)
+            'num_cpus': item[tag('rasd')('VirtualQuantity')],
+            'num_cores_per_socket': item[tag('vmw')('CoresPerSocket')],
         }
 
     async def get_memory(self):
@@ -117,9 +124,12 @@ class VM(object):
 
         :rtype: int
         """
-        await self.get_resource()
-        return int(
-            self.resource.VmSpecSection.MemoryResourceMb.Configured.text)
+        # await self.get_resource()
+        # return int(
+        #     self.resource.VmSpecSection.MemoryResourceMb.Configured.text)
+        uri = self.href + '/virtualHardwareSection/memory'
+        item = await self.client.get_resource(uri)
+        return int(item[tag('rasd')('VirtualQuantity')])
 
     async def is_vmtools_installed(self):
         await self.get_resource()
