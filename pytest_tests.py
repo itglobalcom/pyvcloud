@@ -761,6 +761,14 @@ async def test_ticket(vapp):
     assert isinstance(dic['ticket'], str)
 
 
+@pytest.mark.asyncio
+async def test_vmtools_installed(vapp):
+    vm_resource = await vapp.get_vm()
+    vm = VM(vapp.client, resource=vm_resource)
+    result = await vm.is_vmtools_installed()
+    assert isinstance(result, bool)
+
+
 @pytest.mark.skip()
 @pytest.mark.asyncio
 async def test_tmp(vapp):
