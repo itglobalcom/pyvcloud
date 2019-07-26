@@ -972,6 +972,13 @@ class VM(object):
                'port': str(resource['Port']),
         }
 
+    async def get_ticket(self):
+        uri = (await self.get_resource()).get('href') + '/screen/action/acquireTicket'
+        resource = await self.client.post_resource(uri, None, EntityType.TICKET.value)
+        return {
+               'screen_ticket': str(resource.text),
+        }
+
     async def delete_disk(self, disk_id):
         disk_list = await self.client.get_resource(
             (await self.get_resource()).get('href') + '/virtualHardwareSection/disks')
