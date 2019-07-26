@@ -107,8 +107,9 @@ async def vapp(vdc, client):
     await vdc.instantiate_vapp(
         name,
         'Test',
-        'Ubuntu 18.04 x64 v3 (minimal requirements)',
-        storage_profile_id='urn:vcloud:vdcstorageProfile:1db61137-fd0c-4768-9916-464afc21433a',
+        # 'Ubuntu 18.04 x64 v3 (minimal requirements)',
+        'Debian 9 x64 (minimal requirements)v4',
+        storage_profile_id=env('storage_profile_id')
     )
 
     await vdc.reload()
@@ -757,14 +758,31 @@ async def test_mks_ticket(vapp):
     assert isinstance(dic['ticket'], str)
 
 
+@pytest.mark.asyncio
+async def test_ticket(vapp):
+    vm_resource = await vapp.get_vm()
+    vm = VM(vapp.client, resource=vm_resource)
+    dic = await vm.get_mks_ticket()
+    assert isinstance(dic['ticket'], str)
+
+
 @pytest.mark.skip()
 @pytest.mark.asyncio
-async def test_tmp(vdc):
-    vdc_resource = await vdc.get_resource()
-    with open('tmp_vdc.xml', 'wb') as f:
-        f.write(
-            etree.tostring(
-                vdc_resource,
-                pretty_print=True
-            )
-        )
+async def test_tmp(vapp):
+    # vapp_resource = await vdc.get_vapp_by_id('urn:vcloud:vapp:ae16b508-fea3-412a-8ba7-25fbd366607f')
+    # vdc_resource = await vdc.get_resource()
+    # storage_profile_id2 = "urn:vcloud:vdcstorageProfile:812d8160-48bb-4c7a-b03e-7637124c1d6a"
+    # catalog = 'Test'
+    # test_network_name = 'cloudmng-lab-internal01'
+    # vapp_resource = await vapp.get_resource()
+    vm_resource = await vapp.get_vm()
+    vm = VM(vapp.client, resource=vm_resource)
+    ticket = await vm.get_ticket()
+    raise ZeroDivisionError(ticket)
+    # with open('tmp.xml', 'wb') as f:
+    #     f.write(
+    #         etree.tostring(
+    #             resource,
+    #             pretty_print=True
+    #         )
+    #     )
