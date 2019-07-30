@@ -681,12 +681,23 @@ async def test_copy_vm(vapp, vdc, vdc2):
 
 
 @pytest.mark.asyncio
-async def test_clone_vapp(vapp, vdc, vdc2):
+@pytest.mark.parametrize('deploy,powered_on',
+                         (
+                                 (False, False),
+                                 (False, True),
+                                 (True, False),
+                                 (True, True),
+                         ))
+async def test_clone_vapp(vapp, vdc2, deploy, powered_on):
+    assert (await vapp.get_resource()).get('status') == '4'
+    if not powered_on:
+        await vapp.power_off()
+        await vapp.reload()
     test_new_name = 'TestCloneVapp2'
     clone_vapp_id = await vapp.clone(
         test_new_name,
         vdc2.href,
-        deploy=False,
+        deploy=deploy,
         power_on=False,
         linked_clone=False,
     )
@@ -700,6 +711,12 @@ async def test_clone_vapp(vapp, vdc, vdc2):
         assert vm_resource.get('name') == clone_vm_resource.get('name')
         assert clone_vapp_resource.get('deployed') == 'false'
         assert await clone_vapp.is_powered_on() == False
+        assert await clone_vapp.is_suspended() == powered_on
+
+        if await clone_vapp.is_suspended():
+            await clone_vapp.discard_suspended_state_vapp()
+        await clone_vapp.reload()
+        assert (await clone_vapp.get_resource()).get('status') == '8'
     finally:
         await vdc2.delete_vapp_by_id(clone_vapp_id)
 
@@ -769,17 +786,32 @@ async def test_ticket(vapp):
 @pytest.mark.skip()
 @pytest.mark.asyncio
 async def test_tmp(vapp):
-    # vapp_resource = await vdc.get_vapp_by_id('urn:vcloud:vapp:ae16b508-fea3-412a-8ba7-25fbd366607f')
+    pass
+    # print('status 1', await vapp.is_deployed())
+    # await vapp.suspend_vapp()
+    # await vapp.reload()
+    # print('status 2', await vapp.is_deployed())
+    # await vapp.discard_suspended_state_vapp()
+    # await vapp.undeploy()
+    # await vapp.reload()
+    # print('status 3', await vapp.is_deployed())
+    # await vapp.suspend_vapp()
+    # await vapp.reload()
+    # print('status 4', await vapp.is_deployed())
+    # vapp_id = 'urn:vcloud:vapp:185e8724-2e78-408f-9ffb-a3534160907f'
+    # num = 2
+    # resource = await vdc.get_vapp_by_id(vapp_id)
+    # resource = await vdc2.get_resource()
     # vdc_resource = await vdc.get_resource()
     # storage_profile_id2 = "urn:vcloud:vdcstorageProfile:812d8160-48bb-4c7a-b03e-7637124c1d6a"
     # catalog = 'Test'
     # test_network_name = 'cloudmng-lab-internal01'
     # vapp_resource = await vapp.get_resource()
-    vm_resource = await vapp.get_vm()
-    vm = VM(vapp.client, resource=vm_resource)
-    ticket = await vm.get_ticket()
-    raise ZeroDivisionError(ticket)
-    # with open('tmp.xml', 'wb') as f:
+    # resource = await vapp.get_resource()
+    # vm = VM(vapp.client, resource=vm_resource)
+    # ticket = await vm.get_ticket()
+    # raise ZeroDivisionError(ticket)
+    # with open(f'{vapp_id.split(":")[-1]}-{num}.xml', 'wb') as f:
     #     f.write(
     #         etree.tostring(
     #             resource,
