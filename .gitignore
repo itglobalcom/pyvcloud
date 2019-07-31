@@ -72,3 +72,4 @@ tests/private.*
 .env-dev
 
 tmp.xml
+pyvcloud.log*

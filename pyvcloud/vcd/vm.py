@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 from copy import deepcopy
 
 from lxml import etree
@@ -374,6 +375,25 @@ class VM(object):
             operation_name='undeploy',
             media_type=EntityType.UNDEPLOY.value,
             contents=params)
+
+    async def get_hot_add_enabled(self):
+        resource = await self.get_resource()
+        VmCapabilities = resource.VmCapabilities
+        return {
+            'MemoryHotAddEnabled': json.loads(VmCapabilities.MemoryHotAddEnabled.text),
+            'CpuHotAddEnabled': json.loads(VmCapabilities.CpuHotAddEnabled.text),
+        }
+
+    async def set_hot_add_enabled(self, *, memory, cpu):
+        resource = await self.get_resource()
+        VmCapabilities = resource.VmCapabilities
+        VmCapabilities.MemoryHotAddEnabled = json.dumps(memory)
+        VmCapabilities.CpuHotAddEnabled = json.dumps(cpu)
+        objectify.deannotate(VmCapabilities)
+        etree.cleanup_namespaces(VmCapabilities)
+        return await self.client.put_resource(
+            VmCapabilities.Link.get('href'), VmCapabilities, VmCapabilities.Link.get('type')
+        )
 
     async def snapshot_create(self, memory=None, quiesce=None, name=None):
         """Create a snapshot of the vm.

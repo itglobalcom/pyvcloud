@@ -783,38 +783,40 @@ async def test_ticket(vapp):
     assert isinstance(dic['ticket'], str)
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    'memory,cpu',
+    (
+            (False, False),
+            (False, True),
+            (True, False),
+            (True, True),
+    )
+)
+async def test_hot_add_enabled(vapp, memory, cpu):
+    if await vapp.is_powered_on():
+        await vapp.power_off()
+    vm_resource = await vapp.get_vm()
+    vm = VM(vapp.client, resource=vm_resource)
+    await vm.set_hot_add_enabled(memory=memory, cpu=cpu)
+    await vm.reload()
+    result = await vm.get_hot_add_enabled()
+    for field, value in zip(
+            ('MemoryHotAddEnabled', 'CpuHotAddEnabled'),
+            (memory, cpu),
+    ):
+        assert isinstance(result[field], bool)
+        assert result[field] == value
+
+
 @pytest.mark.skip()
 @pytest.mark.asyncio
 async def test_tmp(vapp):
-    pass
-    # print('status 1', await vapp.is_deployed())
-    # await vapp.suspend_vapp()
-    # await vapp.reload()
-    # print('status 2', await vapp.is_deployed())
-    # await vapp.discard_suspended_state_vapp()
-    # await vapp.undeploy()
-    # await vapp.reload()
-    # print('status 3', await vapp.is_deployed())
-    # await vapp.suspend_vapp()
-    # await vapp.reload()
-    # print('status 4', await vapp.is_deployed())
-    # vapp_id = 'urn:vcloud:vapp:185e8724-2e78-408f-9ffb-a3534160907f'
-    # num = 2
-    # resource = await vdc.get_vapp_by_id(vapp_id)
-    # resource = await vdc2.get_resource()
-    # vdc_resource = await vdc.get_resource()
-    # storage_profile_id2 = "urn:vcloud:vdcstorageProfile:812d8160-48bb-4c7a-b03e-7637124c1d6a"
-    # catalog = 'Test'
-    # test_network_name = 'cloudmng-lab-internal01'
-    # vapp_resource = await vapp.get_resource()
-    # resource = await vapp.get_resource()
-    # vm = VM(vapp.client, resource=vm_resource)
-    # ticket = await vm.get_ticket()
-    # raise ZeroDivisionError(ticket)
-    # with open(f'{vapp_id.split(":")[-1]}-{num}.xml', 'wb') as f:
-    #     f.write(
-    #         etree.tostring(
-    #             resource,
-    #             pretty_print=True
-    #         )
-    #     )
+    resource = await vapp.get_resource()
+    with open(f'tmp.xml', 'wb') as f:
+        f.write(
+            etree.tostring(
+                resource,
+                pretty_print=True
+            )
+        )
