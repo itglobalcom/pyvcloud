@@ -17,7 +17,8 @@ def simple_call(method):
                 task = result
                 returned_id = None
             await self.get_task_monitor().wait_for_success(
-                task=task
+                task=task,
+                timeout=3 * 60 * 60
             )
             return returned_id
     return wrapper

@@ -1,10 +1,7 @@
 #!/usr/bin/env python3
 
 import asyncio
-from functools import partial
-import time
 import uuid
-from contextlib import contextmanager, asynccontextmanager
 
 import pytest
 import requests
@@ -17,11 +14,9 @@ from pyvcloud.vcd.client import Client, MetadataValueType,\
     NetworkAdapterType, VCLOUD_STATUS_MAP
 from pyvcloud.vcd.client import EntityType
 from pyvcloud.vcd.org import Org
-from pyvcloud.vcd.task import Task, TaskStatus
 from pyvcloud.vcd.vapp import VApp, RelationType
 from pyvcloud.vcd.vdc import VDC
 from pyvcloud.vcd.vm import VM
-# from pyvcloud.vcd.system import System
 from pyvcloud.vcd.utils import tag
 
 
@@ -674,12 +669,23 @@ async def test_copy_vm(vapp, vdc, vdc2):
 
 
 @pytest.mark.asyncio
-async def test_clone_vapp(vapp, vdc, vdc2):
+@pytest.mark.parametrize('deploy,powered_on',
+                         (
+                                 (False, False),
+                                 (False, True),
+                                 (True, False),
+                                 (True, True),
+                         ))
+async def test_clone_vapp(vapp, vdc2, deploy, powered_on):
+    assert (await vapp.get_resource()).get('status') == '4'
+    if not powered_on:
+        await vapp.power_off()
+        await vapp.reload()
     test_new_name = 'TestCloneVapp2'
     clone_vapp_id = await vapp.clone(
         test_new_name,
         vdc2.href,
-        deploy=False,
+        deploy=deploy,
         power_on=False,
         linked_clone=False,
     )
@@ -693,6 +699,12 @@ async def test_clone_vapp(vapp, vdc, vdc2):
         assert vm_resource.get('name') == clone_vm_resource.get('name')
         assert clone_vapp_resource.get('deployed') == 'false'
         assert await clone_vapp.is_powered_on() == False
+        assert await clone_vapp.is_suspended() == powered_on
+
+        if await clone_vapp.is_suspended():
+            await clone_vapp.discard_suspended_state_vapp()
+        await clone_vapp.reload()
+        assert (await clone_vapp.get_resource()).get('status') == '8'
     finally:
         await vdc2.delete_vapp_by_id(clone_vapp_id)
 
@@ -769,23 +781,85 @@ async def test_vmtools_installed(vapp):
     assert isinstance(result, bool)
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    'memory,cpu',
+    (
+            (False, False),
+            (False, True),
+            (True, False),
+            (True, True),
+    )
+)
+async def test_hot_add_enabled(vapp, memory, cpu):
+    if await vapp.is_powered_on():
+        await vapp.power_off()
+    vm_resource = await vapp.get_vm()
+    vm = VM(vapp.client, resource=vm_resource)
+    await vm.set_hot_add_enabled(memory=memory, cpu=cpu)
+    await vm.reload()
+    result = await vm.get_hot_add_enabled()
+    for field, value in zip(
+            ('MemoryHotAddEnabled', 'CpuHotAddEnabled'),
+            (memory, cpu),
+    ):
+        assert isinstance(result[field], bool)
+        assert result[field] == value
+
+
+@pytest.mark.asyncio
+async def test_network_nat_routed(vdc, vapp):
+    u = uuid.uuid4().hex
+    network_name = f'test_network{u[:5]}'
+    await vdc.create_routed_vdc_network(network_name, env('test_network_name'), '192.168.10.1/8')
+    await vdc.reload()
+    try:
+        await vapp.connect_org_vdc_network(network_name)
+        vm_resource = await vapp.get_vm()
+        vm = VM(vapp.client, resource=vm_resource)
+        await vm.add_nic(
+            NetworkAdapterType.VMXNET3.value,
+            False,
+            True,
+            network_name,
+            'DHCP',
+            ''
+        )
+    finally:
+        await vdc.delete_network(network_name, force=True)
+
+
+@pytest.mark.asyncio
+async def test_network_isolated(vdc, vapp):
+    u = uuid.uuid4().hex
+    network_name = f'test_network{u[:5]}'
+    await vdc.create_isolated_vdc_network(network_name, '192.168.0.1/24')
+    await vdc.reload()
+    await vapp.reload()
+    try:
+        await vapp.connect_org_vdc_network(network_name)
+        vm_resource = await vapp.get_vm()
+        vm = VM(vapp.client, resource=vm_resource)
+        await vm.add_nic(
+            NetworkAdapterType.VMXNET3.value,
+            False,
+            True,
+            network_name,
+            'DHCP',
+            ''
+        )
+    finally:
+        await vdc.delete_network(network_name, force=True)
+
+
 @pytest.mark.skip()
 @pytest.mark.asyncio
 async def test_tmp(vapp):
-    # vapp_resource = await vdc.get_vapp_by_id('urn:vcloud:vapp:ae16b508-fea3-412a-8ba7-25fbd366607f')
-    # vdc_resource = await vdc.get_resource()
-    # storage_profile_id2 = "urn:vcloud:vdcstorageProfile:812d8160-48bb-4c7a-b03e-7637124c1d6a"
-    # catalog = 'Test'
-    # test_network_name = 'cloudmng-lab-internal01'
-    # vapp_resource = await vapp.get_resource()
-    vm_resource = await vapp.get_vm()
-    vm = VM(vapp.client, resource=vm_resource)
-    ticket = await vm.get_ticket()
-    raise ZeroDivisionError(ticket)
-    # with open('tmp.xml', 'wb') as f:
-    #     f.write(
-    #         etree.tostring(
-    #             resource,
-    #             pretty_print=True
-    #         )
-    #     )
+    resource = await vapp.get_resource()
+    with open(f'tmp.xml', 'wb') as f:
+        f.write(
+            etree.tostring(
+                resource,
+                pretty_print=True
+            )
+        )

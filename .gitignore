@@ -70,3 +70,6 @@ tests/private.*
 .env
 .env-dev
 .env-lab
+
+tmp.xml
+pyvcloud.log*
