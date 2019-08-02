@@ -810,8 +810,9 @@ async def test_hot_add_enabled(vapp, memory, cpu):
 @pytest.mark.asyncio
 async def test_network_nat_routed(vdc, vapp):
     u = uuid.uuid4().hex
+    CIDR = '193.168.0.1/8'
     network_name = f'test_network{u[:5]}'
-    await vdc.create_routed_vdc_network(network_name, env('test_network_name'), '192.168.10.1/8')
+    await vdc.create_routed_vdc_network(network_name, env('test_network_gateway'), CIDR)
     await vdc.reload()
     try:
         await vapp.connect_org_vdc_network(network_name)
@@ -823,7 +824,7 @@ async def test_network_nat_routed(vdc, vapp):
             True,
             network_name,
             'DHCP',
-            ''
+            None
         )
     finally:
         await vdc.delete_network(network_name, force=True)
@@ -832,8 +833,9 @@ async def test_network_nat_routed(vdc, vapp):
 @pytest.mark.asyncio
 async def test_network_isolated(vdc, vapp):
     u = uuid.uuid4().hex
+    CIDR = '192.168.0.1/24'
     network_name = f'test_network{u[:5]}'
-    await vdc.create_isolated_vdc_network(network_name, '192.168.0.1/24')
+    await vdc.create_isolated_vdc_network(network_name, CIDR)
     await vdc.reload()
     await vapp.reload()
     try:
@@ -846,7 +848,7 @@ async def test_network_isolated(vdc, vapp):
             True,
             network_name,
             'DHCP',
-            ''
+            None
         )
     finally:
         await vdc.delete_network(network_name, force=True)
