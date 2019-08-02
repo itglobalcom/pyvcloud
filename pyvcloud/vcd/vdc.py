@@ -1429,7 +1429,7 @@ class VDC(object):
         if is_shared is not None:
             request_payload.append(E.IsShared(is_shared))
 
-        return self.client.post_linked_resource(
+        return await self.client.post_linked_resource(
             self.resource, RelationType.ADD, EntityType.ORG_VDC_NETWORK.value,
             request_payload)
 
@@ -1542,6 +1542,16 @@ class VDC(object):
             result.append(orgvdc_network_resource)
         return result
 
+    async def get_network(self, name):
+        result = await self.list_orgvdc_network_resources(name=name)
+        if len(result) == 1:
+            return result[0]
+        else:
+            if len(result) == 0:
+                raise EntityNotFoundException(f'Network with name "{name}" not found')
+            else:
+                raise MultipleRecordsException(f'Network with name "{name}"')
+
     def list_orgvdc_routed_networks(self):
         """Fetch all routed org vdc networks in the current vdc.
 
@@ -1636,6 +1646,10 @@ class VDC(object):
             raise EntityNotFoundException(
                 'Org vdc network with name \'%s\' not found.' % name)
         return result[0]
+
+    async def delete_network(self, name, force=False):
+        net_resource = await self.get_network(name)
+        return await self.client.delete_resource(net_resource.get('href'), force=force)
 
     async def delete_routed_orgvdc_network(self, name, force=False):
         """Delete a routed org vdc network in the current vdc.

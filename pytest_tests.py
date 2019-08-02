@@ -1,10 +1,7 @@
 #!/usr/bin/env python3
 
 import asyncio
-from functools import partial
-import time
 import uuid
-from contextlib import contextmanager, asynccontextmanager
 
 import pytest
 import requests
@@ -17,11 +14,9 @@ from pyvcloud.vcd.client import Client, MetadataValueType,\
     NetworkAdapterType, VCLOUD_STATUS_MAP
 from pyvcloud.vcd.client import EntityType
 from pyvcloud.vcd.org import Org
-from pyvcloud.vcd.task import Task, TaskStatus
 from pyvcloud.vcd.vapp import VApp, RelationType
 from pyvcloud.vcd.vdc import VDC
 from pyvcloud.vcd.vm import VM
-# from pyvcloud.vcd.system import System
 from pyvcloud.vcd.utils import tag
 
 
@@ -807,6 +802,51 @@ async def test_hot_add_enabled(vapp, memory, cpu):
     ):
         assert isinstance(result[field], bool)
         assert result[field] == value
+
+
+@pytest.mark.asyncio
+async def test_network_nat_routed(vdc, vapp):
+    u = uuid.uuid4().hex
+    network_name = f'test_network{u[:5]}'
+    await vdc.create_routed_vdc_network(network_name, env('test_network_name'), '192.168.10.1/8')
+    await vdc.reload()
+    try:
+        await vapp.connect_org_vdc_network(network_name)
+        vm_resource = await vapp.get_vm()
+        vm = VM(vapp.client, resource=vm_resource)
+        await vm.add_nic(
+            NetworkAdapterType.VMXNET3.value,
+            False,
+            True,
+            network_name,
+            'DHCP',
+            ''
+        )
+    finally:
+        await vdc.delete_network(network_name, force=True)
+
+
+@pytest.mark.asyncio
+async def test_network_isolated(vdc, vapp):
+    u = uuid.uuid4().hex
+    network_name = f'test_network{u[:5]}'
+    await vdc.create_isolated_vdc_network(network_name, '192.168.0.1/24')
+    await vdc.reload()
+    await vapp.reload()
+    try:
+        await vapp.connect_org_vdc_network(network_name)
+        vm_resource = await vapp.get_vm()
+        vm = VM(vapp.client, resource=vm_resource)
+        await vm.add_nic(
+            NetworkAdapterType.VMXNET3.value,
+            False,
+            True,
+            network_name,
+            'DHCP',
+            ''
+        )
+    finally:
+        await vdc.delete_network(network_name, force=True)
 
 
 @pytest.mark.skip()
