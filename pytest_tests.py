@@ -104,7 +104,7 @@ async def vapp(vdc, client):
         'Test',
         # 'Ubuntu 18.04 x64 v3 (minimal requirements)',
         'Debian 9 x64 (minimal requirements)v4',
-        storage_profile_id=env('storage_profile_id')
+        storage_profile=env('storage_profile')
     )
 
     await vdc.reload()
@@ -274,22 +274,17 @@ async def test_vm_change_storage_policy(vapp, vdc):
         type="application/vnd.vmware.vcloud.vdcStorageProfile+xml"
     />
     """
-    storage_profile_id = "urn:vcloud:vdcstorageProfile:d8086067-c5c0-44fb-9a33-83a18bf48be3"
+    storage_profile = env('storage_profile_2')
     vm_resource = await vapp.get_vm()
     vm = VM(vapp.client, resource=vm_resource)
-    vdc_resource = await vdc.get_resource()
-    for profile in vdc_resource.VdcStorageProfiles.VdcStorageProfile:
-        print('test', profile.get('id'), storage_profile_id, profile.get('id') == storage_profile_id)
-        if profile.get('id') == storage_profile_id:
-            storage_profile = profile
-            break
-    else:
-        raise ValueError('No this StorageProfile with id={}'.format(storage_profile_id))
+    storage_profile_href = (
+        await vdc.get_storage_profile(env('storage_profile_2'))
+    ).get('href')
 
-    await vm.update_general_setting(storage_policy_href=storage_profile.get('href'))
+    await vm.update_general_setting(storage_policy_href=storage_profile_href)
 
     await vm.reload()
-    assert (await vm.get_storage_profile_id()) == storage_profile_id
+    assert (await vm.get_storage_profile()) == storage_profile
 
 
 
@@ -297,11 +292,13 @@ async def test_vm_change_storage_policy(vapp, vdc):
 async def test_vm_disk(vapp, vdc):
     vm_resource = await vapp.get_vm()
     vm = VM(vapp.client, resource=vm_resource)
+    storage_profile_xml = await vdc.get_storage_profile(env('storage_profile'))
+    storage_profile_id = storage_profile_xml.get('id')
 
     disk_id = await vm.add_disk(
         'test_add_disk',
         300,
-        'urn:vcloud:vdcstorageProfile:1db61137-fd0c-4768-9916-464afc21433a',
+        storage_profile_id,
         '6',
         'VirtualSCSI'
     )
@@ -349,7 +346,9 @@ async def test_vm_disk(vapp, vdc):
         assert storage_profile_id.startswith('urn:')
 
         # Change storage profile
-        storage_policy_id_2 = 'urn:vcloud:vdcstorageProfile:d8086067-c5c0-44fb-9a33-83a18bf48be3'
+        # storage_policy_id_2 = 'urn:vcloud:vdcstorageProfile:d8086067-c5c0-44fb-9a33-83a18bf48be3'
+        storage_profile_2_xml = await vdc.get_storage_profile(env('storage_profile'))
+        storage_policy_id_2 = storage_profile_2_xml.get('id')
         await vm.modify_disk(disk_id, storage_policy_id=storage_policy_id_2)
         await vm.reload()
         disk_resource = await vm.get_disk(disk_id)

@@ -238,6 +238,10 @@ class VM(object):
         resource = vm_resource or await self.get_resource()
         return resource.StorageProfile.get('id')
 
+    async def get_storage_profile(self, vm_resource=None):
+        resource = vm_resource or await self.get_resource()
+        return resource.StorageProfile.get('name')
+
     async def set_storage_profile(self, storage_profile):
         return await self.client.post_linked_resource(
             self.resource, ResourceType.ORG_VDC_STORAGE_PROFILE,
@@ -1405,7 +1409,7 @@ class VM(object):
             'name')
         return general_setting
 
-    def list_storage_profile(self):
+    async def list_storage_profile(self):
         """Get the list of storage profile in VM.
 
         :return: list of stotage profile name of storage profile.
@@ -1414,7 +1418,7 @@ class VM(object):
         :rtype: list
         """
         storage_profile = []
-        self.get_resource()
+        await self.get_resource()
         if hasattr(self.resource.VmSpecSection, 'DiskSection'):
             if hasattr(self.resource.VmSpecSection.DiskSection,
                        'DiskSettings'):
@@ -1422,12 +1426,25 @@ class VM(object):
                         self.resource.VmSpecSection.DiskSection.DiskSettings:
                     if hasattr(disk_setting, 'StorageProfile'):
                         storage_profile.append({
-                            'name':
-                            disk_setting.StorageProfile.get('name')
+                            'name': disk_setting.StorageProfile.get('name'),
+                            'id': disk_setting.StorageProfile.get('id'),
+                            'href': disk_setting.StorageProfile.get('href'),
                         })
         return storage_profile
 
-    def reload_from_vc(self):
+    async def get_storage_profile_id(self, name):
+        for dic in await self.list_storage_profile():
+            if dic['name'] == name:
+                return dic['id']
+        raise EntityNotFoundException(f'Storage policy name={name} not found')
+
+    async def get_storage_profile_href(self, name):
+        for dic in await self.list_storage_profile():
+            if dic['name'] == name:
+                return dic['href']
+        raise EntityNotFoundException(f'Storage policy name={name} not found')
+
+    async def reload_from_vc(self):
         """Reload a VM from VC.
 
         :return: an object containing EntityType.TASK XML data which represents
@@ -1435,11 +1452,11 @@ class VM(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        self.get_resource()
-        return self.client.post_linked_resource(
+        await self.get_resource()
+        return await self.client.post_linked_resource(
             self.resource, RelationType.RELOAD_FROM_VC, None, None)
 
-    def check_compliance(self):
+    async def check_compliance(self):
         """Check compliance of a VM.
 
         :return: an object containing EntityType.TASK XML data which represents
@@ -1447,8 +1464,8 @@ class VM(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        self.get_resource()
-        return self.client.post_linked_resource(
+        await self.get_resource()
+        return await self.client.post_linked_resource(
             self.resource, RelationType.CHECK_COMPLIANCE, None, None)
 
     async def customize_at_next_power_on(self):
