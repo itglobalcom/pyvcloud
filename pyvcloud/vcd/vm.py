@@ -1434,7 +1434,7 @@ class VM(object):
             return resource.StorageProfile.get('id')
         else:
             for dic in await self.list_storage_profile():
-                if dic['name'] == name
+                if dic['name'] == name:
                     return dic['id']
             raise EntityNotFoundException(f'Storage policy name={name} not found')
 
