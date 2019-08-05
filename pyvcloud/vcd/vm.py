@@ -234,10 +234,6 @@ class VM(object):
         """
         return await self.get_power_state(vm_resource) == 2
 
-    async def get_storage_profile_id(self, vm_resource=None):
-        resource = vm_resource or await self.get_resource()
-        return resource.StorageProfile.get('id')
-
     async def get_storage_profile(self, vm_resource=None):
         resource = vm_resource or await self.get_resource()
         return resource.StorageProfile.get('name')
@@ -1432,11 +1428,15 @@ class VM(object):
                         })
         return storage_profile
 
-    async def get_storage_profile_id(self, name):
-        for dic in await self.list_storage_profile():
-            if dic['name'] == name:
-                return dic['id']
-        raise EntityNotFoundException(f'Storage policy name={name} not found')
+    async def get_storage_profile_id(self, name=None, vm_resource=None):
+        if name is None:
+            resource = vm_resource or await self.get_resource()
+            return resource.StorageProfile.get('id')
+        else:
+            for dic in await self.list_storage_profile():
+                if dic['name'] == name
+                    return dic['id']
+            raise EntityNotFoundException(f'Storage policy name={name} not found')
 
     async def get_storage_profile_href(self, name):
         for dic in await self.list_storage_profile():
