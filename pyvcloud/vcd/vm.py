@@ -900,7 +900,7 @@ class VM(object):
         return instance_id
 
     async def modify_disk(self, disk_id, size=None,
-                          storage_policy_id=None, parent=None,
+                          storage_policy_href=None, parent=None,
                           address_on_parent=None, bus_type=None,
                           bus_sub_type=None):
         """
@@ -923,11 +923,6 @@ class VM(object):
                 VirtualSCSI
                 vmware.sata.ahci
         """
-        if storage_policy_id is not None:
-            storage_policy_href = f'{self.client._uri}/api/vdcStorageProfile/' + storage_policy_id.split(':')[-1]
-        else:
-            storage_policy_href = None
-
         assert size is not None or storage_policy_href is not None or \
             parent is not None or address_on_parent is not None or bus_sub_type is not None
         disk_list = await self.client.get_resource(

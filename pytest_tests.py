@@ -348,16 +348,14 @@ async def test_vm_disk(vapp, vdc):
         # Change storage profile
         # storage_policy_id_2 = 'urn:vcloud:vdcstorageProfile:d8086067-c5c0-44fb-9a33-83a18bf48be3'
         storage_profile_2_xml = await vdc.get_storage_profile(env('storage_profile'))
-        storage_policy_id_2 = storage_profile_2_xml.get('id')
-        await vm.modify_disk(disk_id, storage_policy_id=storage_policy_id_2)
+        storage_policy_href_2 = storage_profile_2_xml.get('href')
+        await vm.modify_disk(disk_id, storage_policy_href=storage_policy_href_2)
         await vm.reload()
         disk_resource = await vm.get_disk(disk_id)
         storage_profile_href = disk_resource[
             tag('rasd')('HostResource')
         ].get(tag('vcloud')('storageProfileHref'))
-        resource = await vapp.client.get_resource(storage_profile_href)
-        storage_profile_id = resource.get('id')
-        assert storage_profile_id == storage_policy_id_2
+        assert storage_profile_href == storage_policy_href_2
     finally:
         await vm.delete_disk(disk_id)
 
