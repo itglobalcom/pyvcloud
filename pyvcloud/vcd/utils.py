@@ -64,13 +64,13 @@ def org_to_dict(org):
     :rtype: dict
     """
     result = {}
-    result['name'] = org.get('name')
-    result['id'] = extract_id(org.get('id'))
-    result['full_name'] = str('%s' % org.FullName)
-    result['description'] = str('%s' % org.Description)
+    result['name'] = org.resource.get('name')
+    result['id'] = extract_id(org.resource.get('id'))
+    result['full_name'] = str('%s' % org.resource.FullName)
+    result['description'] = str('%s' % org.resource.Description)
     result['org_networks'] = [
-        str(n.name)
-        for n in get_links(org, media_type=EntityType.ORG_NETWORK.value)
+        str(n.name) for n in get_links(org.resource,
+                                       media_type=EntityType.ORG_NETWORK.value)
     ]
     org_to_dict_vdc_catalog(org, result=result)
     return result
@@ -78,13 +78,14 @@ def org_to_dict(org):
 
 def org_to_dict_vdc_catalog(org, result):
     if org.client.get_api_version() < ApiVersion.VERSION_33.value:
-        vdc_links = get_links(org, media_type=EntityType.VDC.value)
-        catalog_links = get_links(org, media_type=EntityType.CATALOG.value)
+        vdc_links = get_links(org.resource, media_type=EntityType.VDC.value)
+        catalog_links = get_links(org.resource,
+                                  media_type=EntityType.CATALOG.value)
     else:
         vdc_links = org.client.get_resource_link_from_query_object(
-            org, media_type=EntityType.RECORDS.value, type='vdc')
+            org.resource, media_type=EntityType.RECORDS.value, type='vdc')
         catalog_links = org.client.get_resource_link_from_query_object(
-            org, media_type=EntityType.RECORDS.value, type='catalog')
+            org.resource, media_type=EntityType.RECORDS.value, type='catalog')
     result['vdcs'] = [str(n.name) for n in vdc_links]
     result['catalogs'] = [str(n.name) for n in catalog_links]
 
@@ -912,7 +913,37 @@ def build_network_url_from_gateway_url(gateway_href):
     return None
 
 
+
 def tag(class_):
     def tag(tag_name):
         return '{' + NSMAP[class_] + '}' + tag_name
     return tag
+
+
+def retrieve_compute_policy_id_from_href(href):
+    """Extract compute policy id from href.
+
+    :param str href: URI of the compute policy
+
+    :return: compute policy id
+
+    :rtype: str
+    """
+    return href.split('/')[-1]
+
+
+def uri_to_api_uri(uri):
+    """Convert any uri to api uri.
+
+    Provided uri as
+    https://10.150.198.98/api/vdc/93b5fa47-d571-4d71-9caf-7af6ed4fab1f will be
+    converted to https://10.150.198.98/api.
+
+    :param uri
+    :return api_uri
+    :rtype str
+    """
+    uri_components = uri.split('/')
+    api_uri = '/'.join(uri_components[:4])
+    return api_uri
+
