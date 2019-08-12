@@ -16,6 +16,9 @@
 from pyvcloud.vcd.client import E
 from pyvcloud.vcd.client import EntityType
 from pyvcloud.vcd.client import IpAddressMode
+from pyvcloud.vcd.client import MetadataDomain
+from pyvcloud.vcd.client import MetadataValueType
+from pyvcloud.vcd.client import MetadataVisibility
 from pyvcloud.vcd.client import NSMAP
 from pyvcloud.vcd.client import QueryResultFormat
 from pyvcloud.vcd.client import RelationType
@@ -27,6 +30,8 @@ from pyvcloud.vcd.exceptions import InvalidParameterException
 from pyvcloud.vcd.exceptions import InvalidStateException
 from pyvcloud.vcd.exceptions import MultipleRecordsException
 from pyvcloud.vcd.exceptions import OperationNotSupportedException
+from pyvcloud.vcd.metadata import Metadata
+from pyvcloud.vcd.utils import uri_to_api_uri
 
 
 class VM(object):
@@ -443,16 +448,21 @@ class VM(object):
                     E.PrimaryNetworkConnectionIndex(nic_index)
 
         net_conn = E.NetworkConnection(network=network_name)
+        net_conn.set('needsCustomization', 'true')
         net_conn.append(E.NetworkConnectionIndex(nic_index))
         if ip_address_mode == IpAddressMode.MANUAL.value:
             net_conn.append(E.IpAddress(ip_address))
+        else:
+            net_conn.append(E.IpAddress())
         net_conn.append(E.IsConnected(is_connected))
         net_conn.append(E.IpAddressAllocationMode(ip_address_mode))
         net_conn.append(E.NetworkAdapterType(adapter_type))
         net_conn_section.insert(insert_index, net_conn)
-        return self.client.put_linked_resource(
-            net_conn_section, RelationType.EDIT,
-            EntityType.NETWORK_CONNECTION_SECTION.value, net_conn_section)
+        vm_resource = self.get_resource()
+        vm_resource.NetworkConnectionSection = net_conn_section
+        return self.client.post_linked_resource(
+            vm_resource, RelationType.RECONFIGURE_VM, EntityType.VM.value,
+            vm_resource)
 
     def list_nics(self):
         """Lists all the nics of the VM.
@@ -484,6 +494,8 @@ class VM(object):
                 value] = nc.IpAddressAllocationMode.text
             if hasattr(nc, 'IpAddress'):
                 nic[VmNicProperties.IP_ADDRESS.value] = nc.IpAddress.text
+            if hasattr(nc, 'MACAddress'):
+                nic[VmNicProperties.MAC_ADDRESS.value] = nc.MACAddress.text
             nics.append(nic)
         return nics
 
@@ -565,10 +577,10 @@ class VM(object):
         return self.client.post_linked_resource(
             self.resource, RelationType.INSTALL_VMWARE_TOOLS, None, None)
 
-    def insert_cd_from_catalog(self, media_href):
+    def insert_cd_from_catalog(self, media_id):
         """Insert CD from catalog to the vm.
 
-        :param: media href to insert to VM
+        :param: media id to insert to VM
 
         :return: an object containing EntityType.TASK XML data which represents
                     the asynchronous task that is inserting CD to VM.
@@ -576,16 +588,19 @@ class VM(object):
         :rtype: lxml.objectify.ObjectifiedElement
         """
         vm_resource = self.get_resource()
+        vm_href = vm_resource.get('href')
+        uri_api = uri_to_api_uri(vm_href)
+        media_href = uri_api + "/media/" + media_id
         media_insert_params = E.MediaInsertOrEjectParams(
             E.Media(href=media_href))
         return self.client.post_linked_resource(
             vm_resource, RelationType.INSERT_MEDIA,
             EntityType.MEDIA_INSERT_OR_EJECT_PARAMS.value, media_insert_params)
 
-    def eject_cd(self, media_href):
+    def eject_cd(self, media_id):
         """Insert CD from catalog to the vm.
 
-        :param: media href to eject from VM
+        :param: media id to eject from VM
 
         :return: an object containing EntityType.TASK XML data which represents
                     the asynchronous task that is inserting CD to VM.
@@ -593,6 +608,9 @@ class VM(object):
         :rtype: lxml.objectify.ObjectifiedElement
         """
         vm_resource = self.get_resource()
+        vm_href = vm_resource.get('href')
+        uri_api = uri_to_api_uri(vm_href)
+        media_href = uri_api + "/media/" + media_id
         media_eject_params = E.MediaInsertOrEjectParams(
             E.Media(href=media_href))
         return self.client.post_linked_resource(
@@ -940,102 +958,105 @@ class VM(object):
         :param: bool is_networkCards: if True, it will provide network card
                                       information
 
-        :return: dict having virtual hardware section details.
+        :return: list having virtual hardware section details.
 
-        :rtype: dict
+        :rtype: list
         """
-        vhs_info = {}
+        result = []
         self.get_resource()
         if is_cpu:
             uri = self.href + '/virtualHardwareSection/cpu'
             cpu_resource = self.client.get_resource(uri)
-            vhs_info['cpuVirtualQuantity'] = cpu_resource[
+            vhs_cpu_info = {}
+            vhs_cpu_info['cpuVirtualQuantity'] = cpu_resource[
                 '{' + NSMAP['rasd'] + '}VirtualQuantity']
-            vhs_info['cpuCoresPerSocket'] = cpu_resource[
+            vhs_cpu_info['cpuCoresPerSocket'] = cpu_resource[
                 '{' + NSMAP['vmw'] + '}CoresPerSocket']
+            result.append(vhs_cpu_info)
 
         if is_memory:
             uri = self.href + '/virtualHardwareSection/memory'
             memory_resource = self.client.get_resource(uri)
-            vhs_info['memoryVirtualQuantityInMb'] = memory_resource[
+            vhs_memory_info = {}
+            vhs_memory_info['memoryVirtualQuantityInMb'] = memory_resource[
                 '{' + NSMAP['rasd'] + '}VirtualQuantity']
+            result.append(vhs_memory_info)
 
         if is_disk:
             uri = self.href + '/virtualHardwareSection/disks'
             disk_list = self.client.get_resource(uri)
-            disk_count = 0
+            vhs_disk_info = {}
             for disk in disk_list.Item:
                 if disk['{' + NSMAP['rasd'] + '}Description'] == 'Hard disk':
-                    vhs_info['diskElementName' + str(disk_count)] = disk[
+                    vhs_disk_info['diskElementName'] = disk[
                         '{' + NSMAP['rasd'] + '}ElementName']
-                    vhs_info['diskVirtualQuantityInBytes' + str(disk_count)] \
+                    vhs_disk_info['diskVirtualQuantityInBytes'] \
                         = disk[
                         '{' + NSMAP['rasd'] + '}VirtualQuantity']
-                    disk_count = disk_count + 1
+
+            result.append(vhs_disk_info)
 
         if is_media:
             uri = self.href + '/virtualHardwareSection/media'
             media_list = self.client.get_resource(uri)
-            media_count = 0
+            vhs_media_info = {}
             for media in media_list.Item:
                 if media['{' +
                          NSMAP['rasd'] + '}Description'] == 'CD/DVD Drive':
                     if media['{' +
                              NSMAP['rasd'] + '}HostResource'].text is not None:
-                        vhs_info['mediaCdElementName' + str(media_count)] = \
+                        vhs_media_info['mediaCdElementName'] = \
                             media['{' + NSMAP['rasd'] + '}ElementName']
-                        vhs_info['mediaCdHostResource' + str(media_count)] = \
+                        vhs_media_info['mediaCdHostResource'] = \
                             media['{' + NSMAP['rasd'] + '}HostResource']
-                        media_count = media_count + 1
                         continue
                 if media['{' +
                          NSMAP['rasd'] + '}Description'] == 'Floppy Drive':
                     if media['{' +
                              NSMAP['rasd'] + '}HostResource'].text is not None:
-                        vhs_info['mediaFloppyElementName' +
-                                 str(media_count)] = \
+                        vhs_media_info['mediaFloppyElementName'] = \
                             media['{' + NSMAP['rasd'] + '}ElementName']
-                        vhs_info['mediaFloppyHostResource'
-                                 + str(media_count)] = \
+                        vhs_media_info['mediaFloppyHostResource'] = \
                             media['{' + NSMAP['rasd'] + '}HostResource']
-                        media_count = media_count + 1
                         continue
+            result.append(vhs_media_info)
 
         if is_networkCards:
             uri = self.href + '/virtualHardwareSection/networkCards'
             ncards_list = self.client.get_resource(uri)
-            ncard_count = 0
+            vhs_network_info = {}
             for ncard in ncards_list.Item:
                 if ncard['{' + NSMAP['rasd'] + '}Connection'] is not None:
-                    vhs_info['ncardElementName' + str(ncard_count)] = ncard[
+                    vhs_network_info['ncardElementName'] = ncard[
                         '{' + NSMAP['rasd'] + '}ElementName']
-                    vhs_info['nCardConnection' + str(ncard_count)] = ncard[
+                    vhs_network_info['nCardConnection'] = ncard[
                         '{' + NSMAP['rasd'] + '}Connection']
-                    vhs_info['nCardIpAddressingMode' + str(ncard_count)] = \
+                    vhs_network_info['nCardIpAddressingMode'] = \
                         ncard.xpath('rasd:Connection', namespaces=NSMAP)[
                             0].attrib.get(
                             '{' + NSMAP['vcloud'] + '}ipAddressingMode')
-                    vhs_info['nCardIpAddress' + str(ncard_count)] = \
+                    vhs_network_info['nCardIpAddress'] = \
                         ncard.xpath('rasd:Connection', namespaces=NSMAP)[
                             0].attrib.get('{' + NSMAP['vcloud'] + '}ipAddress')
-                    vhs_info[
-                        'nCardPrimaryNetworkConnection' + str(ncard_count)] = \
+                    vhs_network_info[
+                        'nCardPrimaryNetworkConnection'] = \
                         ncard.xpath('rasd:Connection', namespaces=NSMAP)[
                             0].attrib.get(
                             '{' + NSMAP['vcloud'] +
                             '}primaryNetworkConnection')
-                    vhs_info['nCardAddress' + str(ncard_count)] = ncard[
+                    vhs_network_info['nCardAddress'] = ncard[
                         '{' + NSMAP['rasd'] + '}Address']
-                    vhs_info['nCardAddressOnParent' + str(ncard_count)] = \
+                    vhs_network_info['nCardAddressOnParent'] = \
                         ncard[
                         '{' + NSMAP['rasd'] + '}AddressOnParent']
-                    vhs_info['nCardAutomaticAllocation' + str(ncard_count)] = \
+                    vhs_network_info['nCardAutomaticAllocation'] = \
                         ncard['{' + NSMAP['rasd'] + '}AutomaticAllocation']
-                    vhs_info['nCardResourceSubType' + str(ncard_count)] = \
+                    vhs_network_info['nCardResourceSubType'] = \
                         ncard['{' + NSMAP['rasd'] + '}ResourceSubType']
-                    ncard_count = ncard_count + 1
 
-        return vhs_info
+            result.append(vhs_network_info)
+
+        return result
 
     def get_compliance_result(self):
         """Get compliance result of a VM.
@@ -1053,34 +1074,32 @@ class VM(object):
     def list_all_current_metrics(self):
         """List current metrics of a VM.
 
-        :return: dict which contains current metrics of VM
+        :return: list which contains current metrics of VM
 
-        :rtype: dict
+        :rtype: list
         """
-        metrics_info = {}
+        result = []
         self.get_resource()
         metrics_list = self.client. \
             get_linked_resource(self.resource, rel=RelationType.DOWN,
                                 media_type=EntityType.CURRENT_USAGE.value)
-        metric_count = 0
+
         for metric in metrics_list.Metric:
-            metrics_info['metric_name' + str(metric_count)] = metric. \
-                get('name')
-            metrics_info['metric_unit' + str(metric_count)] = metric. \
-                get('unit')
-            metrics_info['metric_value' + str(metric_count)] = metric.get(
-                'value')
-            metric_count = metric_count + 1
-        return metrics_info
+            metrics_info = {}
+            metrics_info['metric_name'] = metric.get('name')
+            metrics_info['metric_unit'] = metric.get('unit')
+            metrics_info['metric_value'] = metric.get('value')
+            result.append(metrics_info)
+        return result
 
     def list_current_metrics_subset(self, metric_pattern=None):
         """List current metrics subset of a VM.
 
-        :return: dict which contains current metrics subset of VM
+        :return: list which contains current metrics subset of VM
 
-        :rtype: dict
+        :rtype: list
         """
-        metrics_info = {}
+        result = []
         self.get_resource()
         current_usage_spec = E.CurrentUsageSpec(
             E.MetricPattern(metric_pattern))
@@ -1089,36 +1108,533 @@ class VM(object):
                                  media_type=EntityType.CURRENT_USAGE.value,
                                  contents=current_usage_spec)
 
-        metric_count = 0
         for metric in metrics_list.Metric:
-            metrics_info['metric_name' + str(metric_count)] = metric. \
-                get('name')
-            metrics_info['metric_unit' + str(metric_count)] = metric. \
-                get('unit')
-            metrics_info['metric_value' + str(metric_count)] = metric.get(
-                'value')
-            metric_count = metric_count + 1
-        return metrics_info
+            metrics_info = {}
+            metrics_info['metric_name'] = metric.get('name')
+            metrics_info['metric_unit'] = metric.get('unit')
+            metrics_info['metric_value'] = metric.get('value')
+            result.append(metrics_info)
+        return result
 
     def list_all_historic_metrics(self):
         """List historic metrics of a VM.
 
-        :return: dict which contains historic metrics of VM
+        :return: list which contains historic metrics of VM
 
-        :rtype: dict
+        :rtype: list
         """
-        metrics_info = {}
+        result = []
+
         self.get_resource()
         metrics_list = self.client. \
             get_linked_resource(self.resource, rel=RelationType.DOWN,
                                 media_type=EntityType.HISTORIC_USAGE.value)
-        metric_count = 0
         for metric in metrics_list.MetricSeries:
-            metrics_info['metric_name' + str(metric_count)] = metric. \
-                get('name')
-            metrics_info['expected_interval' + str(metric_count)] = metric. \
-                get('expectedInterval')
-            metrics_info['metric_unit' + str(metric_count)] = metric.get(
-                'unit')
-            metric_count = metric_count + 1
-        return metrics_info
+            metrics_info = {}
+            metrics_info['metric_name'] = metric.get('name')
+            metrics_info['expected_interval'] = metric.get('expectedInterval')
+            metrics_info['metric_unit'] = metric.get('unit')
+            result.append(metrics_info)
+        return result
+
+    def list_sample_historic_metric_data(self, metric_name=None):
+        """List historic metrics of a VM based on metric name.
+
+        :return: list which contains sample historic data of given metric
+
+        :rtype: list
+        """
+        result = []
+        self.get_resource()
+        historic_usage_spec = E.HistoricUsageSpec(
+            E.MetricPattern(metric_name))
+
+        metrics_list = self.client. \
+            post_linked_resource(self.resource, rel=RelationType.METRICS,
+                                 media_type=EntityType.HISTORIC_USAGE.value,
+                                 contents=historic_usage_spec)
+
+        for metric in metrics_list.MetricSeries:
+            for sample in metric.Sample:
+                metrics_info = {}
+                metrics_info['Timestamp'] = sample.get('timestamp')
+                metrics_info['Value'] = sample.get('value')
+                result.append(metrics_info)
+        return result
+
+    def relocate(self, datastore_href):
+        """Relocate VM to other datastore.
+
+        :param: datastore href for VM relocation
+
+        :return: an object containing EntityType.TASK XML data which represents
+                    the asynchronous task that is relocating VM.
+
+        :rtype: lxml.objectify.ObjectifiedElement
+        """
+        vm_resource = self.get_resource()
+        relocate_params = E.RelocateParams(E.Datastore(href=datastore_href))
+        return self.client. \
+            post_linked_resource(vm_resource, RelationType.RELOCATE,
+                                 EntityType.RELOCATE_PARAMS.value,
+                                 relocate_params)
+
+    def update_nic(self, network_name,
+                   is_connected=False,
+                   is_primary=False,
+                   ip_address_mode=None,
+                   ip_address=None,
+                   adapter_type=None):
+        """Updates a nic of the VM.
+
+        :param str network_name: name of the network to be modified.
+        :param bool is_connected: True, if the nic has to be connected.
+        :param bool is_primary: True, if its a primary nic of the VM.
+        :param str ip_address_mode: One of DHCP|POOL|MANUAL|NONE.
+        :param str ip_address: to be set an ip in case of MANUAL mode.
+        :param str adapter_type: nic adapter type.One of NetworkAdapterType
+                                 values.
+
+        :return: an object containing EntityType.TASK XML data which represents
+            the asynchronous task adding  a nic.
+
+        :rtype: lxml.objectify.ObjectifiedElement
+        """
+        # get network connection section.
+        net_conn_section = self.get_resource().NetworkConnectionSection
+        nic_index = 0
+        nic_found = False
+        for network in net_conn_section.NetworkConnection:
+            if network.get('network') == network_name:
+                nic_found = True
+                if ip_address is not None:
+                    network.IpAddress = E.IpAddress(ip_address)
+                network.IsConnected = E.IsConnected(is_connected)
+                if ip_address_mode is not None:
+                    network.IpAddressAllocationMode = \
+                        E.IpAddressAllocationMode(ip_address_mode)
+                if adapter_type is not None:
+                    network.NetworkAdapterType = E.NetworkAdapterType(
+                        adapter_type)
+                if is_primary:
+                    nic_index = network.NetworkConnectionIndex
+                break
+
+        if nic_found is False:
+            raise EntityNotFoundException(
+                'Vapp with name \'%s\' not found.' % network_name)
+
+        if is_primary:
+            net_conn_section.PrimaryNetworkConnectionIndex = \
+                E.PrimaryNetworkConnectionIndex(nic_index)
+
+        return self.client.put_linked_resource(
+            net_conn_section, RelationType.EDIT,
+            EntityType.NETWORK_CONNECTION_SECTION.value, net_conn_section)
+
+    def get_operating_system_section(self):
+        """Get operating system section of VM.
+
+        :return: an object containing EntityType.OperatingSystemSection XML
+                 data which contains operating system section of VM
+        :rtype: lxml.objectify.ObjectifiedElement
+        """
+        uri = self.href + '/operatingSystemSection/'
+        return self.client.get_resource(uri)
+
+    def list_os_section(self):
+        """List operating system section of VM.
+
+        :return: dict which contains os section info
+        :rtype: dict
+        """
+        os_section = self.get_operating_system_section()
+        result = {}
+        result['Info'] = os_section.Info
+        result['Description'] = os_section.Description
+
+        return result
+
+    def update_operating_system_section(self, ovf_info=None, description=None):
+        """Update operating system section of VM.
+
+        :param str ovf_info
+        :param str description
+
+        :return: an object containing EntityType.TASK XML data which represents
+            the asynchronous task updating OS section.
+        :rtype: lxml.objectify.ObjectifiedElement
+        """
+        uri = self.href + '/operatingSystemSection/'
+        os_section = self.get_operating_system_section()
+        if ovf_info is not None:
+            os_section.Info = ovf_info
+        if description is not None:
+            os_section.Description = description
+
+        return self.client. \
+            put_resource(uri, os_section,
+                         EntityType.OPERATING_SYSTEM_SECTION.value)
+
+    def list_gc_section(self):
+        """List guest customization section of VM.
+
+        :return: dict which contains gc section info
+        :rtype: dict
+        """
+        gc_section = self.get_guest_customization_section()
+        result = {}
+
+        if hasattr(gc_section, 'Enabled'):
+            result['Enabled'] = gc_section.Enabled
+        if hasattr(gc_section, 'ChangeSid'):
+            result['ChangeSid'] = gc_section.ChangeSid
+        if hasattr(gc_section, 'JoinDomainEnabled'):
+            result['JoinDomainEnabled'] = gc_section.JoinDomainEnabled
+        if hasattr(gc_section, 'UseOrgSettings'):
+            result['UseOrgSettings'] = gc_section.UseOrgSettings
+        if hasattr(gc_section, 'DomainName'):
+            result['DomainName'] = gc_section.DomainName
+        if hasattr(gc_section, 'DomainUserName'):
+            result['DomainUserName'] = gc_section.DomainUserName
+        if hasattr(gc_section, 'AdminPasswordEnabled'):
+            result['AdminPasswordEnabled'] = gc_section.AdminPasswordEnabled
+        if hasattr(gc_section, 'AdminPasswordAuto'):
+            result['AdminPasswordAuto'] = gc_section.AdminPasswordAuto
+        if hasattr(gc_section, 'AdminAutoLogonEnabled'):
+            result['AdminAutoLogonEnabled'] = gc_section.AdminAutoLogonEnabled
+        if hasattr(gc_section, 'AdminAutoLogonCount'):
+            result['AdminAutoLogonCount'] = gc_section.AdminAutoLogonCount
+        if hasattr(gc_section, 'ResetPasswordRequired'):
+            result['ResetPasswordRequired'] = gc_section.ResetPasswordRequired
+        if hasattr(gc_section, 'VirtualMachineId'):
+            result['VirtualMachineId'] = gc_section.VirtualMachineId
+        if hasattr(gc_section, 'ComputerName'):
+            result['ComputerName'] = gc_section.ComputerName
+        if hasattr(gc_section, 'CustomizationScript'):
+            result['CustomizationScript'] = gc_section.CustomizationScript
+
+        return result
+
+    def update_guest_customization_section(self, enabled=None,
+                                           change_sid=None,
+                                           join_domain_enabled=None,
+                                           use_org_settings=None,
+                                           domain_name=None,
+                                           domain_user_name=None,
+                                           domain_user_password=None,
+                                           admin_password_enabled=None,
+                                           admin_password_auto=None,
+                                           admin_password=None,
+                                           admin_auto_logon_enabled=None,
+                                           admin_auto_logon_count=0,
+                                           reset_password_required=None,
+                                           customization_script=None):
+        """Update guest customization section of VM.
+
+        :param bool enabled
+        :param bool change_sid
+        :param bool join_domain_enabled
+        :param bool use_org_settings
+        :param str domain_name
+        :param str domain_user_name
+        :param str domain_user_password
+        :param bool admin_password_enabled
+        :param bool admin_password_auto
+        :param str admin_password
+        :param bool admin_auto_logon_enabled
+        :param int admin_auto_logon_count
+        :param bool reset_password_required
+        :param str customization_script
+
+        :return: an object containing EntityType.TASK XML data which represents
+            the asynchronous task updating guest customization section.
+        :rtype: lxml.objectify.ObjectifiedElement
+        """
+        self.get_resource()
+        uri = self.href + '/guestCustomizationSection/'
+        gc_section = self.get_guest_customization_section()
+        if enabled is not None:
+            gc_section.Enabled = E.Enabled(enabled)
+        if change_sid is not None:
+            gc_section.ChangeSid = E.ChangeSid(change_sid)
+        if join_domain_enabled is not None:
+            gc_section.JoinDomainEnabled = E. \
+                JoinDomainEnabled(join_domain_enabled)
+        if use_org_settings is not None:
+            gc_section.UseOrgSettings = E.UseOrgSettings(use_org_settings)
+        if domain_name is not None:
+            gc_section.DomainName = E.DomainName(domain_name)
+        if domain_user_name is not None:
+            gc_section.DomainUserName = E.DomainUserName(domain_user_name)
+        if domain_user_password is not None:
+            gc_section.DomainUserPassword = E. \
+                DomainUserPassword(domain_user_password)
+        if admin_password_enabled is not None:
+            gc_section.AdminPasswordEnabled = E. \
+                AdminPasswordEnabled(admin_password_enabled)
+        if admin_password_auto is not None:
+            gc_section.AdminPasswordAuto = E.AdminPasswordAuto(
+                admin_password_auto)
+        if admin_password is not None:
+            gc_section.AdminPassword = E.AdminPassword(admin_password)
+        if admin_auto_logon_enabled is not None:
+            gc_section.AdminAutoLogonEnabled = E.AdminAutoLogonEnabled(
+                admin_auto_logon_enabled)
+        if admin_auto_logon_count != 0:
+            gc_section.AdminAutoLogonCount = E.AdminAutoLogonCount(
+                admin_auto_logon_count)
+        if reset_password_required is not None:
+            gc_section.ResetPasswordRequired = E.ResetPasswordRequired(
+                reset_password_required)
+        if customization_script is not None:
+            gc_section.CustomizationScript = E.CustomizationScript(
+                customization_script)
+
+        return self.client. \
+            put_resource(uri, gc_section,
+                         EntityType.GUEST_CUSTOMIZATION_SECTION.value)
+
+    def get_check_post_customization_section(self):
+        """Get check post customization section.
+
+        :return: returns lxml.objectify.ObjectifiedElement resource: object
+            containing EntityType.CheckPostGuestCustomizationSection XML data
+            representing the CheckPostGuestCustomizationSection.
+
+        :rtype: lxml.objectify.ObjectifiedElement
+        """
+        self.reload()
+        uri = self.href + '/checkpostcustomizationscript/'
+        return self.client.get_resource(uri)
+
+    def list_check_post_gc_status(self):
+        """List check post gc status.
+
+        :return: dict status
+
+        :rtype: dict
+        """
+        result = {}
+        check_post_gc_section = self.get_check_post_customization_section()
+        result['CheckPostGCStatus'] = check_post_gc_section.CheckPostGCStatus
+
+        return result
+
+    def get_vm_capabilities_section(self):
+        """Get VM capabilities section of VM.
+
+        :return: an object containing EntityType.VmCapabiltiesSection XML
+                 data which contains VM capabilties section of VM
+        :rtype: lxml.objectify.ObjectifiedElement
+        """
+        uri = self.href + '/vmCapabilities/'
+        return self.client.get_resource(uri)
+
+    def list_vm_capabilities(self):
+        """List VM capabilties section.
+
+        :return: dict which contains VM capabilties section
+
+        :rtype: dict
+        """
+        result = {}
+        vm_capabilities_section = self.get_vm_capabilities_section()
+        result['MemoryHotAddEnabled'] = \
+            vm_capabilities_section.MemoryHotAddEnabled
+        result['CpuHotAddEnabled'] = \
+            vm_capabilities_section.CpuHotAddEnabled
+
+        return result
+
+    def update_vm_capabilities_section(self, memory_hot_add_enabled=None,
+                                       cpu_hot_add_enabled=None):
+        """Update vm capabilities section of VM.
+
+        :param bool memory_hot_add_enabled
+        :param bool cpu_hot_add_enabled
+
+        :return: an object containing EntityType.TASK XML data which represents
+            the asynchronous task updating VM capabilities.
+        :rtype: lxml.objectify.ObjectifiedElement
+        """
+        uri = self.href + '/vmCapabilities/'
+        vm_capabilities_section = self.get_vm_capabilities_section()
+        if memory_hot_add_enabled is not None:
+            vm_capabilities_section.MemoryHotAddEnabled = E.\
+                MemoryHotAddEnabled(memory_hot_add_enabled)
+        if cpu_hot_add_enabled is not None:
+            vm_capabilities_section.CpuHotAddEnabled = E.CpuHotAddEnabled(
+                cpu_hot_add_enabled)
+
+        return self.client. \
+            put_resource(uri, vm_capabilities_section,
+                         EntityType.VM_CAPABILITIES_SECTION.value)
+
+    def get_boot_options(self):
+        """Get boot options of VM.
+
+        :return: an object containing EntityType.BootOptions XML
+                 data which contains boot options of VM
+        :rtype: lxml.objectify.ObjectifiedElement
+        """
+        uri = self.href + '/bootOptions/'
+        return self.client.get_resource(uri)
+
+    def list_boot_options(self):
+        """List boot options of VM.
+
+        :return: dict which contains boot options of VM
+
+        :rtype: dict
+        """
+        result = {}
+        boot_options = self.get_boot_options()
+        result['BootDelay'] = \
+            boot_options.BootDelay
+        result['EnterBIOSSetup'] = \
+            boot_options.EnterBIOSSetup
+
+        return result
+
+    def update_boot_options(self, boot_delay=None,
+                            enter_bios_setup=None):
+        """Update boot options of VM.
+
+        :param int boot_delay
+        :param bool enter_bios_setup
+
+        :return: an object containing EntityType.TASK XML data which represents
+            the asynchronous task updating boot options.
+        :rtype: lxml.objectify.ObjectifiedElement
+        """
+        uri = self.href + '/action/bootOptions/'
+        boot_options = self.get_boot_options()
+        if boot_delay is not None:
+            boot_options.BootDelay = E. \
+                BootDelay(boot_delay)
+        if enter_bios_setup is not None:
+            boot_options.EnterBIOSSetup = E.EnterBIOSSetup(
+                enter_bios_setup)
+
+        return self.client.post_resource(uri, boot_options,
+                                         EntityType.VM_BOOT_OPTIONS.value)
+
+    def get_run_time_info(self):
+        """Get run time info of VM.
+
+        :return: an object containing EntityType.BootOptions XML
+                 data which contains boot options of VM
+        :rtype: lxml.objectify.ObjectifiedElement
+        """
+        uri = self.href + '/runtimeInfoSection/'
+        return self.client.get_resource(uri)
+
+    def list_run_time_info(self):
+        """List runtime info of VM.
+
+        :return: dict which contains runtime info of VM
+
+        :rtype: dict
+        """
+        result = {}
+        runtime_info = self.get_run_time_info()
+        if hasattr(runtime_info, 'VMWareTools'):
+            result['vmware_tools_version'] = runtime_info.VMWareTools.get(
+                'version')
+
+        return result
+
+    def get_metadata(self):
+        """Fetch metadata of the VM.
+
+        :return: an object containing EntityType.METADATA XML data which
+            represents the metadata associated with the VM.
+
+        :rtype: lxml.objectify.ObjectifiedElement
+        """
+        self.get_resource()
+        return self.client.get_linked_resource(
+            self.resource, RelationType.DOWN, EntityType.METADATA.value)
+
+    def set_metadata(self,
+                     domain,
+                     visibility,
+                     key,
+                     value,
+                     metadata_type=MetadataValueType.STRING.value):
+        """Add a new metadata entry to the VM.
+
+        If an entry with the same key exists, it will be updated with the new
+        value.
+
+        :param str domain: a value of SYSTEM places this MetadataEntry in the
+            SYSTEM domain. Omit or leave empty to place this MetadataEntry in
+            the GENERAL domain.
+        :param str visibility: must be one of the values specified in
+            MetadataVisibility enum.
+        :param str key: an arbitrary key name. Length cannot exceed 256 UTF-8
+            characters.
+        :param str value: value of the metadata entry.
+        :param str metadata_type: one of the types specified in
+            client.MetadataValueType enum.
+
+        :return: an object of type EntityType.TASK XML which represents
+             the asynchronous task that is updating the metadata on the VM.
+        """
+        metadata = Metadata(client=self.client, resource=self.get_metadata())
+        return metadata.set_metadata(
+            key=key,
+            value=value,
+            domain=MetadataDomain(domain),
+            visibility=MetadataVisibility(visibility),
+            metadata_value_type=MetadataValueType(metadata_type),
+            use_admin_endpoint=False)
+
+    def set_multiple_metadata(self,
+                              key_value_dict,
+                              domain=MetadataDomain.GENERAL,
+                              visibility=MetadataVisibility.READ_WRITE,
+                              metadata_value_type=MetadataValueType.STRING):
+        """Add multiple new metadata entries to the VM.
+
+        If an entry with the same key exists, it will be updated with the new
+        value. All entries must have the same value type and will be written to
+        the same domain with identical visibility.
+
+        :param dict key_value_dict: a dict containing key-value pairs to be
+            added/updated.
+        :param client.MetadataDomain domain: domain where the new entries would
+            be put.
+        :param client.MetadataVisibility visibility: visibility of the metadata
+            entries.
+        :param client.MetadataValueType metadata_value_type:
+
+        :return: an object of type EntityType.TASK XML which represents
+             the asynchronous task that is updating the metadata on the VM.
+        """
+        metadata = Metadata(client=self.client, resource=self.get_metadata())
+        return metadata.set_multiple_metadata(
+            key_value_dict=key_value_dict,
+            domain=MetadataDomain(domain),
+            visibility=MetadataVisibility(visibility),
+            metadata_value_type=MetadataValueType(metadata_value_type),
+            use_admin_endpoint=False)
+
+    def remove_metadata(self, key, domain=MetadataDomain.GENERAL):
+        """Remove a metadata entry from the VM.
+
+        :param str key: key of the metadata to be removed.
+        :param client.MetadataDomain domain: domain of the entry to be removed.
+
+        :return: an object of type EntityType.TASK XML which represents
+            the asynchronous task that is deleting the metadata on the VM.
+
+        :rtype: lxml.objectify.ObjectifiedElement
+
+        :raises: AccessForbiddenException: If there is no metadata entry
+            corresponding to the key provided.
+        """
+        metadata = Metadata(client=self.client, resource=self.get_metadata())
+        return metadata.remove_metadata(
+            key=key, domain=domain, use_admin_endpoint=False)
