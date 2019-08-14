@@ -129,7 +129,10 @@ class VM(object):
 
     async def is_vmtools_installed(self):
         await self.get_resource()
-        return hasattr(self.resource.VmSpecSection, 'VmToolsVersion')
+        return (
+            hasattr(self.resource.VmSpecSection, 'VmToolsVersion')
+            and self.resource.VmSpecSection.VmToolsVersion.text != '0'
+        )
 
     async def modify_cpu(self, virtual_quantity, cores_per_socket=None):
         """Updates the number of CPUs of a vm.
