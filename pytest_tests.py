@@ -923,7 +923,6 @@ async def test_gateway(gateway):
     pass
 
 
-# @pytest.mark.skip()
 @pytest.mark.parametrize(
     'action',
     (
@@ -945,51 +944,7 @@ async def test_gateway(gateway):
     )
 )
 @pytest.mark.asyncio
-async def test_firewall(dummy_gateway, client, enabled, action, log_default_action):
-    """
-    Подготовка данных:
-        public static Vcloud.EdgeFirewallRuleParams MapToVcloudModel(EdgeFirewallRule rule)
-        {
-        return new Vcloud.EdgeFirewallRuleParams
-        {
-        Id = rule.Number.ToString(),
-        Description = rule.Name,
-        Action =  "Allow" / "Deny"
-        Protocols = "Any" / "Tcp" / "Udp" / "TcpAndUdp"
-        IcmpSubType = "Any" / null
-        SourceIp = rule.Source,
-        SourcePortRange = rule.SourcePort,
-        SourceVm = null,
-        DestinationIp = rule.Destination,
-        DestinationPortRange = rule.DestinationPort,
-        DestinationVm = null,
-        IsEnabled = true,
-        EnableLogging = false,
-        MatchOnTranslate = false
-        };
-        }
-    вызов метода для обновления:
-        public void UpdateEdgeFirewallParams(string vdcName, string edgeGatewayName, EdgeFirewallParams edgeFirewallParams)
-        {
-        var edge = GetEdgeGateway(vdcName, edgeGatewayName);
-        var edgeServices = edge.Resource.Configuration.EdgeGatewayServiceConfiguration;
-        var networkServices = edgeServices.NetworkService.ToList();
-
-        int firewallServiceIndex = networkServices.FindIndex(s => s is FirewallServiceType);
-        if (firewallServiceIndex == -1)
-        {
-        networkServices.Add(edgeFirewallParams.ToVcloudType());
-        }
-        else
-        {
-        networkServices[firewallServiceIndex] = edgeFirewallParams.ToVcloudType();
-        }
-        edgeServices.NetworkService = networkServices.ToArray();
-        edge.ConfigureServices(edgeServices)
-        .WaitInfinite(TaskWaitPeriodMs);
-        }
-    """
-
+async def test_firewall(dummy_gateway, enabled, action, log_default_action):
     gateway = dummy_gateway
     await gateway.reload()
 
