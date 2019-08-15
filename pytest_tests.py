@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import asyncio
+import json
 import uuid
 
 import pytest
@@ -9,10 +10,10 @@ from envparse import env
 from lxml import etree
 
 from pyvcloud.vcd.client import BasicLoginCredentials
-from pyvcloud.vcd.client import Client, MetadataValueType,\
-    MetadataVisibility, MetadataDomain, ResourceType,\
-    NetworkAdapterType, VCLOUD_STATUS_MAP
+from pyvcloud.vcd.client import Client, \
+    NetworkAdapterType, VCLOUD_STATUS_MAP, AddFirewallRuleAction
 from pyvcloud.vcd.client import EntityType
+from pyvcloud.vcd.gateway import Gateway
 from pyvcloud.vcd.org import Org
 from pyvcloud.vcd.vapp import VApp, RelationType
 from pyvcloud.vcd.vdc import VDC
@@ -49,6 +50,32 @@ async def client():
         env('user'),
         env('org'),
         env('password')
+    )
+    await cli.set_credentials(
+        login_credentials
+    )
+
+    yield cli
+
+    await cli.logout()
+
+
+@pytest.fixture()
+async def sys_admin_client():
+    cli = Client(
+        env('host'),
+        api_version='31.0',
+        verify_ssl_certs=False,
+        log_file=None,
+        log_requests=False,
+        log_headers=False,
+        log_bodies=False
+    )
+    login_credentials = BasicLoginCredentials(
+        env('sys_admin_user'),
+        # env('org'),
+        'System',
+        env('sys_admin_password')
     )
     await cli.set_credentials(
         login_credentials
@@ -848,10 +875,164 @@ async def test_network_isolated(vdc, vapp):
         await vdc.delete_network(network_name, force=True)
 
 
+@pytest.fixture
+async def network(vdc):
+    u = uuid.uuid4().hex
+    CIDR = '192.168.0.1/24'
+    network_name = f'test_network_{u[:5]}'
+    await vdc.create_isolated_vdc_network(network_name, CIDR)
+
+    yield vdc, network_name
+
+    await vdc.reload()
+    await vdc.delete_network(network_name, force=True)
+
+
+@pytest.fixture
+async def gateway(vdc, sys_admin_client):
+    hash = uuid.uuid4().hex[:5]
+    gateway_name = f'TestGateway_{hash}'
+    client = vdc.client
+    vdc_resource = await vdc.get_resource()
+    vdc = VDC(sys_admin_client, resource=vdc_resource)
+    await vdc.create_gateway_api_version_31(gateway_name, external_networks=['NSX-Backbone'])
+    await vdc.reload()
+    resource = await vdc.get_gateway(gateway_name)
+
+    gateway = Gateway(sys_admin_client, resource=resource)
+    await gateway.reload()
+    await gateway.convert_to_advanced()
+    gateway.client = client
+    await gateway.reload()
+
+    yield gateway
+
+    await vdc.delete_gateway(gateway_name)
+
+
+@pytest.fixture
+async def dummy_gateway(vdc):
+    gateway_name = 'cloudmng-test-edge'
+    gateway_resource = await vdc.get_gateway(gateway_name)
+    gateway = Gateway(vdc.client, resource=gateway_resource)
+    yield gateway
+
+
+@pytest.mark.asyncio
+async def test_gateway(gateway):
+    pass
+
+
+# @pytest.mark.skip()
+@pytest.mark.parametrize(
+    'action',
+    (
+        AddFirewallRuleAction.DENY.value,
+        AddFirewallRuleAction.ACCEPT.value,
+    )
+)
+@pytest.mark.parametrize(
+    'enabled, log_default_action',
+    (
+        (False, False),
+        (False, True),
+        (False, False),
+        (False, True),
+        (True, False),
+        (True, True),
+        (True, False),
+        (True, True),
+    )
+)
+@pytest.mark.asyncio
+async def test_firewall(dummy_gateway, client, enabled, action, log_default_action):
+    """
+    Подготовка данных:
+        public static Vcloud.EdgeFirewallRuleParams MapToVcloudModel(EdgeFirewallRule rule)
+        {
+        return new Vcloud.EdgeFirewallRuleParams
+        {
+        Id = rule.Number.ToString(),
+        Description = rule.Name,
+        Action =  "Allow" / "Deny"
+        Protocols = "Any" / "Tcp" / "Udp" / "TcpAndUdp"
+        IcmpSubType = "Any" / null
+        SourceIp = rule.Source,
+        SourcePortRange = rule.SourcePort,
+        SourceVm = null,
+        DestinationIp = rule.Destination,
+        DestinationPortRange = rule.DestinationPort,
+        DestinationVm = null,
+        IsEnabled = true,
+        EnableLogging = false,
+        MatchOnTranslate = false
+        };
+        }
+    вызов метода для обновления:
+        public void UpdateEdgeFirewallParams(string vdcName, string edgeGatewayName, EdgeFirewallParams edgeFirewallParams)
+        {
+        var edge = GetEdgeGateway(vdcName, edgeGatewayName);
+        var edgeServices = edge.Resource.Configuration.EdgeGatewayServiceConfiguration;
+        var networkServices = edgeServices.NetworkService.ToList();
+
+        int firewallServiceIndex = networkServices.FindIndex(s => s is FirewallServiceType);
+        if (firewallServiceIndex == -1)
+        {
+        networkServices.Add(edgeFirewallParams.ToVcloudType());
+        }
+        else
+        {
+        networkServices[firewallServiceIndex] = edgeFirewallParams.ToVcloudType();
+        }
+        edgeServices.NetworkService = networkServices.ToArray();
+        edge.ConfigureServices(edgeServices)
+        .WaitInfinite(TaskWaitPeriodMs);
+        }
+    """
+
+    gateway = dummy_gateway
+    await gateway.reload()
+
+    # firewall_rule.FirewallRule()
+    hash = uuid.uuid4().hex[:5]
+    rule_name = f'TestFirewall-{hash}'
+    await gateway.add_firewall_rule(
+        rule_name,
+        enabled=enabled,
+        action=action,
+        logging_enabled=log_default_action,
+        source={'excude': False,'ipAddress': '8.8.8.8/29'},
+        destination={'exculde': False, 'ipAddress': 'any'},
+        application={'service': {'protocol': 'tcp', 'port': 'any', 'sourcePort': 'any'}},
+    )
+    await gateway.reload()
+
+    rules = await gateway.get_firewall_rules()
+    for resource in rules.firewallRules.firewallRule:
+        if resource.name.text == rule_name:
+            assert json.loads(resource.enabled.text) == enabled
+            assert resource.action.text == action.lower()
+            assert json.loads(resource.loggingEnabled.text) == log_default_action
+            assert json.loads(resource.source.exclude.text) == False
+            assert resource.source.ipAddress.text == '8.8.8.8/29'
+            assert json.loads(resource.destination.exclude.text) == False
+            assert resource.destination.ipAddress.text == 'any'
+            assert resource.application.service.protocol.text == 'tcp'
+            assert resource.application.service.port.text == 'any'
+            assert resource.application.service.sourcePort.text == 'any'
+
+            break
+    else:
+        raise RuntimeError(f'Not found firewall rule {rule_name}')
+
+
 @pytest.mark.skip()
 @pytest.mark.asyncio
-async def test_tmp(vapp):
-    resource = await vapp.get_resource()
+async def test_tmp(vdc):
+    resource = await vdc.get_vapp_by_id('urn:vcloud:vapp:0a4ac4f4-52f7-4569-b0c0-bafda602544a')
+    # vm = VApp(vdc.client, resource=resource)
+    # await vm.
+    # resource = await vapp.get_resource()
     with open(f'tmp.xml', 'wb') as f:
         f.write(
             etree.tostring(

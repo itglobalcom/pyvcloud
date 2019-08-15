@@ -46,17 +46,17 @@ class FirewallRule(GatewayServices):
         config_index = self.href.index(FIREWALL_URL_TEMPLATE)
         return self.href[:config_index] + FIREWALL_URL_TEMPLATE
 
-    def _reload(self):
+    async def _reload(self):
         """Reloads the resource representation of the Firewall rule."""
         self.resource = \
-            self.client.get_resource(self.href)
+            await self.client.get_resource(self.href)
 
-    def delete(self):
+    async def delete(self):
         """Delete a Firewall rule from gateway."""
-        self._get_resource()
-        return self.client.delete_resource(self.href)
+        await self._get_resource()
+        return await self.client.delete_resource(self.href)
 
-    def edit(self,
+    async def edit(self,
              source_values=None,
              destination_values=None,
              services=None,
@@ -71,7 +71,7 @@ class FirewallRule(GatewayServices):
          e.g., [{'tcp' : {'any' : any}}]
         :param str new_name: new name of the firewall rule.
         """
-        self._get_resource()
+        await self._get_resource()
         self.validate_types(source_values, FirewallRule.__SOURCE)
         self.validate_types(destination_values, FirewallRule.__DESTINATION)
         firewall_rule_temp = self.resource
@@ -102,7 +102,7 @@ class FirewallRule(GatewayServices):
 
         if new_name:
             firewall_rule_temp.name = new_name
-        self.client.put_resource(self.href, firewall_rule_temp,
+        await self.client.put_resource(self.href, firewall_rule_temp,
                                  EntityType.DEFAULT_CONTENT_TYPE.value)
 
     def _populate_services(self, firewall_rule_temp, services):
@@ -230,26 +230,26 @@ class FirewallRule(GatewayServices):
                         valid_type + " param is not valid. It should be "
                         "from " + valid_type_list_str)
 
-    def enable_disable_firewall_rule(self, is_enabled):
+    async def enable_disable_firewall_rule(self, is_enabled):
         """Enabled disabled firewall rule from gateway.
 
         :param bool is_enabled: flag to enable/disable the firewall rule.
         """
-        current_firewall_status = self._get_resource().enabled
+        current_firewall_status = (await self._get_resource()).enabled
         if is_enabled == current_firewall_status:
             return
         if is_enabled:
-            self._get_resource().enabled = True
-            return self.client.put_resource(
-                self.href, self._get_resource(),
+            (await self._get_resource()).enabled = True
+            return await self.client.put_resource(
+                self.href, await self._get_resource(),
                 EntityType.DEFAULT_CONTENT_TYPE.value)
         else:
-            self._get_resource().enabled = False
-            return self.client.put_resource(
-                self.href, self._get_resource(),
+            (await self._get_resource()).enabled = False
+            return await self.client.put_resource(
+                self.href, await self._get_resource(),
                 EntityType.DEFAULT_CONTENT_TYPE.value)
 
-    def info_firewall_rule(self):
+    async def info_firewall_rule(self):
         """Get the details of firewall rule.
 
         return: Dictionary having firewall rule details.
@@ -259,7 +259,7 @@ class FirewallRule(GatewayServices):
         :rtype: Dictionary
         """
         firewall_rule_info = {}
-        resource = self._get_resource()
+        resource = await self._get_resource()
         firewall_rule_info['Id'] = resource.id
         firewall_rule_info['Name'] = resource.name
         firewall_rule_info['Rule type'] = resource.ruleType
@@ -268,7 +268,7 @@ class FirewallRule(GatewayServices):
         firewall_rule_info['Action'] = resource.action
         return firewall_rule_info
 
-    def list_firewall_rule_source_destination(self, type):
+    async def list_firewall_rule_source_destination(self, type):
         """Get the list of firewall rule source/destination.
 
         :param str type: It can be source/destination
@@ -281,7 +281,7 @@ class FirewallRule(GatewayServices):
         }
         :rtype: dict
         """
-        resource = self._get_resource()
+        resource = await self._get_resource()
         firewall_rule_source_destination = {}
         if hasattr(resource, type):
             if hasattr(resource[type], 'exclude'):
@@ -305,40 +305,40 @@ class FirewallRule(GatewayServices):
     def _build_firewall_rules_href(self):
         return self.network_url + FIREWALL_URL_TEMPLATE
 
-    def update_firewall_rule_sequence(self, index):
+    async def update_firewall_rule_sequence(self, index):
         """Change firewall rule's sequence of gateway.
 
         :param int index: new sequence index of firewall rule.
         """
         index = int(index)
         gateway_res = Gateway(self.client, resource=self.parent)
-        firewall_rule = gateway_res.get_firewall_rules()
-        resource = self._get_resource()
+        firewall_rule = await gateway_res.get_firewall_rules()
+        resource = await self._get_resource()
         for rule in firewall_rule.firewallRules.firewallRule:
             if rule.id == resource.id:
                 firewall_rule.firewallRules.remove(rule)
                 firewall_rule.firewallRules.insert(index, rule)
                 break
-        return self.client.put_resource(self._build_firewall_rules_href(),
+        return await self.client.put_resource(self._build_firewall_rules_href(),
                                         firewall_rule,
                                         EntityType.DEFAULT_CONTENT_TYPE.value)
 
-    def delete_firewall_rule_source_destination(self, value, type):
+    async def delete_firewall_rule_source_destination(self, value, type):
         """Delete firewall rule's source/destination value of gateway.
 
         It will delete all source/destination value of given value.
         :param str value: value to remove from source/destination.
         :param str type: It can be source/destination
         """
-        resource = self._get_resource()
+        resource = await self._get_resource()
         if hasattr(resource, type):
             for object in resource[type].iter():
                 if object == value:
                     resource[type].remove(object)
-        return self.client.put_resource(self.href, resource,
+        return await self.client.put_resource(self.href, resource,
                                         EntityType.DEFAULT_CONTENT_TYPE.value)
 
-    def list_firewall_rule_service(self):
+    async def list_firewall_rule_service(self):
         """Get the list of firewall rule's services.
 
         return: list of firewall rule's service details.
@@ -348,7 +348,7 @@ class FirewallRule(GatewayServices):
          {'protocol': 'icmp', 'icmpType': 'any'}]
         :rtype: list
         """
-        resource = self._get_resource()
+        resource = await self._get_resource()
         firewall_rule_services = []
         if hasattr(resource, 'application'):
             if hasattr(resource.application, 'service'):
@@ -365,17 +365,17 @@ class FirewallRule(GatewayServices):
                     firewall_rule_services.append(service_obj)
         return firewall_rule_services
 
-    def delete_firewall_rule_service(self, protocol):
+    async def delete_firewall_rule_service(self, protocol):
         """Delete firewall rule's service from gateway.
 
         It will delete all services of given protocol.
         :param str protocol: protocol to remove services from application.
         """
-        resource = self._get_resource()
+        resource = await self._get_resource()
         if hasattr(resource, 'application'):
             if hasattr(resource.application, 'service'):
                 for service in resource.application.service:
                     if service.protocol == protocol:
                         resource.application.remove(service)
-        return self.client.put_resource(self.href, resource,
+        return await self.client.put_resource(self.href, resource,
                                         EntityType.DEFAULT_CONTENT_TYPE.value)

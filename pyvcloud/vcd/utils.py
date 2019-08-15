@@ -13,11 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 from ipaddress import IPv4Network
 from os.path import abspath
 from os.path import dirname
 from os.path import join as joinpath
 from os.path import realpath
+from numbers import Integral
+from typing import Any
 
 import humanfriendly
 from lxml import etree
@@ -27,6 +30,7 @@ from pygments import highlight
 from pygments import lexers
 
 from pyvcloud.vcd.client import ApiVersion
+from pyvcloud.vcd.client import E
 from pyvcloud.vcd.client import EntityType
 from pyvcloud.vcd.client import get_links
 from pyvcloud.vcd.client import NSMAP
@@ -918,6 +922,24 @@ def tag(class_):
     def tag(tag_name):
         return '{' + NSMAP[class_] + '}' + tag_name
     return tag
+
+
+def build_tags(*vals: [Any]):
+    """
+    :param val: str or bool or number or dict
+    :return:
+    """
+    for val in vals:
+        if isinstance(val, str):
+            yield val
+        elif isinstance(val, (bool, Integral)):
+            yield json.dumps(val)
+        else:
+            for key, value in val.items():
+                tag = getattr(E, key)(
+                    *build_tags(value)
+                )
+                yield tag
 
 
 def retrieve_compute_policy_id_from_href(href):
