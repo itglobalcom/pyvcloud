@@ -1452,7 +1452,7 @@ class Client(object):
         result = []
         if hasattr(orgs, 'Org'):
             for org in orgs.Org:
-                org_resource = self.get_resource(org.get('href'))
+                org_resource = await self.get_resource(org.get('href'))
                 result.append(org_resource)
         return result
 
@@ -1479,7 +1479,7 @@ class Client(object):
         if hasattr(orgs, 'Org'):
             for org in orgs.Org:
                 if org.get('name').lower() == org_name.lower():
-                    return self.get_resource(org.get('href'))
+                    return await self.get_resource(org.get('href'))
         raise EntityNotFoundException('org \'%s\' not found' % org_name)
 
     async def get_user_in_org(self, user_name, org_href):
