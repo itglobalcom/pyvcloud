@@ -32,6 +32,11 @@ class FirewallRule(GatewayServices):
     __SERVICE = 'service'
     __PROTOCOL_LIST = ['tcp', 'udp', 'icmp', 'any']
 
+    def __init__(self, *args, href, parent, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.href = href
+        self.parent = parent
+
     def _build_self_href(self, rule_id):
         rule_href = (
             self.network_url + FIREWALL_RULE_URL_TEMPLATE).format(rule_id)
@@ -83,7 +88,7 @@ class FirewallRule(GatewayServices):
             if not hasattr(firewall_rule_temp.source, 'exclude'):
                 firewall_rule_temp.source.append(
                     create_element('exclude', False))
-            self._populate_objects_info(firewall_rule_temp, source_values,
+            await self._populate_objects_info(firewall_rule_temp, source_values,
                                         FirewallRule.__SOURCE)
         if destination_values:
             if not hasattr(firewall_rule_temp, FirewallRule.__DESTINATION):
@@ -92,7 +97,7 @@ class FirewallRule(GatewayServices):
             if not hasattr(firewall_rule_temp.destination, 'exclude'):
                 firewall_rule_temp.destination.append(
                     create_element('exclude', False))
-            self._populate_objects_info(firewall_rule_temp, destination_values,
+            await self._populate_objects_info(firewall_rule_temp, destination_values,
                                         FirewallRule.__DESTINATION)
         if services:
             if not hasattr(firewall_rule_temp, FirewallRule.__APPLICATION):
@@ -145,7 +150,7 @@ class FirewallRule(GatewayServices):
             service_tag.append(create_element('icmpType', 'any'))
         application_tag.append(service_tag)
 
-    def _populate_objects_info(self, firewall_rule_temp, values, type):
+    async def _populate_objects_info(self, firewall_rule_temp, values, type):
         """It will mutate firewall_rule_temp.
 
         :param firewall_rule_temp: Firewall rule object resource
@@ -158,12 +163,12 @@ class FirewallRule(GatewayServices):
             object = values_arr[0]
             if type == FirewallRule.__SOURCE:
                 firewall_rule_temp.source.append(
-                    self._get_group_element(type, object_type, object))
+                    await self._get_group_element(type, object_type, object))
             if type == FirewallRule.__DESTINATION:
                 firewall_rule_temp.destination.append(
-                    self._get_group_element(type, object_type, object))
+                    await self._get_group_element(type, object_type, object))
 
-    def _get_group_element(self, type, object_type, value):
+    async def _get_group_element(self, type, object_type, value):
         """Get group element base upon the type and object type.
 
         :param str type: It can be source/destination
@@ -178,12 +183,14 @@ class FirewallRule(GatewayServices):
             return create_element('ipAddress', value)
 
         if object_type in FirewallRule.__GROUP_OBJECT_LIST:
-            return self.__find_element(type, object_type, value,
+            return await self.__find_element(type, object_type, value,
                                        'groupingObjectId')
         elif object_type in FirewallRule.__VNIC_GROUP_LIST:
-            return self.__find_element(type, object_type, value, 'vnicGroupId')
+            return await self.__find_element(type, object_type, value, 'vnicGroupId')
+        raise RuntimeError(f'Not found object_type "{object_type}"')
 
-    def __find_element(self, type, object_type, value, group_type):
+    async def __find_element(self, type, object_type, value, group_type):
+        # ('source', 'gatewayinterface', 'any', 'vnicGroupId')
         """Find element in the properties using group type.
 
         :param str type: It can be source/destination
@@ -192,7 +199,7 @@ class FirewallRule(GatewayServices):
         :param str group_type: group type. e.g., groupingObjectId
         """
         gateway_res = Gateway(self.client, resource=self.parent)
-        object_list = gateway_res.list_firewall_objects(type, object_type)
+        object_list = await gateway_res.list_firewall_objects(type, object_type)
         for object in object_list:
             if object.get('name') == value:
                 properties = object.get('prop')

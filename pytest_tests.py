@@ -13,6 +13,7 @@ from pyvcloud.vcd.client import BasicLoginCredentials
 from pyvcloud.vcd.client import Client, \
     NetworkAdapterType, VCLOUD_STATUS_MAP, AddFirewallRuleAction
 from pyvcloud.vcd.client import EntityType
+from pyvcloud.vcd.firewall_rule import FirewallRule
 from pyvcloud.vcd.gateway import Gateway
 from pyvcloud.vcd.org import Org
 from pyvcloud.vcd.vapp import VApp, RelationType
@@ -948,7 +949,6 @@ async def test_firewall(dummy_gateway, enabled, action, log_default_action):
     gateway = dummy_gateway
     await gateway.reload()
 
-    # firewall_rule.FirewallRule()
     hash = uuid.uuid4().hex[:5]
     rule_name = f'TestFirewall-{hash}'
     await gateway.add_firewall_rule(
@@ -975,6 +975,19 @@ async def test_firewall(dummy_gateway, enabled, action, log_default_action):
             assert resource.application.service.protocol.text == 'tcp'
             assert resource.application.service.port.text == 'any'
             assert resource.application.service.sourcePort.text == 'any'
+
+            gateway_href = gateway._build_firewall_rule_href()
+            rule_id = resource.id.text
+            rule_href = f'{gateway_href}/rules/{rule_id}'
+
+            rule = FirewallRule(
+                gateway.client,
+                href=rule_href,
+                parent=await gateway.get_resource(),
+                resource=resource
+            )
+
+            await rule.delete()
 
             break
     else:
