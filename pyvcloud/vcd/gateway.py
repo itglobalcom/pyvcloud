@@ -31,6 +31,7 @@ from pyvcloud.vcd.network_url_constants import SERVICE_CERTIFICATE_POST
 from pyvcloud.vcd.network_url_constants import STATIC_ROUTE_URL_TEMPLATE
 from pyvcloud.vcd.platform import Platform
 from pyvcloud.vcd.utils import build_network_url_from_gateway_url
+from pyvcloud.vcd.utils import build_tags
 from pyvcloud.vcd.utils import get_admin_href
 from pyvcloud.vcd.utils import netmask_to_cidr_prefix_len
 
@@ -72,7 +73,7 @@ class Gateway(object):
         self.href_admin = get_admin_href(self.href)
         self.admin_resource = None
 
-    def get_resource(self):
+    async def get_resource(self):
         """Fetches the XML representation of the gateway from vCD.
 
         Will serve cached response if possible.
@@ -83,22 +84,22 @@ class Gateway(object):
         :rtype: lxml.objectify.ObjectifiedElement
         """
         if self.resource is None:
-            self.reload()
+            await self.reload()
         return self.resource
 
-    def reload(self):
+    async def reload(self):
         """Reloads the resource representation of the gateway.
 
         This method should be called in between two method invocations on the
         Gateway object, if the former call changes the representation of the
         gateway in vCD.
         """
-        self.resource = self.client.get_resource(self.href)
+        self.resource = await self.client.get_resource(self.href)
         if self.resource is not None:
             self.name = self.resource.get('name')
             self.href = self.resource.get('href')
 
-    def get_admin_resource(self):
+    async def get_admin_resource(self):
         """Fetches the XML representation of the admin gateway from vCD.
 
         Will serve cached response if possible.
@@ -109,21 +110,21 @@ class Gateway(object):
         :rtype: lxml.objectify.ObjectifiedElement
         """
         if self.admin_resource is None:
-            self.reload_admin()
+            await self.reload_admin()
         return self.admin_resource
 
-    def reload_admin(self):
+    async def reload_admin(self):
         """Reloads the admin resource representation of the gateway.
 
         This method should be called in between two method invocations on the
         Admin Gateway object, if the former call changes the representation
         of the admin gateway in vCD.
         """
-        self.admin_resource = self.client.get_resource(self.href_admin)
+        self.admin_resource = await self.client.get_resource(self.href_admin)
         if self.admin_resource is not None:
             self.href_admin = self.admin_resource.get('href')
 
-    def convert_to_advanced(self):
+    async def convert_to_advanced(self):
         """Convert to advanced gateway.
 
         :return: object containing EntityType.TASK XML data representing the
@@ -134,11 +135,11 @@ class Gateway(object):
         """
         self.get_resource()
 
-        return self.client.post_linked_resource(
+        return await self.client.post_linked_resource(
             self.resource, RelationType.CONVERT_TO_ADVANCED_GATEWAY, None,
             None)
 
-    def enable_distributed_routing(self, enable=True):
+    async def enable_distributed_routing(self, enable=True):
         """Enable Distributed Routing.
 
         :param bool enable: True if user want to enable else False.
@@ -148,21 +149,21 @@ class Gateway(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        self.get_admin_resource()
+        await self.get_admin_resource()
         gateway = self.admin_resource
         current_dr_status = gateway.Configuration.DistributedRoutingEnabled
         if enable == current_dr_status:
             return
         if enable:
-            return self.client.post_linked_resource(
+            return await self.client.post_linked_resource(
                 gateway, RelationType.ENABLE_GATEWAY_DISTRIBUTED_ROUTING, None,
                 None)
         if not enable:
-            return self.client.post_linked_resource(
+            return await self.client.post_linked_resource(
                 gateway, RelationType.DISABLE_GATEWAY_DISTRIBUTED_ROUTING,
                 None, None)
 
-    def modify_form_factor(self, gateway_type):
+    async def modify_form_factor(self, gateway_type):
         """Modify form factor.
 
         This operation can be performed by only System Administrators.
@@ -178,14 +179,14 @@ class Gateway(object):
         :raises: InvalidParameterException: if provided gateway config type
             is not from list compact/full/full4/x-large.
         """
-        self.get_resource()
+        await self.get_resource()
         gateway_form_factor = E.EdgeGatewayFormFactor()
         gateway_form_factor.append(E.gatewayType(gateway_type))
-        return self.client.post_linked_resource(
+        return await self.client.post_linked_resource(
             self.resource, RelationType.MODIFY_FORM_FACTOR,
             EntityType.EDGE_GATEWAY_FORM_FACTOR.value, gateway_form_factor)
 
-    def list_external_network_ip_allocations(self):
+    async def list_external_network_ip_allocations(self):
         """List external network ip allocations of the gateway.
 
         This operation can be performed by System/Org Administrators.
@@ -195,7 +196,7 @@ class Gateway(object):
 
         :rtype: dict
         """
-        gateway = self.get_resource()
+        gateway = await self.get_resource()
         out = {}
         for inf in gateway.Configuration.GatewayInterfaces.GatewayInterface:
             if inf.InterfaceType.text == 'uplink':
@@ -203,7 +204,7 @@ class Gateway(object):
                 ips.append(inf.SubnetParticipation.IpAddress.text)
         return out
 
-    def redeploy(self):
+    async def redeploy(self):
         """Redeploy the gateway.
 
         :return: object containing EntityType.TASK XML data representing the
@@ -211,12 +212,12 @@ class Gateway(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        self.get_resource()
+        await self.get_resource()
 
-        return self.client.post_linked_resource(
+        return await self.client.post_linked_resource(
             self.resource, RelationType.GATEWAY_REDEPLOY, None, None)
 
-    def sync_syslog_settings(self):
+    async def sync_syslog_settings(self):
         """Sync syslog settings of the gateway.
 
         :return: object containing EntityType.TASK XML data representing the
@@ -224,13 +225,13 @@ class Gateway(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        self.get_resource()
+        await self.get_resource()
 
-        return self.client.post_linked_resource(
+        return await self.client.post_linked_resource(
             self.resource, RelationType.GATEWAY_SYNC_SYSLOG_SETTINGS, None,
             None)
 
-    def list_configure_ip_settings(self):
+    async def list_configure_ip_settings(self):
         """List all gateway's configure ip settings in the current vdc.
 
         :return:  a list of dictionary that has gateway's configure ip settings
@@ -242,7 +243,7 @@ class Gateway(object):
 
         """
         out_list = []
-        gateway = self.get_resource()
+        gateway = await self.get_resource()
         for gatewayinf in \
                 gateway.Configuration.GatewayInterfaces.GatewayInterface:
             ipconfigsettings = dict()
@@ -277,7 +278,7 @@ class Gateway(object):
         gateway_interface_param.append(E.InterfaceType(interface_type))
         return gateway_interface_param
 
-    def _get_external_network(self, name):
+    async def _get_external_network(self, name):
         """Gets external network object by given name.
 
         :param str name: external network name.
@@ -285,9 +286,9 @@ class Gateway(object):
         :rtype: lxml.objectify.ObjectifiedElement
         """
         platform = Platform(self.client)
-        return platform.get_external_network(name)
+        return await platform.get_external_network(name)
 
-    def add_external_network(self, network_name, ip_configuration):
+    async def add_external_network(self, network_name, ip_configuration):
         """Add the given external network to the gateway.
 
         :param str network_name: external network name.
@@ -301,7 +302,7 @@ class Gateway(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        self.get_resource()
+        await self.get_resource()
 
         gateway = self.resource
         for inf in gateway.Configuration.GatewayInterfaces.GatewayInterface:
@@ -309,8 +310,8 @@ class Gateway(object):
                 raise AlreadyExistsException('External network ' + network_name
                                              + 'already added to the gateway.')
 
-        ext_nw = self._get_external_network(network_name)
-        gw_interface = self._create_gateway_interface(ext_nw, 'uplink')
+        ext_nw = await self._get_external_network(network_name)
+        gw_interface = await self._create_gateway_interface(ext_nw, 'uplink')
 
         # Add subnet participation
         ip_scopes = ext_nw.xpath(
@@ -343,11 +344,11 @@ class Gateway(object):
             gw_interface.append(subnet_participation_param)
 
         gateway.Configuration.GatewayInterfaces.append(gw_interface)
-        return self.client.put_linked_resource(
+        return await self.client.put_linked_resource(
             self.resource, RelationType.GATEWAY_UPDATE_PROPERTIES,
             EntityType.EDGE_GATEWAY.value, gateway)
 
-    def remove_external_network(self, network_name):
+    async def remove_external_network(self, network_name):
         """Remove the given external network to the gateway.
 
         :param str network_name: external network name.
@@ -357,7 +358,7 @@ class Gateway(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        self.get_resource()
+        await self.get_resource()
 
         gateway = self.resource
         interfaces = gateway.Configuration.GatewayInterfaces
@@ -365,11 +366,11 @@ class Gateway(object):
             if inf.Network.get('name') == network_name:
                 interfaces.remove(inf)
                 break
-        return self.client.put_linked_resource(
+        return await self.client.put_linked_resource(
             self.resource, RelationType.GATEWAY_UPDATE_PROPERTIES,
             EntityType.EDGE_GATEWAY.value, gateway)
 
-    def edit_gateway(self, newname=None, desc=None, ha=None):
+    async def edit_gateway(self, newname=None, desc=None, ha=None):
         """It changes the old name of the gateway to the new name.
 
         :param str newname: new name of the gateway
@@ -387,7 +388,7 @@ class Gateway(object):
             raise ValueError('Invalid input, please provide at least one '
                              'parameter')
 
-        gateway = self.get_resource()
+        gateway = await self.get_resource()
         if newname:
             gateway.set('name', newname)
         if desc:
@@ -398,7 +399,7 @@ class Gateway(object):
         if ha:
             gateway.Configuration.HaEnabled = E.HaEnabled(ha)
 
-        return self.client.put_linked_resource(
+        return await self.client.put_linked_resource(
             self.resource, RelationType.EDIT, EntityType.EDGE_GATEWAY.value,
             gateway)
 
@@ -428,7 +429,7 @@ class Gateway(object):
         if not subnet_found:
             raise ValueError('Subnet not found')
 
-    def edit_config_ip_settings(self, ipconfig_settings=None):
+    async def edit_config_ip_settings(self, ipconfig_settings=None):
         """It edits the config ip settings of gateway.
 
         User can only modify Subnet participation and config Ip address
@@ -446,7 +447,7 @@ class Gateway(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        gateway = self.get_resource()
+        gateway = await self.get_resource()
         externalnetwork_found = False
         for gatewayinf in \
                 gateway.Configuration.GatewayInterfaces.GatewayInterface:
@@ -459,7 +460,7 @@ class Gateway(object):
         if not externalnetwork_found:
             raise ValueError('External network not found')
 
-        return self.client.put_linked_resource(
+        return await self.client.put_linked_resource(
             self.resource, RelationType.EDIT, EntityType.EDGE_GATEWAY.value,
             gateway)
 
@@ -489,7 +490,7 @@ class Gateway(object):
                     return
         raise EntityNotFoundException('IP Range \'%s\' not Found' % ip_range)
 
-    def edit_sub_allocated_ip_pools(self, ext_network, ip_range,
+    async def edit_sub_allocated_ip_pools(self, ext_network, ip_range,
                                     new_ip_change):
         """Edits existing ip range present in the sub allocate pool of gateway.
 
@@ -506,7 +507,7 @@ class Gateway(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        gateway = self.get_resource()
+        gateway = await self.get_resource()
         for gateway_inf in \
                 gateway.Configuration.GatewayInterfaces.GatewayInterface:
             if gateway_inf.Name == ext_network:
@@ -514,7 +515,7 @@ class Gateway(object):
                                         ip_range, new_ip_change)
                 break
 
-        return self.client.put_linked_resource(
+        return await self.client.put_linked_resource(
             self.resource, RelationType.EDIT, EntityType.EDGE_GATEWAY.value,
             gateway)
 
@@ -547,7 +548,7 @@ class Gateway(object):
             e_ip_range.append(E.EndAddress(range_token[1]))
             existing_ip_ranges.append(e_ip_range)
 
-    def add_sub_allocated_ip_pools(self, ext_network, ip_ranges):
+    async def add_sub_allocated_ip_pools(self, ext_network, ip_ranges):
         """Adds new ip range present to the sub allocate pool of gateway.
 
         :param ext_network: external network connected to the gateway.
@@ -561,7 +562,7 @@ class Gateway(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        gateway = self.get_resource()
+        gateway = await self.get_resource()
         for gateway_inf in \
                 gateway.Configuration.GatewayInterfaces.GatewayInterface:
             if gateway_inf.Name == ext_network:
@@ -574,7 +575,7 @@ class Gateway(object):
                 self.__add_ip_ranges_element(existing_ip_ranges, ip_ranges)
                 break
 
-        return self.client.put_linked_resource(
+        return await self.client.put_linked_resource(
             self.resource, RelationType.EDIT, EntityType.EDGE_GATEWAY.value,
             gateway)
 
@@ -595,7 +596,7 @@ class Gateway(object):
                         end_addr == exist_range.EndAddress:
                     existing_ip_ranges.remove(exist_range)
 
-    def remove_sub_allocated_ip_pools(self, ext_network, ip_ranges):
+    async def remove_sub_allocated_ip_pools(self, ext_network, ip_ranges):
         """Removes the given IP ranges from the sub allocated pool..
 
         :param ext_network: external network connected to the gateway.
@@ -609,7 +610,7 @@ class Gateway(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        gateway = self.get_resource()
+        gateway = await self.get_resource()
         for gateway_inf in \
                 gateway.Configuration.GatewayInterfaces.GatewayInterface:
             if gateway_inf.Name == ext_network:
@@ -621,11 +622,11 @@ class Gateway(object):
                     subnet_participation.remove(existing_ip_ranges)
                 break
 
-        return self.client.put_linked_resource(
+        return await self.client.put_linked_resource(
             self.resource, RelationType.EDIT, EntityType.EDGE_GATEWAY.value,
             gateway)
 
-    def edit_rate_limits(self, rate_limit_configs):
+    async def edit_rate_limits(self, rate_limit_configs):
         """Edits existing rate limit of gateway.
 
         :param rate_limit_configs: dict of external network vs rate limit
@@ -639,7 +640,7 @@ class Gateway(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        gateway = self.get_resource()
+        gateway = await self.get_resource()
         for gateway_inf in \
                 gateway.Configuration.GatewayInterfaces.GatewayInterface:
             ext_name = gateway_inf.Name.text
@@ -648,11 +649,11 @@ class Gateway(object):
                 gateway_inf.InRateLimit = E.InRateLimit(rate_limit_range[0])
                 gateway_inf.OutRateLimit = E.OutRateLimit(rate_limit_range[1])
 
-        return self.client.put_linked_resource(
+        return await self.client.put_linked_resource(
             self.resource, RelationType.EDIT, EntityType.EDGE_GATEWAY.value,
             gateway)
 
-    def set_tenant_syslog_server_ip(self, ip):
+    async def set_tenant_syslog_server_ip(self, ip):
         """Set syslog server ip of the gateway.
 
         This operation can be performed by System/Org Administrators.
@@ -663,7 +664,7 @@ class Gateway(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        gateway = self.get_resource()
+        gateway = await self.get_resource()
         link = find_link(gateway,
                          RelationType.GATEWAY_SYS_SERVER_SETTING_IP,
                          EntityType.EDGE_GATEWAY_SYS_LOG_SERVER_IP.value)
@@ -673,11 +674,11 @@ class Gateway(object):
             syslog_server_settings.TenantSyslogServerSettings.append(
                 E.SyslogServerIp(ip))
 
-        return self.client.post_resource(link.href, syslog_server_settings,
+        return await self.client.post_resource(link.href, syslog_server_settings,
                                          EntityType
                                          .EDGE_GATEWAY_SYS_LOG_SERVER_IP.value)
 
-    def list_syslog_server_ip(self):
+    async def list_syslog_server_ip(self):
         """List syslog server ip of the gateway.
 
         This operation can be performed by System/Org Administrators.
@@ -687,7 +688,7 @@ class Gateway(object):
 
         :rtype: dict
         """
-        gateway = self.get_resource()
+        gateway = await self.get_resource()
         out = {}
         syslogserver_settings = gateway.Configuration.SyslogServerSettings. \
             TenantSyslogServerSettings
@@ -698,12 +699,16 @@ class Gateway(object):
                                           self.name + 'is not set.')
         return out
 
-    def add_firewall_rule(self,
-                          name,
-                          action='accept',
-                          type='User',
-                          enabled=True,
-                          logging_enabled=False):
+    async def add_firewall_rule(self,
+                                name,
+                                action='accept',
+                                type='User',
+                                enabled=True,
+                                logging_enabled=False,
+                                description=None,
+                                source=None,
+                                destination=None,
+                                application=None):
         """Add firewall rule in the gateway.
 
         param name str: name of firewall rule
@@ -714,20 +719,41 @@ class Gateway(object):
 
         """
         firewall_rule_href = self._build_firewall_rule_href()
-        firewall_rules_resource = self.get_firewall_rules()
+        firewall_rules_resource = await self.get_firewall_rules()
+
         firewall_rules_tag = firewall_rules_resource.firewallRules
         firewall_rule = E.firewallRule()
         firewall_rule.append(E.name(name))
+        firewall_rule.append(E.description(description or name))
         firewall_rule.append(E.ruleType(type))
         firewall_rule.append(E.enabled(enabled))
         firewall_rule.append(E.loggingEnabled(logging_enabled))
         firewall_rule.append(E.action(action))
+        if source:
+            firewall_rule.append(*build_tags(
+                {
+                    'source': source
+                }
+            ))
+        if destination:
+            firewall_rule.append(*build_tags(
+                {
+                    'destination': destination
+                }
+            ))
+        if application:
+            firewall_rule.append(*build_tags(
+                {
+                    'application': application
+                }
+            ))
 
         firewall_rules_tag.append(firewall_rule)
-        self.client.put_resource(firewall_rule_href, firewall_rules_resource,
+
+        await self.client.put_resource(firewall_rule_href, firewall_rules_resource,
                                  EntityType.DEFAULT_CONTENT_TYPE.value)
 
-    def get_firewall_rules(self):
+    async def get_firewall_rules(self):
         """Get firewall Rules from vCD.
 
         Form a Firewall Rules using gateway href and fetches from vCD.
@@ -735,17 +761,18 @@ class Gateway(object):
         return: FirewallRule Object
         """
         firewall_rule_href = self._build_firewall_rule_href()
-        return self.client.get_resource(firewall_rule_href)
+        return await self.client.get_resource(firewall_rule_href)
 
     def _build_firewall_rule_href(self):
         network_url = build_network_url_from_gateway_url(self.href)
+        # return network_url + FIREWALL_RULES_URL_TEMPLATE
         return network_url + FIREWALL_URL_TEMPLATE
 
     def _build_dhcp_href(self):
         network_url = build_network_url_from_gateway_url(self.href)
         return network_url + DHCP_URL_TEMPLATE
 
-    def get_dhcp(self):
+    async def get_dhcp(self):
         """Get DHCP from vCD.
 
         Form a DHCP using gateway href.
@@ -753,9 +780,9 @@ class Gateway(object):
         return: DHCP Object
         """
         dhcp_pool_href = self._build_dhcp_href()
-        return self.client.get_resource(dhcp_pool_href)
+        return await self.client.get_resource(dhcp_pool_href)
 
-    def list_rate_limits(self):
+    async def list_rate_limits(self):
         """Lists rate limit of gateway.
 
         :return: list of dictionary that has gateway's rate limit settings
@@ -767,7 +794,7 @@ class Gateway(object):
 
         :rtype: list
         """
-        gateway = self.get_resource()
+        gateway = await self.get_resource()
         out_list = []
         for gateway_inf in \
                 gateway.Configuration.GatewayInterfaces.GatewayInterface:
@@ -784,7 +811,7 @@ class Gateway(object):
 
         return out_list
 
-    def disable_rate_limits(self, ext_Networks):
+    async def disable_rate_limits(self, ext_Networks):
         """Disable rate limit of gateway for provided external networks.
 
         :param ext_Networks: List of external network
@@ -796,7 +823,7 @@ class Gateway(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        gateway = self.get_resource()
+        gateway = await self.get_resource()
         for gateway_inf in \
                 gateway.Configuration.GatewayInterfaces.GatewayInterface:
             ext_name = gateway_inf.Name.text
@@ -807,7 +834,7 @@ class Gateway(object):
                     gateway_inf.remove(gateway_inf.InRateLimit)
                     gateway_inf.remove(gateway_inf.OutRateLimit)
 
-        return self.client.put_linked_resource(
+        return await self.client.put_linked_resource(
             self.resource, RelationType.EDIT, EntityType.EDGE_GATEWAY.value,
             gateway)
 
@@ -850,7 +877,7 @@ class Gateway(object):
             subnet.UseForDefaultRoute = \
                 E.UseForDefaultRoute(enable_default_gateway)
 
-    def configure_default_gateway(self, ext_network, ip,
+    async def configure_default_gateway(self, ext_network, ip,
                                   enable_default_gateway):
         """Configures gateway for provided external networks and gateway IP.
 
@@ -864,7 +891,7 @@ class Gateway(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        gateway = self.get_resource()
+        gateway = await self.get_resource()
 
         for gateway_inf in \
                 gateway.Configuration.GatewayInterfaces.GatewayInterface:
@@ -876,11 +903,11 @@ class Gateway(object):
                 self.__update_subnet_participation_default_route(
                     subnet_participation, ip, enable_default_gateway)
 
-        return self.client.put_linked_resource(
+        return await self.client.put_linked_resource(
             self.resource, RelationType.EDIT, EntityType.EDGE_GATEWAY.value,
             gateway)
 
-    def configure_dns_default_gateway(self, enable_dns_relay):
+    async def configure_dns_default_gateway(self, enable_dns_relay):
         """Enables/disables the dns relay of the default gateway.
 
         :param bool enable_dns_relay: flag to enable/disable DNS Relay
@@ -890,14 +917,14 @@ class Gateway(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        gateway = self.get_resource()
+        gateway = await self.get_resource()
         self.__update_dns_relay(gateway.Configuration, enable_dns_relay)
 
-        return self.client.put_linked_resource(
+        return await self.client.put_linked_resource(
             self.resource, RelationType.EDIT, EntityType.EDGE_GATEWAY.value,
             gateway)
 
-    def list_configure_default_gateway(self):
+    async def list_configure_default_gateway(self):
         """Lists the configured default gateway.
 
         :return: list of dictionary that has external network and default
@@ -908,7 +935,7 @@ class Gateway(object):
 
         :rtype: list
         """
-        gateway = self.get_resource()
+        gateway = await self.get_resource()
         out_list = []
         for gateway_inf in \
                 gateway.Configuration.GatewayInterfaces.GatewayInterface:
@@ -922,7 +949,7 @@ class Gateway(object):
                         out_list.append(gateway_config)
         return out_list
 
-    def add_dhcp_pool(self,
+    async def add_dhcp_pool(self,
                       ip_range,
                       auto_config_dns=False,
                       default_gateway=None,
@@ -946,7 +973,7 @@ class Gateway(object):
 
         """
         dhcp_pool_href = self._build_dhcp_href()
-        dhcp_resource = self.get_dhcp()
+        dhcp_resource = await self.get_dhcp()
 
         ip_pool_tag = create_element("ipPool")
         ip_pool_tag.append(create_element("autoConfigureDNS", auto_config_dns))
@@ -972,10 +999,10 @@ class Gateway(object):
         ip_pool_tag.append(create_element("ipRange", ip_range))
         dhcp_resource.ipPools.append(ip_pool_tag)
 
-        self.client.put_resource(dhcp_pool_href, dhcp_resource,
+        await self.client.put_resource(dhcp_pool_href, dhcp_resource,
                                  EntityType.DEFAULT_CONTENT_TYPE.value)
 
-    def add_nat_rule(self,
+    async def add_nat_rule(self,
                      action,
                      original_address,
                      translated_address,
@@ -1005,7 +1032,7 @@ class Gateway(object):
 
         """
         nat_rule_href = self._build_nat_rule_href()
-        nat_rules_resource = self.get_nat_rules()
+        nat_rules_resource = await self.get_nat_rules()
         nat_rules_tag = nat_rules_resource.natRules
         nat_rule = E.natRule()
         nat_rule.append(E.ruleType(type))
@@ -1030,10 +1057,10 @@ class Gateway(object):
             nat_rule.append(E.icmpType(icmp_type))
 
         nat_rules_tag.append(nat_rule)
-        self.client.put_resource(nat_rule_href, nat_rules_resource,
+        await self.client.put_resource(nat_rule_href, nat_rules_resource,
                                  EntityType.DEFAULT_CONTENT_TYPE.value)
 
-    def get_nat_rules(self):
+    async def get_nat_rules(self):
         """Get Nat Rules from vCD.
 
         Form a Nat Rules using gateway href and fetches from vCD.
@@ -1041,13 +1068,13 @@ class Gateway(object):
         return: NatRule Object
         """
         nat_rule_href = self._build_nat_rule_href()
-        return self.client.get_resource(nat_rule_href)
+        return await self.client.get_resource(nat_rule_href)
 
     def _build_nat_rule_href(self):
         network_url = build_network_url_from_gateway_url(self.href)
         return network_url + NAT_URL_TEMPLATE
 
-    def list_nat_rules(self):
+    async def list_nat_rules(self):
         """List all nat rules on a gateway.
 
         :return: list of all nat rules on a gateway.
@@ -1055,7 +1082,7 @@ class Gateway(object):
         [{'ID': 196609, 'Action': 'snat', 'Enabled': True}]
         """
         out_list = []
-        nat_rules_resource = self.get_nat_rules()
+        nat_rules_resource = await self.get_nat_rules()
         if (hasattr(nat_rules_resource.natRules, 'natRule')):
             for nat_rule in nat_rules_resource.natRules.natRule:
                 nat_rule_info = {}
@@ -1065,7 +1092,7 @@ class Gateway(object):
                 out_list.append(nat_rule_info)
         return out_list
 
-    def list_dhcp_pools(self):
+    async def list_dhcp_pools(self):
         """List all DHCP pools on a gateway.
 
         :return: list of all DHCP pools on a gateway.
@@ -1074,7 +1101,7 @@ class Gateway(object):
         'Auto_configure_dns': True}]
         """
         out_list = []
-        dhcp_resource = self.get_dhcp()
+        dhcp_resource = await self.get_dhcp()
         if hasattr(dhcp_resource.ipPools, 'ipPool'):
             for ip_pool in dhcp_resource.ipPools.ipPool:
                 pool_info = dict()
@@ -1084,14 +1111,14 @@ class Gateway(object):
                 out_list.append(pool_info)
         return out_list
 
-    def get_firewall_rules_list(self):
+    async def get_firewall_rules_list(self):
         """List all firewall rules of a gateway.
 
         :return: list of all firewall rules of a gateway.
         e.g.
         [{'ID': 12344, 'name': 'firewall','ruleType': 'internal_high'}]
         """
-        firewall_rules = self.get_firewall_rules()
+        firewall_rules = await self.get_firewall_rules()
         firewall_rule_list = []
         if hasattr(firewall_rules.firewallRules, 'firewallRule'):
             for firewall_rule in firewall_rules.firewallRules.firewallRule:
@@ -1102,7 +1129,7 @@ class Gateway(object):
                         ruleType=firewall_rule['ruleType']))
         return firewall_rule_list
 
-    def add_static_route(self,
+    async def add_static_route(self,
                          network,
                          next_hop,
                          mtu=1500,
@@ -1121,7 +1148,7 @@ class Gateway(object):
 
         """
         static_route_href = self._build_static_routes_href()
-        static_routes_resource = self.get_static_routes()
+        static_routes_resource = await self.get_static_routes()
         static_route_tag = static_routes_resource.staticRoutes
         static_route = E.route()
         static_route.append(E.network(network))
@@ -1131,10 +1158,10 @@ class Gateway(object):
         static_route.append(E.description(description))
         static_route.append(E.vnic(vnic))
         static_route_tag.append(static_route)
-        self.client.put_resource(static_route_href, static_routes_resource,
+        await self.client.put_resource(static_route_href, static_routes_resource,
                                  EntityType.DEFAULT_CONTENT_TYPE.value)
 
-    def get_static_routes(self):
+    async def get_static_routes(self):
         """Get Static Routes from vCD.
 
         Form Static Routes using gateway href and fetches from vCD.
@@ -1142,13 +1169,13 @@ class Gateway(object):
         return: staticRoutes Object
         """
         static_route_href = self._build_static_routes_href()
-        return self.client.get_resource(static_route_href)
+        return await self.client.get_resource(static_route_href)
 
     def _build_static_routes_href(self):
         network_url = build_network_url_from_gateway_url(self.href)
         return network_url + STATIC_ROUTE_URL_TEMPLATE
 
-    def list_static_routes(self):
+    async def list_static_routes(self):
         """List all Static Routes on a gateway.
 
         :return: list of all static routes on a gateway.
@@ -1156,7 +1183,7 @@ class Gateway(object):
         [{'Network': '192.169.1.0/24', 'Next Hop': '2.2.3.80', 'MTU': 1500}]
         """
         out_list = []
-        static_routes_resource = self.get_static_routes()
+        static_routes_resource = await self.get_static_routes()
         if hasattr(static_routes_resource.staticRoutes, 'route'):
             for static_route in static_routes_resource.staticRoutes.route:
                 static_route_info = {}
@@ -1166,7 +1193,7 @@ class Gateway(object):
                 out_list.append(static_route_info)
         return out_list
 
-    def add_ipsec_vpn(self,
+    async def add_ipsec_vpn(self,
                       name,
                       peer_id,
                       peer_ip_address,
@@ -1204,7 +1231,7 @@ class Gateway(object):
         :rtype: lxml.objectify.ObjectifiedElement
         """
         ipsec_vpn_href = self._build_ipsec_vpn_href()
-        ipsec_vpn_resource = self.get_ipsec_vpn()
+        ipsec_vpn_resource = await self.get_ipsec_vpn()
         vpn_sites = ipsec_vpn_resource.sites
         site = E.site()
         site.append(E.enabled(is_enabled))
@@ -1238,69 +1265,69 @@ class Gateway(object):
         site.append(E.dhGroup(dh_group))
         vpn_sites.append(site)
 
-        self.client.put_resource(ipsec_vpn_href, ipsec_vpn_resource,
+        await self.client.put_resource(ipsec_vpn_href, ipsec_vpn_resource,
                                  EntityType.DEFAULT_CONTENT_TYPE.value)
 
     def _build_ipsec_vpn_href(self):
         network_url = build_network_url_from_gateway_url(self.href)
         return network_url + IPSEC_VPN_URL_TEMPLATE
 
-    def get_ipsec_vpn(self):
+    async def get_ipsec_vpn(self):
         """Get IPSec VPN from vCD.
 
         Form a IPSec VPN using gateway href.
         :rtype: lxml.objectify.ObjectifiedElement
         """
         ipsec_vpn_href = self._build_ipsec_vpn_href()
-        return self.client.get_resource(ipsec_vpn_href)
+        return await self.client.get_resource(ipsec_vpn_href)
 
-    def enable_activation_status_ipsec_vpn(self, is_active):
+    async def enable_activation_status_ipsec_vpn(self, is_active):
         """Enables activation status of IPsec VPN.
 
         :param bool is_active: flag to enable/disable activation status
         """
-        ipsec_vpn = self.get_ipsec_vpn()
+        ipsec_vpn = await self.get_ipsec_vpn()
         ipsec_vpn.enabled = is_active
-        self.client.put_resource(self._build_ipsec_vpn_href(),
+        await self.client.put_resource(self._build_ipsec_vpn_href(),
                                  ipsec_vpn,
                                  EntityType.DEFAULT_CONTENT_TYPE.value)
 
-    def info_activation_status_ipsec_vpn(self):
+    async def info_activation_status_ipsec_vpn(self):
         """Info activation status.
 
         :return: dict activation status dict
         """
         ipsec_vpn_activation_status = {}
-        ipsec_vpn = self.get_ipsec_vpn()
+        ipsec_vpn = await self.get_ipsec_vpn()
         ipsec_vpn_activation_status["Activation Status"] = \
             ipsec_vpn.enabled.text
         return ipsec_vpn_activation_status
 
-    def change_shared_key_ipsec_vpn(self, shared_key):
+    async def change_shared_key_ipsec_vpn(self, shared_key):
         """Changes shared key.
 
         :param str shared_key: shared key.
         """
-        ipsec_vpn = self.get_ipsec_vpn()
+        ipsec_vpn = await self.get_ipsec_vpn()
         ip_sec_global = ipsec_vpn.xpath('global', namespaces=NSMAP)
         ip_sec_global[0].psk = shared_key
 
-        self.client.put_resource(self._build_ipsec_vpn_href(),
+        await self.client.put_resource(self._build_ipsec_vpn_href(),
                                  ipsec_vpn,
                                  EntityType.DEFAULT_CONTENT_TYPE.value)
 
-    def enable_logging_ipsec_vpn(self, is_enable):
+    async def enable_logging_ipsec_vpn(self, is_enable):
         """Enables logging for IPsec VPN.
 
         :param bool is_enable: flag to enable/disable logging.
         """
-        ipsec_vpn = self.get_ipsec_vpn()
+        ipsec_vpn = await self.get_ipsec_vpn()
         ipsec_vpn.logging.enable = is_enable
-        self.client.put_resource(self._build_ipsec_vpn_href(),
+        await self.client.put_resource(self._build_ipsec_vpn_href(),
                                  ipsec_vpn,
                                  EntityType.DEFAULT_CONTENT_TYPE.value)
 
-    def set_log_level_ipsec_vpn(self, log_level):
+    async def set_log_level_ipsec_vpn(self, log_level):
         """Set log level for Ipsec VPN.
 
         :param str log_level: log level
@@ -1311,19 +1338,19 @@ class Gateway(object):
         if log_level not in log_level_set:
             raise EntityNotFoundException('No associated log level found.')
 
-        ipsec_vpn = self.get_ipsec_vpn()
+        ipsec_vpn = await self.get_ipsec_vpn()
         ipsec_vpn.logging.logLevel = log_level
-        self.client.put_resource(self._build_ipsec_vpn_href(),
+        await self.client.put_resource(self._build_ipsec_vpn_href(),
                                  ipsec_vpn,
                                  EntityType.DEFAULT_CONTENT_TYPE.value)
 
-    def info_logging_settings_ipsec_vpn(self):
+    async def info_logging_settings_ipsec_vpn(self):
         """Provide info for logging settings.
 
         :return: dict: dict of info of logging settings
         """
         ipsec_logging_settings = {}
-        ipsec_vpn = self.get_ipsec_vpn()
+        ipsec_vpn = await self.get_ipsec_vpn()
         ipsec_logging_settings["Enable"] = \
             ipsec_vpn.logging.enable.text
         ipsec_logging_settings["Log Level"] = \
@@ -1331,13 +1358,13 @@ class Gateway(object):
 
         return ipsec_logging_settings
 
-    def list_ipsec_vpn(self):
+    async def list_ipsec_vpn(self):
         """List IPsec VPN of a gateway.
 
         :return: list of all ipsec vpn.
         """
         out_list = []
-        ipsec_vpn = self.get_ipsec_vpn()
+        ipsec_vpn = await self.get_ipsec_vpn()
         vpn_sites = ipsec_vpn.sites
         if hasattr(vpn_sites, "site"):
             for site in vpn_sites.site:
@@ -1348,7 +1375,7 @@ class Gateway(object):
                 out_list.append(ipsec_vpn_info)
         return out_list
 
-    def list_firewall_object_types(self, type):
+    async def list_firewall_object_types(self, type):
         """List firewall object types for editing of rule.
 
         :param type: Operation Type. It can source/destination
@@ -1358,7 +1385,7 @@ class Gateway(object):
         :rtype: list
         """
         object_type_url = self.__build_object_type_url(type)
-        object = self.client.get_resource(object_type_url)
+        object = await self.client.get_resource(object_type_url)
         response = []
         for object_result in object.objectBrowserResult:
             result = {}
@@ -1405,7 +1432,7 @@ class Gateway(object):
         object_browser_url = object_browser_url.format(type, object_type)
         return object_browser_url
 
-    def __build_object_browser_response(self, type, object_type):
+    async def __build_object_browser_response(self, type, object_type):
         """Build object response and mapping into list of dict.
 
         param type: type. It can be source/destination.
@@ -1416,7 +1443,7 @@ class Gateway(object):
         :rtype: list
         """
         object_url = self.__build_object_browser_url(type, object_type)
-        object = self.client.get_resource(object_url)
+        object = await self.client.get_resource(object_url)
         response = []
         if int(object.get('total')) <= 0:
             return response
@@ -1443,7 +1470,7 @@ class Gateway(object):
 
         return response
 
-    def list_firewall_objects(self, type, object_type):
+    async def list_firewall_objects(self, type, object_type):
         """List firewall's objects for editing firewall rule.
 
         :param type: Operation Type. It can source/destination
@@ -1452,9 +1479,9 @@ class Gateway(object):
         :return: list of dict
         :rtype: list
         """
-        return self.__build_object_browser_response(type, object_type)
+        return await self.__build_object_browser_response(type, object_type)
 
-    def reorder_nat_rule(self, rule_id, position):
+    async def reorder_nat_rule(self, rule_id, position):
         """Reorder the nat rule position on gateway.
 
         param rule_id str: id of snat/dnat rule
@@ -1462,7 +1489,7 @@ class Gateway(object):
         """
         insert_nat_rule = None
         nat_rule_href = self._build_nat_rule_href()
-        nat_rules_resource = self.get_nat_rules()
+        nat_rules_resource = await self.get_nat_rules()
         if (hasattr(nat_rules_resource.natRules, 'natRule')):
             for nat_rule in nat_rules_resource.natRules.natRule:
                 if int(nat_rule.ruleId) == int(rule_id):
@@ -1474,10 +1501,10 @@ class Gateway(object):
         # insert the nat rule at new position
         nat_rules_resource.natRules.insert(position,
                                            insert_nat_rule)
-        self.client.put_resource(nat_rule_href, nat_rules_resource,
+        await self.client.put_resource(nat_rule_href, nat_rules_resource,
                                  EntityType.DEFAULT_CONTENT_TYPE.value)
 
-    def add_dhcp_binding(self,
+    async def add_dhcp_binding(self,
                          mac,
                          host_name,
                          ip_address,
@@ -1505,7 +1532,7 @@ class Gateway(object):
 
         """
         dhcp_href = self._build_dhcp_href()
-        dhcp_resource = self.get_dhcp()
+        dhcp_resource = await self.get_dhcp()
 
         static_binding = create_element("staticBinding")
         static_binding.append(create_element("hostname", host_name))
@@ -1542,10 +1569,10 @@ class Gateway(object):
 
         dhcp_resource.staticBindings.append(static_binding)
 
-        self.client.put_resource(dhcp_href, dhcp_resource,
+        await self.client.put_resource(dhcp_href, dhcp_resource,
                                  EntityType.DEFAULT_CONTENT_TYPE.value)
 
-    def list_dhcp_binding(self):
+    async def list_dhcp_binding(self):
         """List all DHCP bindings on a gateway.
 
         :return: list of all DHCP bindings on a gateway.
@@ -1554,7 +1581,7 @@ class Gateway(object):
           'IP_Address': '10.20.30.40'}]
         """
         out_list = []
-        dhcp_resource = self.get_dhcp()
+        dhcp_resource = await self.get_dhcp()
         if hasattr(dhcp_resource.staticBindings, 'staticBinding'):
             for static_binding in dhcp_resource.staticBindings.staticBinding:
                 pool_info = dict()
@@ -1564,7 +1591,7 @@ class Gateway(object):
                 out_list.append(pool_info)
         return out_list
 
-    def add_service_certificate(self,
+    async def add_service_certificate(self,
                                 service_certificate_file_path,
                                 private_key_file_path,
                                 private_key_passphrase=None,
@@ -1592,16 +1619,16 @@ class Gateway(object):
         if description:
             trust_object.append(E.description(description))
 
-        self.client.post_resource(post_service_certificate_href, trust_object,
+        await self.client.post_resource(post_service_certificate_href, trust_object,
                                   EntityType.DEFAULT_CONTENT_TYPE.value)
 
-    def list_service_certificates(self):
+    async def list_service_certificates(self):
         """List service certificates of a gateway.
 
         :return: list of all certificates.
         """
         out_list = []
-        certificates = self.get_certificates()
+        certificates = await self.get_certificates()
         if hasattr(certificates, "certificate"):
             for certificate in certificates.certificate:
                 certificate_info = {}
@@ -1611,7 +1638,7 @@ class Gateway(object):
                 out_list.append(certificate_info)
         return out_list
 
-    def get_certificates(self):
+    async def get_certificates(self):
         """Get certificates from vCD.
 
         Form a certificate using gateway href.
@@ -1619,9 +1646,9 @@ class Gateway(object):
         """
         network_url = build_network_url_from_gateway_url(self.href)
         certificates_href = self._build_get_certificates_href(network_url)
-        return self.client.get_resource(certificates_href)
+        return await self.client.get_resource(certificates_href)
 
-    def add_ca_certificate(self, ca_certificate_file_path, description=None):
+    async def add_ca_certificate(self, ca_certificate_file_path, description=None):
         """Add CA certificate in the gateway.
 
         param str ca_certificate_file_path: CA certificate file path
@@ -1636,16 +1663,16 @@ class Gateway(object):
         trust_object.append(E.pemEncoding(ca_certificate))
         if description:
             trust_object.append(E.description(description))
-        self.client.post_resource(post_ca_certificate_href, trust_object,
+        await self.client.post_resource(post_ca_certificate_href, trust_object,
                                   EntityType.DEFAULT_CONTENT_TYPE.value)
 
-    def list_ca_certificates(self):
+    async def list_ca_certificates(self):
         """List CA certificates of a gateway.
 
         :return: list of CA certificates.
         """
         out_list = []
-        certificates = self.get_certificates()
+        certificates = await self.get_certificates()
         if hasattr(certificates, "certificate"):
             for certificate in certificates.certificate:
                 if certificate.certificateType == "certificate_ca":
@@ -1656,7 +1683,7 @@ class Gateway(object):
                     out_list.append(certificate_info)
         return out_list
 
-    def add_crl_certificate(self, crl_certificate_file_path, description=None):
+    async def add_crl_certificate(self, crl_certificate_file_path, description=None):
         """Add CRL certificate in the gateway.
 
         param str crl_certificate_file_path: CRL certificate file path
@@ -1671,16 +1698,16 @@ class Gateway(object):
         trust_object.append(E.pemEncoding(crl_certificate))
         if description:
             trust_object.append(E.description(description))
-        self.client.post_resource(post_crl_certificate_href, trust_object,
+        await self.client.post_resource(post_crl_certificate_href, trust_object,
                                   EntityType.DEFAULT_CONTENT_TYPE.value)
 
-    def list_crl_certificates(self):
+    async def list_crl_certificates(self):
         """List certificates of a gateway.
 
         :return: list of all certificates.
         """
         out_list = []
-        certificates = self.get_crl_certificates()
+        certificates = await self.get_crl_certificates()
         if hasattr(certificates, "crl"):
             for crl in certificates.crl:
                 certificate_info = {}
@@ -1690,7 +1717,7 @@ class Gateway(object):
                 out_list.append(certificate_info)
         return out_list
 
-    def get_crl_certificates(self):
+    async def get_crl_certificates(self):
         """Get CRL certificates from vCD.
 
         :rtype: lxml.objectify.ObjectifiedElement
@@ -1698,7 +1725,7 @@ class Gateway(object):
         network_url = build_network_url_from_gateway_url(self.href)
         crl_certificates_href = self. \
             _build_get_crl_certificates_href(network_url)
-        return self.client.get_resource(crl_certificates_href)
+        return await self.client.get_resource(crl_certificates_href)
 
     def _build_post_service_certificate_href(self, network_url):
         gateway_id = self._get_gateway_id_from_network_url(network_url)

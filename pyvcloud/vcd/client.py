@@ -220,6 +220,7 @@ class RelationType(Enum):
     RECOMPOSE = 'recompose'
     RECONFIGURE_VM = 'reconfigureVm'
     RELOAD_FROM_VC = 'reloadFromVc'
+    RELOCATE = 'relocate'
     REMOVE = 'remove'
     REPAIR = 'repair'
     RIGHTS = 'rights'
@@ -342,6 +343,9 @@ class EntityType(Enum):
     CATALOG = 'application/vnd.vmware.vcloud.catalog+xml'
     CAPTURE_VAPP_PARAMS = \
         'application/vnd.vmware.vcloud.captureVAppParams+xml'
+    CHECK_POST_GUEST_CUSTOMIZATION_SECTION = \
+        'application/vnd.vmware.vcloud.vm.' \
+        'checkPostGuestCustomizationSection+xml'
     CLONE_VAPP_PARAMS = 'application/vnd.vmware.vcloud.cloneVAppParams+xml'
     COMPOSE_VAPP_PARAMS = \
         'application/vnd.vmware.vcloud.composeVAppParams+xml'
@@ -349,6 +353,7 @@ class EntityType(Enum):
     CONTROL_ACCESS_PARAMS = 'application/vnd.vmware.vcloud.controlAccess+xml'
     CURRENT_USAGE = \
         'application/vnd.vmware.vcloud.metrics.currentUsageSpec+xml'
+    DATASTORE_REFERENCES = 'application/vnd.vmware.admin.datastoreList+xml'
     DEFAULT_CONTENT_TYPE = 'application/*+xml'
     DEPLOY = 'application/vnd.vmware.vcloud.deployVAppParams+xml'
     DISK = 'application/vnd.vmware.vcloud.disk+xml'
@@ -387,6 +392,8 @@ class EntityType(Enum):
     NETWORK_POOL_REFERENCES = \
         'application/vnd.vmware.admin.vmwNetworkPoolReferences+xml'
     NSXT_MANAGER = 'application/vnd.vmware.admin.nsxTmanager+xml'
+    OPERATING_SYSTEM_SECTION = \
+        'application/vnd.vmware.vcloud.operatingSystemSection+xml'
     ORG = 'application/vnd.vmware.vcloud.org+xml'
     ORG_NETWORK = 'application/vnd.vmware.vcloud.orgNetwork+xml'
     ORG_LIST = 'application/vnd.vmware.vcloud.orgList+xml'
@@ -408,6 +415,7 @@ class EntityType(Enum):
     RECORDS = 'application/vnd.vmware.vcloud.query.records+xml'
     REGISTER_VC_SERVER_PARAMS = \
         'application/vnd.vmware.admin.registerVimServerParams+xml'
+    RELOCATE_PARAMS = 'application/vnd.vmware.vcloud.relocateVmParams+xml'
     RESOURCE_POOL_LIST = \
         'application/vnd.vmware.admin.resourcePoolList+xml'
     RES_POOL_SET_UPDATE_PARAMS = \
@@ -438,6 +446,9 @@ class EntityType(Enum):
     VIM_SERVER_REFS = 'application/vnd.vmware.admin.vmwVimServerReferences+xml'
     VIRTUAL_CENTER = 'application/vnd.vmware.admin.vmwvirtualcenter+xml'
     VM = 'application/vnd.vmware.vcloud.vm+xml'
+    VM_BOOT_OPTIONS = 'application/vnd.vmware.vcloud.bootOptionsSection+xml'
+    VM_CAPABILITIES_SECTION = \
+        'application/vnd.vmware.vcloud.vmCapabilitiesSection+xml'
     VMS = 'application/vnd.vmware.vcloud.vms+xml'
     VMW_PROVIDER_VDC_RESOURCE_POOL = \
         'application/vnd.vmware.admin.vmwProviderVdcResourcePool+xml'
@@ -496,6 +507,11 @@ class NetworkAdapterType(Enum):
     E1000 = 'E1000'
     E1000E = 'E1000E'
     VLANCE = 'PCNet32'
+
+
+class AddFirewallRuleAction(Enum):
+    ACCEPT = 'Accept'
+    DENY = 'Deny'
 
 
 # vCD docs are incomplete about valid Metadata Domain and Visibility values
@@ -1085,6 +1101,12 @@ class Client(object):
 
     @staticmethod
     def _response_code_to_exception(sc, request_id, objectify_response):
+        print(
+            etree.tostring(
+                objectify_response,
+                pretty_print=True
+            ).decode('utf8')
+        )
         if sc == 400:
             raise BadRequestException(sc, request_id, objectify_response)
 
@@ -1430,7 +1452,7 @@ class Client(object):
         result = []
         if hasattr(orgs, 'Org'):
             for org in orgs.Org:
-                org_resource = self.get_resource(org.get('href'))
+                org_resource = await self.get_resource(org.get('href'))
                 result.append(org_resource)
         return result
 
@@ -1457,7 +1479,7 @@ class Client(object):
         if hasattr(orgs, 'Org'):
             for org in orgs.Org:
                 if org.get('name').lower() == org_name.lower():
-                    return self.get_resource(org.get('href'))
+                    return await self.get_resource(org.get('href'))
         raise EntityNotFoundException('org \'%s\' not found' % org_name)
 
     async def get_user_in_org(self, user_name, org_href):

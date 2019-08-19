@@ -35,6 +35,7 @@ from pyvcloud.vcd.client import SIZE_1MB
 from pyvcloud.vcd.exceptions import EntityNotFoundException
 from pyvcloud.vcd.exceptions import InvalidParameterException
 from pyvcloud.vcd.exceptions import MultipleRecordsException
+from pyvcloud.vcd.exceptions import OperationNotSupportedException
 from pyvcloud.vcd.metadata import Metadata
 from pyvcloud.vcd.org import Org
 from pyvcloud.vcd.platform import Platform
@@ -42,6 +43,7 @@ from pyvcloud.vcd.utils import cidr_to_netmask
 from pyvcloud.vcd.utils import get_admin_href
 from pyvcloud.vcd.utils import is_admin
 from pyvcloud.vcd.utils import netmask_to_cidr_prefix_len
+from pyvcloud.vcd.utils import retrieve_compute_policy_id_from_href
 
 
 class VDC(object):
@@ -566,6 +568,27 @@ class VDC(object):
                     })
         return result
 
+    def list_media_id(self):
+        """Fetch information about all media in the current org vdc.
+
+        :return: a list of dictionaries
+
+        :rtype: list
+        """
+        self.get_resource()
+        result = []
+        if hasattr(self.resource, 'ResourceEntities') and \
+           hasattr(self.resource.ResourceEntities, 'ResourceEntity'):
+            for resource in self.resource.ResourceEntities.ResourceEntity:
+                if resource.get('type') == EntityType.MEDIA.value:
+                    id = resource.get('id')
+                    id = id.split(':')[3]
+                    result.append({
+                        'name': resource.get('name'),
+                        'Id': id
+                    })
+        return result
+
     async def list_edge_gateways(self):
         """Fetch a list of edge gateways defined in a vdc.
 
@@ -693,14 +716,18 @@ class VDC(object):
             disk_params.set('name', disk.get('name'))
 
         if new_size is not None:
-            size = str(new_size)
+            if self.client.get_api_version() < ApiVersion.VERSION_33.value:
+                disk_params.set('size', new_size)
+            else:
+                size = int(int(new_size) / SIZE_1MB)
+                disk_params.set('sizeMb', str(size))
         else:
-            size = disk.get('size')
-        if self.client.get_api_version() < ApiVersion.VERSION_33.value:
-            disk_params.set('size', size)
-        else:
-            size = int(int(size) / SIZE_1MB)
-            disk_params.set('sizeMb', str(size))
+            if self.client.get_api_version() < ApiVersion.VERSION_33.value:
+                size = disk.get('size')
+                disk_params.set('size', size)
+            else:
+                size = disk.get('sizeMb')
+                disk_params.set('sizeMb', str(size))
 
         if new_description is not None:
             disk_params.append(E.Description(new_description))
@@ -1941,7 +1968,7 @@ class VDC(object):
         if desc is not None:
             gateway_params.append(E.Description(desc))
         gateway_configuration_param = \
-            self._create_gateway_configuration_param(
+            await self._create_gateway_configuration_param(
                 external_networks, gateway_backing_config,
                 is_default_gateway, selected_extnw_for_default_gw,
                 default_gateway_ip, is_default_gw_for_dns_relay_selected,
@@ -1983,7 +2010,7 @@ class VDC(object):
         platform = Platform(self.client)
         provided_networks_resource = []
         for ext_net_name in external_networks:
-            ext_network = platform.get_external_network(ext_net_name)
+            ext_network = await platform.get_external_network(ext_net_name)
             provided_networks_resource.append(ext_network)
         gateway_configuration_param = E.Configuration()
         gateway_configuration_param.append(
@@ -2122,7 +2149,7 @@ class VDC(object):
             E.DistributedRoutingEnabled(is_dr_enabled))
         return gateway_configuration_param
 
-    def delete_gateway(self, name):
+    async def delete_gateway(self, name):
         """Delete a gateway in the current org vdc.
 
         :param str name: name of the gateway to be deleted.
@@ -2135,7 +2162,7 @@ class VDC(object):
             ResourceType.EDGE_GATEWAY.value,
             query_result_format=QueryResultFormat.RECORDS,
             equality_filter=name_filter)
-        records = query.execute()
+        records = await query.execute()
         if records is None:
             raise EntityNotFoundException(
                 'Gateway with name \'%s\' not found for delete.' % name)
@@ -2144,7 +2171,7 @@ class VDC(object):
             href = record.get('href')
             break
 
-        return self.client.delete_resource(href)
+        return await self.client.delete_resource(href)
 
     async def get_gateway(self, name):
         """Get a gateway in the current org vdc.
@@ -2219,7 +2246,13 @@ class VDC(object):
         refers to VcdComputePolicy.
 
         :rtype: list of lxml.objectify.StringElement
+        :raises: OperationNotSupportedException: if the api version is not
+        supported.
         """
+        if float(self.client.get_api_version()) < \
+                float(ApiVersion.VERSION_32.value):
+            raise OperationNotSupportedException("Unsupported API version")
+
         policy_references = self._fetch_compute_policies()
         policy_list = []
         for policy_reference in policy_references.VdcComputePolicyReference:
@@ -2235,9 +2268,16 @@ class VDC(object):
         that refers to individual VdcComputePolicies.
 
         :rtype: lxml.objectify.ObjectifiedElement
+
+        :raises: OperationNotSupportedException: if the api version is not
+        supported.
         """
+        if float(self.client.get_api_version()) < \
+                float(ApiVersion.VERSION_32.value):
+            raise OperationNotSupportedException("Unsupported API version")
+
         policy_references = self._fetch_compute_policies()
-        policy_id = self._retrieve_compute_policy_id_from_href(href)
+        policy_id = retrieve_compute_policy_id_from_href(href)
         policy_reference_element = E.VdcComputePolicyReference()
         policy_reference_element.set('href', href)
         policy_reference_element.set('id', policy_id)
@@ -2257,11 +2297,17 @@ class VDC(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
 
+        :raises: OperationNotSupportedException: if the api version is not
+        supported.
         :raises: EntityNotFoundException: if the VdcComputePolicy cannot
             be located.
         """
+        if float(self.client.get_api_version()) < \
+                float(ApiVersion.VERSION_32.value):
+            raise OperationNotSupportedException("Unsupported API version")
+
         policy_references = self._fetch_compute_policies()
-        policy_id = self._retrieve_compute_policy_id_from_href(href)
+        policy_id = retrieve_compute_policy_id_from_href(href)
         for policy_reference in policy_references.VdcComputePolicyReference:
             if policy_id == policy_reference.get('id'):
                 policy_references.remove(policy_reference)
@@ -2271,14 +2317,3 @@ class VDC(object):
                     policy_references)
         raise EntityNotFoundException(f"VdcComputePolicyReference "
                                       f"with href '{href}' not found")
-
-    def _retrieve_compute_policy_id_from_href(self, href):
-        """Extract compute policy id from href.
-
-        :param str href: URI of the compute policy
-
-        :return: compute policy id
-
-        :rtype: str
-        """
-        return href.split('/')[-1]

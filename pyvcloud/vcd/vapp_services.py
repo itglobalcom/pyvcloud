@@ -59,16 +59,16 @@ class VappServices(object):
             self.parent = self.client.get_resource(self.parent_href)
         self.resource = resource
 
-    def _build_self_href(self):
-        self.parent = self._get_parent_by_name()
+    async def _build_self_href(self):
+        self.parent = await self._get_parent_by_name()
         self.parent_href = self.parent.get('href')
         self.href = find_link(
-            self.client.get_resource(self.parent_href),
+            await self.client.get_resource(self.parent_href),
             RelationType.DOWN,
             EntityType.vApp_Network.value,
             name=self.network_name).href
 
-    def _get_resource(self):
+    async def _get_resource(self):
         """Fetches the XML representation of the Service.
 
         :return: object containing EntityType.Service XML data
@@ -76,14 +76,14 @@ class VappServices(object):
         :rtype: lxml.objectify.ObjectifiedElement
         """
         if self.resource is None:
-            self._reload()
+            await self._reload()
         return self.resource
 
-    def _reload(self):
+    async def _reload(self):
         """Reloads the resource representation of the Vapp network."""
-        self.resource = self.client.get_resource(self.href)
+        self.resource = await self.client.get_resource(self.href)
 
-    def _get_parent_by_name(self):
+    async def _get_parent_by_name(self):
         """Get a vapp by name.
 
         :return: vapp
@@ -98,7 +98,7 @@ class VappServices(object):
             ResourceType.ADMIN_VAPP.value,
             query_result_format=QueryResultFormat.RECORDS,
             equality_filter=name_filter)
-        records = list(query.execute())
+        records = list(await query.execute())
         if records is None or len(records) == 0:
             raise EntityNotFoundException(
                 'Vapp with name \'%s\' not found.' % self.vapp_name)

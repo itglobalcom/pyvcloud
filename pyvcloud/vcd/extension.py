@@ -24,7 +24,7 @@ class Extension(object):
         self.client = client
         self.resource = None
 
-    def get_resource(self):
+    async def get_resource(self):
         """Fetches the XML representation of /api/admin/extension endpoint.
 
         Will serve cached response if possible.
@@ -35,14 +35,14 @@ class Extension(object):
         :rtype: lxml.objectify.ObjectifiedElement
         """
         if self.resource is None:
-            self.reload()
+            await self.reload()
         return self.resource
 
-    def reload(self):
+    async def reload(self):
         """Reloads the resource representation of the extension.
 
         This method should be called in between two method invocations on the
         Extension object, if the former call changes the representation of the
         Extension in vCD.
         """
-        self.resource = self.client.get_extension()
+        self.resource = await self.client.get_extension()
