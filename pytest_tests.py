@@ -919,6 +919,7 @@ async def dummy_gateway(vdc):
     yield gateway
 
 
+@pytest.mark.skip()
 @pytest.mark.asyncio
 async def test_gateway(gateway):
     pass
@@ -936,10 +937,6 @@ async def test_gateway(gateway):
     (
         (False, False),
         (False, True),
-        (False, False),
-        (False, True),
-        (True, False),
-        (True, True),
         (True, False),
         (True, True),
     )
