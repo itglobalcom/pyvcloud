@@ -54,7 +54,7 @@ class Platform(object):
         self.client = client
         self.extension = Extension(client)
 
-    def list_vcenters(self):
+    async def list_vcenters(self):
         """List vCenter servers attached to the system.
 
         :return: list of object containing vmext:VimServerReference XML element
@@ -62,8 +62,8 @@ class Platform(object):
 
         :rtype: list
         """
-        vim_server_references = self.client.get_linked_resource(
-            self.extension.get_resource(),
+        vim_server_references = await self.client.get_linked_resource(
+            await self.extension.get_resource(),
             RelationType.DOWN,
             EntityType.VIM_SERVER_REFS.value)
         if hasattr(vim_server_references, 'VimServerReference'):
@@ -71,7 +71,7 @@ class Platform(object):
         else:
             return []
 
-    def get_vcenter(self, name):
+    async def get_vcenter(self, name):
         """Fetch a vCenter attached to the system by name.
 
         :param str name: name of vCenter.
@@ -84,12 +84,12 @@ class Platform(object):
         :raises: EntityNotFoundException: if the named vCenter cannot be
             located.
         """
-        for record in self.list_vcenters():
+        for record in await self.list_vcenters():
             if record.get('name') == name:
-                return self.client.get_resource(record.get('href'))
+                return await self.client.get_resource(record.get('href'))
         raise EntityNotFoundException('vCenter \'%s\' not found' % name)
 
-    def create_external_network(self,
+    async def create_external_network(self,
                                 name,
                                 vim_server_name,
                                 port_group_names,
@@ -120,7 +120,7 @@ class Platform(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        vc_record = self.get_vcenter(vim_server_name)
+        vc_record = await self.get_vcenter(vim_server_name)
         vc_href = vc_record.get('href')
         pg_morefs = self.get_port_group_morefs(port_group_names)
         vmw_external_network = E_VMEXT.VMWExternalNetwork(name=name)
@@ -159,7 +159,7 @@ class Platform(object):
             vim_port_group_refs.append(vim_object_ref)
         vmw_external_network.append(vim_port_group_refs)
 
-        return self.client.post_linked_resource(
+        return await self.client.post_linked_resource(
             self.extension.get_resource(),
             rel=RelationType.ADD,
             media_type=EntityType.EXTERNAL_NETWORK.value,
@@ -194,7 +194,7 @@ class Platform(object):
                     'port group \'%s\' not Found' % port_group_name)
         return port_group_morefs
 
-    def delete_external_network(self, name, force=False):
+    async def delete_external_network(self, name, force=False):
         """Delete an external network.
 
         :param str name: name of the external network to be deleted.
@@ -207,14 +207,14 @@ class Platform(object):
         :raises: EntityNotFoundException: if the named external network can not
             be found.
         """
-        ext_net_refs = self.list_external_networks()
+        ext_net_refs = await self.list_external_networks()
         for ext_net in ext_net_refs:
             if ext_net.get('name') == name:
-                return self.client.delete_resource(ext_net.get('href'), force)
+                return await self.client.delete_resource(ext_net.get('href'), force)
         raise EntityNotFoundException(
             'External network \'%s\' not found.' % name)
 
-    def list_external_networks(self):
+    async def list_external_networks(self):
         """List all external networks available in the system.
 
         :return: list of lxml.objectify.ObjectifiedElement objects which
@@ -223,8 +223,8 @@ class Platform(object):
 
         :rtype: list
         """
-        ext_net_refs = self.client.get_linked_resource(
-            self.extension.get_resource(), RelationType.DOWN,
+        ext_net_refs = await self.client.get_linked_resource(
+            await self.extension.get_resource(), RelationType.DOWN,
             EntityType.EXTERNAL_NETWORK_REFS.value)
 
         if hasattr(ext_net_refs, 'ExternalNetworkReference'):
@@ -232,7 +232,7 @@ class Platform(object):
 
         return []
 
-    def get_external_network(self, name):
+    async def get_external_network(self, name):
         """Fetch an external network resource identified by its name.
 
         :param str name: name of the external network to be retrieved.
@@ -245,14 +245,14 @@ class Platform(object):
         :raises: EntityNotFoundException: If the named external network cannot
             be located.
         """
-        ext_net_refs = self.list_external_networks()
+        ext_net_refs = await self.list_external_networks()
         for ext_net in ext_net_refs:
             if ext_net.get('name') == name:
-                return self.client.get_resource(ext_net.get('href'))
+                return await self.client.get_resource(ext_net.get('href'))
         raise EntityNotFoundException(
             'External network \'%s\' not found.' % name)
 
-    def update_external_network(self,
+    async def update_external_network(self,
                                 name,
                                 new_name=None,
                                 new_description=None):
@@ -269,7 +269,7 @@ class Platform(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        ext_net = self.get_external_network(name)
+        ext_net = await self.get_external_network(name)
 
         if (new_name is None) and (new_description is None):
             return ext_net
@@ -280,13 +280,13 @@ class Platform(object):
             description = ext_net['{' + NSMAP['vcloud'] + '}Description']
             ext_net.replace(description, E.Description(new_description))
 
-        return self.client.put_linked_resource(
+        return await self.client.put_linked_resource(
             ext_net,
             rel=RelationType.EDIT,
             media_type=EntityType.EXTERNAL_NETWORK.value,
             contents=ext_net)
 
-    def get_vxlan_network_pool(self, vxlan_network_pool_name):
+    async def get_vxlan_network_pool(self, vxlan_network_pool_name):
         """[Deprecated] Fetch a vxlan_network_pool by its name.
 
         :param str vxlan_network_pool_name: name of the vxlan_network_pool.
@@ -304,7 +304,7 @@ class Platform(object):
             ResourceType.NETWORK_POOL,
             query_result_format=QueryResultFormat.RECORDS,
             equality_filter=name_filter)
-        records = list(query.execute())
+        records = list(await query.execute())
         vxlan_network_pool_record = None
         for record in records:
             if vxlan_network_pool_name == record.get('name'):
@@ -343,7 +343,7 @@ class Platform(object):
                 'resource: \'%s\' name: \'%s\' not found' %
                 resource_type.value, resource_name)
 
-    def get_resource_pool_morefs(self, vc_href, resource_pool_names):
+    async def get_resource_pool_morefs(self, vc_href, resource_pool_names):
         """Fetch list of morefs for a given list of resource_pool_names.
 
         :param str vc_href: vim_server href.
@@ -358,8 +358,8 @@ class Platform(object):
             found.
         """
         morefs = []
-        vc_resource = self.client.get_resource(vc_href)
-        resource_pool_list = self.client.get_linked_resource(
+        vc_resource = await self.client.get_resource(vc_href)
+        resource_pool_list = await self.client.get_linked_resource(
             resource=vc_resource,
             rel=RelationType.DOWN,
             media_type=EntityType.RESOURCE_POOL_LIST.value)
@@ -378,7 +378,7 @@ class Platform(object):
                         'resource pool \'%s\' not Found' % resource_pool_name)
         return morefs
 
-    def create_provider_vdc(self,
+    async def create_provider_vdc(self,
                             vim_server_name,
                             resource_pool_names,
                             storage_profiles,
@@ -405,9 +405,9 @@ class Platform(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        vc_record = self.get_vcenter(vim_server_name)
+        vc_record = await self.get_vcenter(vim_server_name)
         vc_href = vc_record.get('href')
-        rp_morefs = self.get_resource_pool_morefs(vc_href,
+        rp_morefs = await self.get_resource_pool_morefs(vc_href,
                                                   resource_pool_names)
         vmw_prov_vdc_params = E_VMEXT.VMWProviderVdcParams(name=pvdc_name)
         if description is not None:
@@ -445,13 +445,13 @@ class Platform(object):
         vmw_prov_vdc_params.append(E_VMEXT.DefaultPassword(default_pwd))
         vmw_prov_vdc_params.append(E_VMEXT.DefaultUsername(default_user))
 
-        return self.client.post_linked_resource(
+        return await self.client.post_linked_resource(
             self.extension.get_resource(),
             rel=RelationType.ADD,
             media_type=EntityType.PROVIDER_VDC_PARAMS.value,
             contents=vmw_prov_vdc_params)
 
-    def get_pvdc(self,
+    async def get_pvdc(self,
                  pvdc_name):
         """Fetch pvdc reference, href, and extension resource.
 
@@ -464,10 +464,10 @@ class Platform(object):
         provider_vdc = self.get_ref_by_name(ResourceType.PROVIDER_VDC,
                                             pvdc_name)
         pvdc_ext_href = get_admin_extension_href(provider_vdc.get('href'))
-        pvdc_ext_resource = self.client.get_resource(pvdc_ext_href)
+        pvdc_ext_resource = await self.client.get_resource(pvdc_ext_href)
         return provider_vdc, pvdc_ext_href, pvdc_ext_resource
 
-    def attach_resource_pools_to_provider_vdc(self,
+    async def attach_resource_pools_to_provider_vdc(self,
                                               pvdc_name,
                                               resource_pool_names):
         """Attach Resource Pools to a Provider Virtual Datacenter.
@@ -497,7 +497,7 @@ class Platform(object):
         provider_vdc, pvdc_ext_href, pvdc_ext_resource = self.get_pvdc(
             pvdc_name)
         vc_href = pvdc_ext_resource.VimServer.get('href')
-        rp_morefs = self.get_resource_pool_morefs(vc_href,
+        rp_morefs = await self.get_resource_pool_morefs(vc_href,
                                                   resource_pool_names)
         payload = E_VMEXT.UpdateResourcePoolSetParams()
         for rp_moref in rp_morefs:
@@ -508,13 +508,13 @@ class Platform(object):
             add_item.append(E_VMEXT.MoRef(rp_moref))
             add_item.append(E_VMEXT.VimObjectType('RESOURCE_POOL'))
             payload.append(add_item)
-        return self.client.post_linked_resource(
+        return await self.client.post_linked_resource(
             resource=pvdc_ext_resource,
             rel=RelationType.UPDATE_RESOURCE_POOLS,
             media_type=EntityType.RES_POOL_SET_UPDATE_PARAMS.value,
             contents=payload)
 
-    def detach_resource_pools_from_provider_vdc(self,
+    async def detach_resource_pools_from_provider_vdc(self,
                                                 pvdc_name,
                                                 resource_pool_names):
         """Disable & Detach Resource Pools from a Provider Virtual Datacenter.
@@ -560,7 +560,7 @@ class Platform(object):
         :raises: ValidationError: if primary resource pool is input for
             deletion.
         """
-        provider_vdc, pvdc_ext_href, pvdc_ext_resource = self.get_pvdc(
+        provider_vdc, pvdc_ext_href, pvdc_ext_resource = await self.get_pvdc(
             pvdc_name)
         vc_name = pvdc_ext_resource.VimServer.get('name')
 
@@ -571,7 +571,7 @@ class Platform(object):
             query_result_format=QueryResultFormat.RECORDS,
             equality_filter=name_filter)
         res_pools_in_use = {}
-        for res_pool in list(query.execute()):
+        for res_pool in list(await query.execute()):
             res_pools_in_use[res_pool.get('name')] = res_pool.get('moref')
 
         morefs_to_delete = []
@@ -582,7 +582,7 @@ class Platform(object):
                 raise EntityNotFoundException(
                     'resource pool \'%s\' not Found' % resource_pool_name)
 
-        res_pools_in_pvdc = self.client.get_linked_resource(
+        res_pools_in_pvdc = await self.client.get_linked_resource(
             resource=pvdc_ext_resource,
             rel=RelationType.DOWN,
             media_type=EntityType.VMW_PROVIDER_VDC_RESOURCE_POOL_SET.value)
@@ -611,7 +611,7 @@ class Platform(object):
                                       rel=RelationType.DISABLE)
                     num_links = len(links)
                     if num_links == 1:
-                        self.client.\
+                        await self.client.\
                             post_linked_resource(resource=res_pool,
                                                  rel=RelationType.DISABLE,
                                                  media_type=None,
@@ -624,13 +624,13 @@ class Platform(object):
                 href=res_pool_ref.ResourcePoolRef.get('href'),
                 type=EntityType.VMW_PROVIDER_VDC_RESOURCE_POOL.value)
             payload.append(del_item)
-        return self.client.post_linked_resource(
+        return await self.client.post_linked_resource(
             resource=pvdc_ext_resource,
             rel=RelationType.UPDATE_RESOURCE_POOLS,
             media_type=EntityType.RES_POOL_SET_UPDATE_PARAMS.value,
             contents=payload)
 
-    def pvdc_add_storage_profile(self,
+    async def pvdc_add_storage_profile(self,
                                  pvdc_name,
                                  storage_profile_names):
         """Add storage profiles to a PVDC.
@@ -646,9 +646,9 @@ class Platform(object):
         :raises: EntityNotFoundException: if any storage_profile_name is not
             available.
         """
-        provider_vdc, pvdc_ext_href, pvdc_ext_resource = self.get_pvdc(
+        provider_vdc, pvdc_ext_href, pvdc_ext_resource = await self.get_pvdc(
             pvdc_name)
-        avail_storage_profiles = self.client.get_linked_resource(
+        avail_storage_profiles = await self.client.get_linked_resource(
             resource=pvdc_ext_resource,
             rel=RelationType.DOWN,
             media_type=EntityType.VMW_STORAGE_PROFILES.value)
@@ -663,13 +663,13 @@ class Platform(object):
                 raise EntityNotFoundException(
                     'storage profile: \'%s\' not available' % sp_to_add)
             payload.append(E_VMEXT.AddStorageProfile(sp_to_add))
-        return self.client.post_linked_resource(
+        return await self.client.post_linked_resource(
             resource=pvdc_ext_resource,
             rel=RelationType.EDIT,
             media_type=EntityType.UPDATE_PROVIDER_VDC_STORAGE_PROFILES.value,
             contents=payload)
 
-    def pvdc_del_storage_profile(self,
+    async def pvdc_del_storage_profile(self,
                                  pvdc_name,
                                  storage_profile_names):
         """Delete storage profiles from a PVDC.
@@ -685,7 +685,7 @@ class Platform(object):
         :raises: EntityNotFoundException: if any storage_profile_name is not
             associated with the specified PVDC.
         """
-        provider_vdc, pvdc_ext_href, pvdc_ext_resource = self.get_pvdc(
+        provider_vdc, pvdc_ext_href, pvdc_ext_resource = await self.get_pvdc(
             pvdc_name)
         sp_map = {}
         if hasattr(pvdc_ext_resource,
@@ -704,7 +704,7 @@ class Platform(object):
             sp_href = sp_map[sp_name]
             payload.append(
                 E_VMEXT.RemoveStorageProfile(href=sp_href))
-            sp_resource = self.client.get_resource(sp_href)
+            sp_resource = await self.client.get_resource(sp_href)
             links = get_links(
                 resource=sp_resource,
                 rel=RelationType.EDIT,
@@ -722,19 +722,19 @@ class Platform(object):
                         )
                     disable_payload.append(E.Enabled('false'))
                     disable_payload.append(units)
-                    self.client.put_linked_resource(
+                    await self.client.put_linked_resource(
                         resource=sp_resource,
                         rel=RelationType.EDIT,
                         media_type=EntityType.
                         VMW_PVDC_STORAGE_PROFILE.value,
                         contents=disable_payload)
-        return self.client.post_linked_resource(
+        return await self.client.post_linked_resource(
             resource=pvdc_ext_resource,
             rel=RelationType.EDIT,
             media_type=EntityType.UPDATE_PROVIDER_VDC_STORAGE_PROFILES.value,
             contents=payload)
 
-    def pvdc_migrate_vms(self,
+    async def pvdc_migrate_vms(self,
                          pvdc_name,
                          vms_to_migrate,
                          src_resource_pool,
@@ -761,7 +761,7 @@ class Platform(object):
             cannot be found, or if any of the vms_to_migrate are
             not found on the source resource pool.
         """
-        provider_vdc, pvdc_ext_href, pvdc_ext_resource = self.get_pvdc(
+        provider_vdc, pvdc_ext_href, pvdc_ext_resource = await self.get_pvdc(
             pvdc_name)
         vc_name = pvdc_ext_resource.VimServer.get('name')
         vc_href = pvdc_ext_resource.VimServer.get('href')
@@ -788,7 +788,7 @@ class Platform(object):
             else:
                 target_rp_moref = res_pools_in_use[target_resource_pool]
 
-        res_pools_in_pvdc = self.client.get_linked_resource(
+        res_pools_in_pvdc = await self.client.get_linked_resource(
             resource=pvdc_ext_resource,
             rel=RelationType.DOWN,
             media_type=EntityType.VMW_PROVIDER_VDC_RESOURCE_POOL_SET.value)
@@ -802,7 +802,7 @@ class Platform(object):
 
         src_respool_resource = pvdc_res_pools[src_rp_moref]
         # create map of VM names to VM hrefs (in source respool)
-        vms_in_respool = self.client.get_linked_resource(
+        vms_in_respool = await self.client.get_linked_resource(
             resource=src_respool_resource,
             rel=RelationType.RESOURCE_POOL_VM_LIST, media_type=None)
 
@@ -834,11 +834,11 @@ class Platform(object):
             payload.append(res_pool_ref)
 
         # do the migrate, return task
-        return self.client.post_linked_resource(
+        return await self.client.post_linked_resource(
             resource=src_respool_resource, rel=RelationType.MIGRATE_VMS,
             media_type=None, contents=payload)
 
-    def attach_vcenter(self,
+    async def attach_vcenter(self,
                        vc_server_name,
                        vc_server_host,
                        vc_admin_user,
@@ -891,14 +891,14 @@ class Platform(object):
                 nsx_manager.append(E_VMEXT.Url('https://' + nsx_host + ':443'))
             register_vc_server_params.append(nsx_manager)
 
-        return self.client.\
+        return await self.client.\
             post_linked_resource(resource=self.extension.get_resource(),
                                  rel=RelationType.ADD,
                                  media_type=EntityType.
                                  REGISTER_VC_SERVER_PARAMS.value,
                                  contents=register_vc_server_params)
 
-    def enable_disable_vcenter(self, vc_name, enable_flag):
+    async def enable_disable_vcenter(self, vc_name, enable_flag):
         """Enable or disable a Virtual Center (VC) server.
 
         :param str vc_name: name of VC server.
@@ -914,13 +914,13 @@ class Platform(object):
             vc.IsEnabled = E_VMEXT.IsEnabled('true')
         else:
             vc.IsEnabled = E_VMEXT.IsEnabled('false')
-        return self.client.\
+        return await self.client.\
             put_linked_resource(resource=vc,
                                 rel=RelationType.EDIT,
                                 media_type=EntityType.VIRTUAL_CENTER.value,
                                 contents=vc)
 
-    def detach_vcenter(self, vc_name):
+    async def detach_vcenter(self, vc_name):
         """Detach (unregister) a Virtual Center (VC) server.
 
         :param str vc_name: name of VC server.
@@ -930,17 +930,17 @@ class Platform(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        vc = self.get_vcenter(vc_name)
+        vc = await self.get_vcenter(vc_name)
         if vc.IsEnabled:
             raise InvalidStateException('VC must be disabled before detach.')
 
-        return self.client.\
+        return await self.client.\
             post_linked_resource(resource=vc,
                                  rel=RelationType.UNREGISTER,
                                  media_type=None,
                                  contents=vc)
 
-    def register_nsxt_manager(self,
+    async def register_nsxt_manager(self,
                               nsxt_manager_name,
                               nsxt_manager_url,
                               nsxt_manager_username,
@@ -966,31 +966,31 @@ class Platform(object):
         payload.append(E_VMEXT.Password(nsxt_manager_password))
         payload.append(E_VMEXT.Url(nsxt_manager_url))
 
-        nsxt_manager_resource = self.client.get_linked_resource(
+        nsxt_manager_resource = await self.client.get_linked_resource(
             resource=self.extension.get_resource(),
             rel=RelationType.DOWN,
             media_type=EntityType.NETWORK_MANAGERS.value)
 
-        return self.client.\
+        return await self.client.\
             post_linked_resource(resource=nsxt_manager_resource,
                                  rel=RelationType.ADD,
                                  media_type=EntityType.NSXT_MANAGER.value,
                                  contents=payload)
 
-    def unregister_nsxt_manager(self, nsxt_manager_name):
+    async def unregister_nsxt_manager(self, nsxt_manager_name):
         """Un-register an NSX-T Manager.
 
         :param str nsxt_manager_name: name of the NSX-T manager.
         """
         nsxt_manager = self.get_ref_by_name(ResourceType.NSXT_MANAGER,
                                             nsxt_manager_name).get('href')
-        nsxt_manager_resource = self.client.get_resource(nsxt_manager)
+        nsxt_manager_resource = await self.client.get_resource(nsxt_manager)
         return \
-            self.client.delete_linked_resource(nsxt_manager_resource,
+            await self.client.delete_linked_resource(nsxt_manager_resource,
                                                RelationType.REMOVE,
                                                EntityType.NSXT_MANAGER.value)
 
-    def list_nsxt_managers(self):
+    async def list_nsxt_managers(self):
         """Return list of all registered NSX-T managers.
 
         :return: NsxTManagerRecords.
@@ -1001,9 +1001,9 @@ class Platform(object):
             ResourceType.NSXT_MANAGER.value,
             query_result_format=QueryResultFormat.RECORDS)
 
-        return query.execute()
+        return await query.execute()
 
-    def get_port_group_moref_types(self, vim_server_name, port_group_name):
+    async def get_port_group_moref_types(self, vim_server_name, port_group_name):
         """Fetches portgroup moref and portgroup type(DV_PORTGROUP or NETWORK).
 
         Using portgroup name in particular vCenter.
@@ -1020,7 +1020,7 @@ class Platform(object):
             ResourceType.PORT_GROUP.value,
             qfilter=vcfilter,
             query_result_format=QueryResultFormat.RECORDS)
-        records = list(query.execute())
+        records = list(await query.execute())
 
         port_group_moref_types = []
         for record in records:
@@ -1033,7 +1033,7 @@ class Platform(object):
                 'port group \'%s\' not Found' % port_group_name)
         return port_group_moref_types
 
-    def list_available_port_group_names(self, vim_server_name):
+    async def list_available_port_group_names(self, vim_server_name):
         """Fetches the list of portgroup name in a particular vCenter.
 
         :return: list of available portgroup name. ex- VM Network
@@ -1048,7 +1048,7 @@ class Platform(object):
             ResourceType.PORT_GROUP.value,
             qfilter=vcfilter,
             query_result_format=QueryResultFormat.RECORDS)
-        records = list(query.execute())
+        records = list(await query.execute())
 
         port_group_names = [record.get('name') for record in records
                             if (record.get('networkName') == '--' and
@@ -1057,7 +1057,7 @@ class Platform(object):
             raise EntityNotFoundException('No port group name found')
         return port_group_names
 
-    def get_datastores(self):
+    async def get_datastores(self):
         """Returns the object of datastore references.
 
         :return: object containing EntityType.DatastoreReferences XML data
@@ -1065,19 +1065,19 @@ class Platform(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        return self.client.get_linked_resource(
+        return await self.client.get_linked_resource(
             self.extension.get_resource(),
             RelationType.DOWN,
             EntityType.DATASTORE_REFERENCES.value)
 
-    def list_datastores(self):
+    async def list_datastores(self):
         """Returns the list of datastores with name and id.
 
         :return: list of datastores
 
         :rtype: list
         """
-        result = self.get_datastores()
+        result = await self.get_datastores()
         datastore_list = []
         if hasattr(result, '{' + NSMAP['vcloud'] + '}Reference'):
             for reference in result['{' + NSMAP['vcloud'] + '}Reference']:
@@ -1089,7 +1089,7 @@ class Platform(object):
 
         return datastore_list
 
-    def get_datastore_href_by_id(self, id):
+    async def get_datastore_href_by_id(self, id):
         """Retrieve datastore href by id.
 
         :param str id: datastore id.
@@ -1101,7 +1101,7 @@ class Platform(object):
         :raises: EntityNotFoundException: if datastore with the provided
             id couldn't be found.
         """
-        result = self.get_datastores()
+        result = await self.get_datastores()
         datastore_id = self.DATASTORE_ID_PREFIX + id
 
         if hasattr(result, '{' + NSMAP['vcloud'] + '}Reference'):

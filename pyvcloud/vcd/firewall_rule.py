@@ -32,6 +32,11 @@ class FirewallRule(GatewayServices):
     __SERVICE = 'service'
     __PROTOCOL_LIST = ['tcp', 'udp', 'icmp', 'any']
 
+    def __init__(self, *args, href, parent, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.href = href
+        self.parent = parent
+
     def _build_self_href(self, rule_id):
         rule_href = (
             self.network_url + FIREWALL_RULE_URL_TEMPLATE).format(rule_id)
@@ -46,17 +51,17 @@ class FirewallRule(GatewayServices):
         config_index = self.href.index(FIREWALL_URL_TEMPLATE)
         return self.href[:config_index] + FIREWALL_URL_TEMPLATE
 
-    def _reload(self):
+    async def _reload(self):
         """Reloads the resource representation of the Firewall rule."""
         self.resource = \
-            self.client.get_resource(self.href)
+            await self.client.get_resource(self.href)
 
-    def delete(self):
+    async def delete(self):
         """Delete a Firewall rule from gateway."""
-        self._get_resource()
-        return self.client.delete_resource(self.href)
+        await self._get_resource()
+        return await self.client.delete_resource(self.href)
 
-    def edit(self,
+    async def edit(self,
              source_values=None,
              destination_values=None,
              services=None,
@@ -71,7 +76,7 @@ class FirewallRule(GatewayServices):
          e.g., [{'tcp' : {'any' : any}}]
         :param str new_name: new name of the firewall rule.
         """
-        self._get_resource()
+        await self._get_resource()
         self.validate_types(source_values, FirewallRule.__SOURCE)
         self.validate_types(destination_values, FirewallRule.__DESTINATION)
         firewall_rule_temp = self.resource
@@ -83,7 +88,7 @@ class FirewallRule(GatewayServices):
             if not hasattr(firewall_rule_temp.source, 'exclude'):
                 firewall_rule_temp.source.append(
                     create_element('exclude', False))
-            self._populate_objects_info(firewall_rule_temp, source_values,
+            await self._populate_objects_info(firewall_rule_temp, source_values,
                                         FirewallRule.__SOURCE)
         if destination_values:
             if not hasattr(firewall_rule_temp, FirewallRule.__DESTINATION):
@@ -92,7 +97,7 @@ class FirewallRule(GatewayServices):
             if not hasattr(firewall_rule_temp.destination, 'exclude'):
                 firewall_rule_temp.destination.append(
                     create_element('exclude', False))
-            self._populate_objects_info(firewall_rule_temp, destination_values,
+            await self._populate_objects_info(firewall_rule_temp, destination_values,
                                         FirewallRule.__DESTINATION)
         if services:
             if not hasattr(firewall_rule_temp, FirewallRule.__APPLICATION):
@@ -102,7 +107,7 @@ class FirewallRule(GatewayServices):
 
         if new_name:
             firewall_rule_temp.name = new_name
-        self.client.put_resource(self.href, firewall_rule_temp,
+        await self.client.put_resource(self.href, firewall_rule_temp,
                                  EntityType.DEFAULT_CONTENT_TYPE.value)
 
     def _populate_services(self, firewall_rule_temp, services):
@@ -145,7 +150,7 @@ class FirewallRule(GatewayServices):
             service_tag.append(create_element('icmpType', 'any'))
         application_tag.append(service_tag)
 
-    def _populate_objects_info(self, firewall_rule_temp, values, type):
+    async def _populate_objects_info(self, firewall_rule_temp, values, type):
         """It will mutate firewall_rule_temp.
 
         :param firewall_rule_temp: Firewall rule object resource
@@ -158,12 +163,12 @@ class FirewallRule(GatewayServices):
             object = values_arr[0]
             if type == FirewallRule.__SOURCE:
                 firewall_rule_temp.source.append(
-                    self._get_group_element(type, object_type, object))
+                    await self._get_group_element(type, object_type, object))
             if type == FirewallRule.__DESTINATION:
                 firewall_rule_temp.destination.append(
-                    self._get_group_element(type, object_type, object))
+                    await self._get_group_element(type, object_type, object))
 
-    def _get_group_element(self, type, object_type, value):
+    async def _get_group_element(self, type, object_type, value):
         """Get group element base upon the type and object type.
 
         :param str type: It can be source/destination
@@ -178,12 +183,14 @@ class FirewallRule(GatewayServices):
             return create_element('ipAddress', value)
 
         if object_type in FirewallRule.__GROUP_OBJECT_LIST:
-            return self.__find_element(type, object_type, value,
+            return await self.__find_element(type, object_type, value,
                                        'groupingObjectId')
         elif object_type in FirewallRule.__VNIC_GROUP_LIST:
-            return self.__find_element(type, object_type, value, 'vnicGroupId')
+            return await self.__find_element(type, object_type, value, 'vnicGroupId')
+        raise RuntimeError(f'Not found object_type "{object_type}"')
 
-    def __find_element(self, type, object_type, value, group_type):
+    async def __find_element(self, type, object_type, value, group_type):
+        # ('source', 'gatewayinterface', 'any', 'vnicGroupId')
         """Find element in the properties using group type.
 
         :param str type: It can be source/destination
@@ -192,7 +199,7 @@ class FirewallRule(GatewayServices):
         :param str group_type: group type. e.g., groupingObjectId
         """
         gateway_res = Gateway(self.client, resource=self.parent)
-        object_list = gateway_res.list_firewall_objects(type, object_type)
+        object_list = await gateway_res.list_firewall_objects(type, object_type)
         for object in object_list:
             if object.get('name') == value:
                 properties = object.get('prop')
@@ -230,26 +237,26 @@ class FirewallRule(GatewayServices):
                         valid_type + " param is not valid. It should be "
                         "from " + valid_type_list_str)
 
-    def enable_disable_firewall_rule(self, is_enabled):
+    async def enable_disable_firewall_rule(self, is_enabled):
         """Enabled disabled firewall rule from gateway.
 
         :param bool is_enabled: flag to enable/disable the firewall rule.
         """
-        current_firewall_status = self._get_resource().enabled
+        current_firewall_status = (await self._get_resource()).enabled
         if is_enabled == current_firewall_status:
             return
         if is_enabled:
-            self._get_resource().enabled = True
-            return self.client.put_resource(
-                self.href, self._get_resource(),
+            (await self._get_resource()).enabled = True
+            return await self.client.put_resource(
+                self.href, await self._get_resource(),
                 EntityType.DEFAULT_CONTENT_TYPE.value)
         else:
-            self._get_resource().enabled = False
-            return self.client.put_resource(
-                self.href, self._get_resource(),
+            (await self._get_resource()).enabled = False
+            return await self.client.put_resource(
+                self.href, await self._get_resource(),
                 EntityType.DEFAULT_CONTENT_TYPE.value)
 
-    def info_firewall_rule(self):
+    async def info_firewall_rule(self):
         """Get the details of firewall rule.
 
         return: Dictionary having firewall rule details.
@@ -259,7 +266,7 @@ class FirewallRule(GatewayServices):
         :rtype: Dictionary
         """
         firewall_rule_info = {}
-        resource = self._get_resource()
+        resource = await self._get_resource()
         firewall_rule_info['Id'] = resource.id
         firewall_rule_info['Name'] = resource.name
         firewall_rule_info['Rule type'] = resource.ruleType
@@ -268,7 +275,7 @@ class FirewallRule(GatewayServices):
         firewall_rule_info['Action'] = resource.action
         return firewall_rule_info
 
-    def list_firewall_rule_source_destination(self, type):
+    async def list_firewall_rule_source_destination(self, type):
         """Get the list of firewall rule source/destination.
 
         :param str type: It can be source/destination
@@ -281,7 +288,7 @@ class FirewallRule(GatewayServices):
         }
         :rtype: dict
         """
-        resource = self._get_resource()
+        resource = await self._get_resource()
         firewall_rule_source_destination = {}
         if hasattr(resource, type):
             if hasattr(resource[type], 'exclude'):
@@ -305,40 +312,40 @@ class FirewallRule(GatewayServices):
     def _build_firewall_rules_href(self):
         return self.network_url + FIREWALL_URL_TEMPLATE
 
-    def update_firewall_rule_sequence(self, index):
+    async def update_firewall_rule_sequence(self, index):
         """Change firewall rule's sequence of gateway.
 
         :param int index: new sequence index of firewall rule.
         """
         index = int(index)
         gateway_res = Gateway(self.client, resource=self.parent)
-        firewall_rule = gateway_res.get_firewall_rules()
-        resource = self._get_resource()
+        firewall_rule = await gateway_res.get_firewall_rules()
+        resource = await self._get_resource()
         for rule in firewall_rule.firewallRules.firewallRule:
             if rule.id == resource.id:
                 firewall_rule.firewallRules.remove(rule)
                 firewall_rule.firewallRules.insert(index, rule)
                 break
-        return self.client.put_resource(self._build_firewall_rules_href(),
+        return await self.client.put_resource(self._build_firewall_rules_href(),
                                         firewall_rule,
                                         EntityType.DEFAULT_CONTENT_TYPE.value)
 
-    def delete_firewall_rule_source_destination(self, value, type):
+    async def delete_firewall_rule_source_destination(self, value, type):
         """Delete firewall rule's source/destination value of gateway.
 
         It will delete all source/destination value of given value.
         :param str value: value to remove from source/destination.
         :param str type: It can be source/destination
         """
-        resource = self._get_resource()
+        resource = await self._get_resource()
         if hasattr(resource, type):
             for object in resource[type].iter():
                 if object == value:
                     resource[type].remove(object)
-        return self.client.put_resource(self.href, resource,
+        return await self.client.put_resource(self.href, resource,
                                         EntityType.DEFAULT_CONTENT_TYPE.value)
 
-    def list_firewall_rule_service(self):
+    async def list_firewall_rule_service(self):
         """Get the list of firewall rule's services.
 
         return: list of firewall rule's service details.
@@ -348,7 +355,7 @@ class FirewallRule(GatewayServices):
          {'protocol': 'icmp', 'icmpType': 'any'}]
         :rtype: list
         """
-        resource = self._get_resource()
+        resource = await self._get_resource()
         firewall_rule_services = []
         if hasattr(resource, 'application'):
             if hasattr(resource.application, 'service'):
@@ -365,17 +372,17 @@ class FirewallRule(GatewayServices):
                     firewall_rule_services.append(service_obj)
         return firewall_rule_services
 
-    def delete_firewall_rule_service(self, protocol):
+    async def delete_firewall_rule_service(self, protocol):
         """Delete firewall rule's service from gateway.
 
         It will delete all services of given protocol.
         :param str protocol: protocol to remove services from application.
         """
-        resource = self._get_resource()
+        resource = await self._get_resource()
         if hasattr(resource, 'application'):
             if hasattr(resource.application, 'service'):
                 for service in resource.application.service:
                     if service.protocol == protocol:
                         resource.application.remove(service)
-        return self.client.put_resource(self.href, resource,
+        return await self.client.put_resource(self.href, resource,
                                         EntityType.DEFAULT_CONTENT_TYPE.value)

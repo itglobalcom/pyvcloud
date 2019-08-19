@@ -69,7 +69,7 @@ class VappFirewall(VappServices):
             self.resource, RelationType.EDIT, EntityType.vApp_Network.value,
             self.resource)
 
-    def add_firewall_rule(self, name, is_enabled=False, policy='drop',
+    async def add_firewall_rule(self, name, is_enabled=False, policy='drop',
                           protocols=['Any'], source_port_range='Any',
                           source_ip='Any', destination_port_range='Any',
                           destination_ip='Any', enable_logging=False):
@@ -90,7 +90,7 @@ class VappFirewall(VappServices):
         :raises: InvalidParameterException: Enable firewall service failed as
             given network's connection is not routed
         """
-        self._get_resource()
+        await self._get_resource()
         fence_mode = self.resource.Configuration.FenceMode
         if fence_mode != 'natRouted':
             raise InvalidParameterException(
@@ -118,10 +118,10 @@ class VappFirewall(VappServices):
         firewall_rule.append(E.SourceIp(source_ip))
         firewall_rule.append(E.EnableLogging(enable_logging))
         firewall_service.append(firewall_rule)
-        return self.client.put_linked_resource(self.resource,
-                                               RelationType.EDIT,
-                                               EntityType.vApp_Network.value,
-                                               self.resource)
+        return await self.client.put_linked_resource(self.resource,
+                                                     RelationType.EDIT,
+                                                     EntityType.vApp_Network.value,
+                                                     self.resource)
 
     def list_firewall_rule(self):
         """List all firewall rules on firewall services to vApp network.

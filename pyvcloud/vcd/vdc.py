@@ -1968,7 +1968,7 @@ class VDC(object):
         if desc is not None:
             gateway_params.append(E.Description(desc))
         gateway_configuration_param = \
-            self._create_gateway_configuration_param(
+            await self._create_gateway_configuration_param(
                 external_networks, gateway_backing_config,
                 is_default_gateway, selected_extnw_for_default_gw,
                 default_gateway_ip, is_default_gw_for_dns_relay_selected,
@@ -2010,7 +2010,7 @@ class VDC(object):
         platform = Platform(self.client)
         provided_networks_resource = []
         for ext_net_name in external_networks:
-            ext_network = platform.get_external_network(ext_net_name)
+            ext_network = await platform.get_external_network(ext_net_name)
             provided_networks_resource.append(ext_network)
         gateway_configuration_param = E.Configuration()
         gateway_configuration_param.append(
@@ -2149,7 +2149,7 @@ class VDC(object):
             E.DistributedRoutingEnabled(is_dr_enabled))
         return gateway_configuration_param
 
-    def delete_gateway(self, name):
+    async def delete_gateway(self, name):
         """Delete a gateway in the current org vdc.
 
         :param str name: name of the gateway to be deleted.
@@ -2162,7 +2162,7 @@ class VDC(object):
             ResourceType.EDGE_GATEWAY.value,
             query_result_format=QueryResultFormat.RECORDS,
             equality_filter=name_filter)
-        records = query.execute()
+        records = await query.execute()
         if records is None:
             raise EntityNotFoundException(
                 'Gateway with name \'%s\' not found for delete.' % name)
@@ -2171,7 +2171,7 @@ class VDC(object):
             href = record.get('href')
             break
 
-        return self.client.delete_resource(href)
+        return await self.client.delete_resource(href)
 
     async def get_gateway(self, name):
         """Get a gateway in the current org vdc.
