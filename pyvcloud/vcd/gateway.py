@@ -1281,6 +1281,10 @@ class Gateway(object):
         ipsec_vpn_href = self._build_ipsec_vpn_href()
         return await self.client.get_resource(ipsec_vpn_href)
 
+    async def delete_ipsec_vpn(self):
+        ipsec_vpn_href = self._build_ipsec_vpn_href()
+        return await self.client.delete_resource(ipsec_vpn_href)
+
     async def enable_activation_status_ipsec_vpn(self, is_active):
         """Enables activation status of IPsec VPN.
 

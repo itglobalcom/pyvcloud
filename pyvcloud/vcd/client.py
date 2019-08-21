@@ -1101,12 +1101,6 @@ class Client(object):
 
     @staticmethod
     def _response_code_to_exception(sc, request_id, objectify_response):
-        print(
-            etree.tostring(
-                objectify_response,
-                pretty_print=True
-            ).decode('utf8')
-        )
         if sc == 400:
             raise BadRequestException(sc, request_id, objectify_response)
 

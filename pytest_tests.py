@@ -991,6 +991,41 @@ async def test_firewall(dummy_gateway, enabled, action, log_default_action):
         raise RuntimeError(f'Not found firewall rule {rule_name}')
 
 
+@pytest.mark.asyncio
+async def test_vpn(dummy_gateway):
+    hash = uuid.uuid4().hex[:5]
+    vpn_name = f'TestVpn-{hash}'
+    gateway = dummy_gateway
+
+    # Create
+    await gateway.add_ipsec_vpn(
+        name=vpn_name,
+        peer_id=10,
+        peer_ip_address='8.8.8.8',
+        local_id=20,
+        local_ip_address='46.243.181.109',
+        local_subnet='10.10.10.0/24',
+        peer_subnet='11.10.11.0/24',
+        shared_secret_encrypted='123',
+        encryption_protocol='AES',
+        authentication_mode='PSK',
+        description='Test description',
+        is_enabled=True,
+    )
+    await gateway.reload()
+    # Get
+    try:
+        for dic in await gateway.list_ipsec_vpn():
+            if dic['Name'] == vpn_name:
+                assert dic['local_ip'] == '46.243.181.109'
+                assert dic['peer_ip'] == '8.8.8.8'
+                break
+        else:
+            raise RuntimeError(f'No VPN {vpn_name}')
+    finally:
+        await gateway.delete_ipsec_vpn()
+
+
 @pytest.mark.skip()
 @pytest.mark.asyncio
 async def test_tmp(vdc):
