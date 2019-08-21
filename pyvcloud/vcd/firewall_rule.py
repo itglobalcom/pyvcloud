@@ -32,10 +32,15 @@ class FirewallRule(GatewayServices):
     __SERVICE = 'service'
     __PROTOCOL_LIST = ['tcp', 'udp', 'icmp', 'any']
 
-    def __init__(self, *args, href, parent, **kwargs):
+    def __init__(self, *args, parent, **kwargs):
         super().__init__(*args, **kwargs)
-        self.href = href
+
         self.parent = parent
+        gateway = Gateway(self.client, resource=self.parent)
+        gateway_href = gateway._build_firewall_rule_href()
+        rule_id = self.resource.id.text
+        self.href = f'{gateway_href}/rules/{rule_id}'
+        self.gateway_name = gateway.name
 
     def _build_self_href(self, rule_id):
         rule_href = (
@@ -326,6 +331,7 @@ class FirewallRule(GatewayServices):
                 firewall_rule.firewallRules.remove(rule)
                 firewall_rule.firewallRules.insert(index, rule)
                 break
+        await self._build_network_href()
         return await self.client.put_resource(self._build_firewall_rules_href(),
                                         firewall_rule,
                                         EntityType.DEFAULT_CONTENT_TYPE.value)

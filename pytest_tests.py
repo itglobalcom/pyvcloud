@@ -14,6 +14,7 @@ from pyvcloud.vcd.client import Client, \
     NetworkAdapterType, VCLOUD_STATUS_MAP, AddFirewallRuleAction
 from pyvcloud.vcd.client import EntityType
 from pyvcloud.vcd.firewall_rule import FirewallRule
+from pyvcloud.vcd.ipsec_vpn import IpsecVpn
 from pyvcloud.vcd.gateway import Gateway
 from pyvcloud.vcd.org import Org
 from pyvcloud.vcd.vapp import VApp, RelationType
@@ -955,11 +956,36 @@ async def test_firewall(dummy_gateway, enabled, action, log_default_action):
         logging_enabled=log_default_action,
         source={'excude': False,'ipAddress': '8.8.8.8/29'},
         destination={'exculde': False, 'ipAddress': 'any'},
-        application={'service': {'protocol': 'tcp', 'port': 'any', 'sourcePort': 'any'}},
+        application={'service': {'protocol': 'tcp', 'port': '8080', 'sourcePort': 'any'}},
+    )
+    await gateway.add_firewall_rule(
+        rule_name + '_2',
+        enabled=enabled,
+        action=action,
+        logging_enabled=log_default_action,
+        source={'excude': False, 'ipAddress': '8.8.8.8/29'},
+        destination={'exculde': False, 'ipAddress': 'any'},
+        application={'service': {'protocol': 'icmp', 'port': 'any', 'sourcePort': 'any'}},
     )
     await gateway.reload()
 
+    rules_for_delete = []
     rules = await gateway.get_firewall_rules()
+    for resource in rules.firewallRules.firewallRule:
+        if resource.name.text == rule_name:
+            rule = FirewallRule(
+                gateway.client,
+                parent=await gateway.get_resource(),
+                resource=resource
+            )
+
+            rules_for_delete.append(rule)
+
+            await rule.update_firewall_rule_sequence(20)
+
+    await gateway.reload()
+    rules = await gateway.get_firewall_rules()
+
     for resource in rules.firewallRules.firewallRule:
         if resource.name.text == rule_name:
             assert json.loads(resource.enabled.text) == enabled
@@ -970,25 +996,43 @@ async def test_firewall(dummy_gateway, enabled, action, log_default_action):
             assert json.loads(resource.destination.exclude.text) == False
             assert resource.destination.ipAddress.text == 'any'
             assert resource.application.service.protocol.text == 'tcp'
-            assert resource.application.service.port.text == 'any'
+            assert resource.application.service.port.text == '8080'
             assert resource.application.service.sourcePort.text == 'any'
-
-            gateway_href = gateway._build_firewall_rule_href()
-            rule_id = resource.id.text
-            rule_href = f'{gateway_href}/rules/{rule_id}'
+        elif resource.name.text == rule_name + '_2':
+            assert json.loads(resource.enabled.text) == enabled
+            assert resource.action.text == action.lower()
+            assert json.loads(resource.loggingEnabled.text) == log_default_action
+            assert json.loads(resource.source.exclude.text) == False
+            assert resource.source.ipAddress.text == '8.8.8.8/29'
+            assert json.loads(resource.destination.exclude.text) == False
+            assert resource.destination.ipAddress.text == 'any'
+            assert resource.application.service.protocol.text == 'icmp'
+            assert not hasattr(resource.application.service, 'port') \
+                    or resource.application.service.port.text == 'any'
+            assert not hasattr(resource.application.service, 'sourcePort') \
+                    or resource.application.service.sourcePort.text == 'any'
 
             rule = FirewallRule(
                 gateway.client,
-                href=rule_href,
                 parent=await gateway.get_resource(),
                 resource=resource
             )
+            rules_for_delete.append(rule)
 
-            await rule.delete()
+    # Check is order right: "Firewall..._2" - "Firewall..."
+    rules = await gateway.get_firewall_rules()
+    flag = False
+    for resource in rules.firewallRules.firewallRule:
+        if resource.name.text == rule_name:
+            assert flag is True
+        elif resource.name.text == rule_name + '_2':
+            assert flag is False
+            flag = True
 
-            break
-    else:
-        raise RuntimeError(f'Not found firewall rule {rule_name}')
+    assert len(rules_for_delete) == 2, 'Not found exactly 2 rules'
+
+    for rule in rules_for_delete:
+        await rule.delete()
 
 
 @pytest.mark.asyncio
@@ -1014,17 +1058,23 @@ async def test_vpn(dummy_gateway):
     )
     await gateway.reload()
     # Get
+    resource_vpn = None
     try:
-        for dic in await gateway.list_ipsec_vpn():
-            if dic['Name'] == vpn_name:
-                assert dic['local_ip'] == '46.243.181.109'
-                assert dic['peer_ip'] == '8.8.8.8'
+        for resource in await gateway.list_ipsec_vpn_resource():
+            if resource.name == vpn_name:
+                assert resource.localIp == '46.243.181.109'
+                assert resource.peerIp == '8.8.8.8'
+                resource_vpn = resource
                 break
         else:
             raise RuntimeError(f'No VPN {vpn_name}')
     finally:
         # Remove
-        await gateway.delete_ipsec_vpn()
+        try:
+            ipsec_vpn = IpsecVpn(gateway.client, gateway.name, '')
+        except:
+            await gateway.delete_ipsec_vpn()
+            raise
 
 
 # @pytest.mark.parametrize(

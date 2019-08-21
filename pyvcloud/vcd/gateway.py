@@ -1416,6 +1416,19 @@ class Gateway(object):
                 out_list.append(ipsec_vpn_info)
         return out_list
 
+    async def list_ipsec_vpn_resource(self):
+        """List IPsec VPN of a gateway.
+
+        :return: list of all ipsec vpn.
+        """
+        out_list = []
+        ipsec_vpn = await self.get_ipsec_vpn()
+        vpn_sites = ipsec_vpn.sites
+        if hasattr(vpn_sites, "site"):
+            for site in vpn_sites.site:
+                out_list.append(site)
+        return out_list
+
     async def list_firewall_object_types(self, type):
         """List firewall object types for editing of rule.
 

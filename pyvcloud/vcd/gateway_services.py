@@ -40,7 +40,7 @@ class GatewayServices(object):
                 resource_id is not None and \
                 resource_href is None and \
                 resource is None:
-            self._build_network_href()
+            # self._build_network_href()
             self.resource_id = resource_id
             self._build_self_href(resource_id)
         if resource_href is None and \
@@ -60,8 +60,8 @@ class GatewayServices(object):
     def _extract_id(self, self_href):
         pass
 
-    def _build_network_href(self):
-        self.parent = self._get_parent_by_name()
+    async def _build_network_href(self):
+        self.parent = await self._get_parent_by_name()
         self.parent_href = self.parent.get('href')
         self.network_url = build_network_url_from_gateway_url(self.parent_href)
 
