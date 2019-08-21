@@ -1023,7 +1023,68 @@ async def test_vpn(dummy_gateway):
         else:
             raise RuntimeError(f'No VPN {vpn_name}')
     finally:
+        # Remove
         await gateway.delete_ipsec_vpn()
+
+
+# @pytest.mark.parametrize(
+#     'action',
+#     ('snat', 'dnat')
+# )
+@pytest.mark.parametrize(
+    'action, protocol',
+    (
+            ('snat', 'udp'),
+            ('snat', 'tcp'),
+            ('snat', 'any'),
+            ('dnat', 'udp'),
+            ('dnat', 'tcp'),
+            # ('dnat', 'any'),
+    )
+)
+@pytest.mark.asyncio
+async def test_nat(dummy_gateway, action, protocol):
+    gateway = dummy_gateway
+    fields = (
+        'ID',
+        'ruleTag',
+        'loggingEnabled',
+        'description',
+        'translatedAddress',
+        'ruleType',
+        'vnic',
+        'originalAddress',
+        'dnatMatchSourceAddress',
+        'protocol',
+        'originalPort',
+        'translatedPort',
+        'dnatMatchSourcePort',
+        'Action',
+        'Enabled',
+    )
+
+    # Create
+    await gateway.add_nat_rule(
+        action,
+        '10.10.10.2' if action == 'dnat' else '192.168.1.11',
+        '192.168.1.11' if action == 'dnat' else '10.10.10.2',
+        description='Test NAT',
+        protocol=protocol,
+        original_port=8080,
+        translated_port=9090,
+        vnic=1,
+    )
+    await gateway.reload()
+    # Get
+    try:
+        for dic in await gateway.list_nat_rules():
+            for field in fields:
+                assert field in dic
+            assert isinstance(dic['Enabled'], bool)
+            assert isinstance(dic['loggingEnabled'], bool)
+    finally:
+        # Remove
+        await gateway.delete_nat_rules()
 
 
 @pytest.mark.skip()

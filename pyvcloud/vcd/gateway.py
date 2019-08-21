@@ -11,6 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import json
+
 from pyvcloud.vcd.client import create_element
 from pyvcloud.vcd.client import E
 from pyvcloud.vcd.client import EntityType
@@ -1074,6 +1076,10 @@ class Gateway(object):
         network_url = build_network_url_from_gateway_url(self.href)
         return network_url + NAT_URL_TEMPLATE
 
+    async def delete_nat_rules(self):
+        nat_rule_href = self._build_nat_rule_href()
+        return await self.client.delete_resource(nat_rule_href)
+
     async def list_nat_rules(self):
         """List all nat rules on a gateway.
 
@@ -1085,10 +1091,41 @@ class Gateway(object):
         nat_rules_resource = await self.get_nat_rules()
         if (hasattr(nat_rules_resource.natRules, 'natRule')):
             for nat_rule in nat_rules_resource.natRules.natRule:
+                """
+                <natRule>
+                 <ruleId>196609</ruleId>
+                 <ruleTag>196609</ruleTag>
+                 <loggingEnabled>false</loggingEnabled>
+                 <enabled>true</enabled>
+                 <description>adsf</description>
+                 <translatedAddress>11.11.11.11</translatedAddress>
+                 <ruleType>user</ruleType>
+                 <action>dnat</action>
+                 <vnic>1</vnic>
+                 <originalAddress>10.10.10.10</originalAddress>
+                 <dnatMatchSourceAddress>any</dnatMatchSourceAddress>
+                 <protocol>tcp</protocol>
+                 <originalPort>888</originalPort>
+                 <translatedPort>80</translatedPort>
+                 <dnatMatchSourcePort>any</dnatMatchSourcePort>
+                </natRule>
+                """
                 nat_rule_info = {}
                 nat_rule_info['ID'] = nat_rule.ruleId
+                nat_rule_info['ruleTag'] = nat_rule.ruleTag
+                nat_rule_info['loggingEnabled'] = bool(nat_rule.loggingEnabled)
+                nat_rule_info['description'] = nat_rule.description
+                nat_rule_info['translatedAddress'] = nat_rule.translatedAddress
+                nat_rule_info['ruleType'] = nat_rule.ruleType
+                nat_rule_info['vnic'] = nat_rule.vnic
+                nat_rule_info['originalAddress'] = nat_rule.originalAddress
+                nat_rule_info['dnatMatchSourceAddress'] = getattr(nat_rule, 'dnatMatchSourceAddress', None)
+                nat_rule_info['protocol'] = nat_rule.protocol
+                nat_rule_info['originalPort'] = nat_rule.originalPort
+                nat_rule_info['translatedPort'] = nat_rule.translatedPort
+                nat_rule_info['dnatMatchSourcePort'] = getattr(nat_rule, 'dnatMatchSourcePort', None)
                 nat_rule_info['Action'] = nat_rule.action
-                nat_rule_info['Enabled'] = nat_rule.enabled
+                nat_rule_info['Enabled'] = bool(nat_rule.enabled)
                 out_list.append(nat_rule_info)
         return out_list
 
