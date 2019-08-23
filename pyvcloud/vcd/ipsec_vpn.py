@@ -19,7 +19,7 @@ from pyvcloud.vcd.network_url_constants import IPSEC_VPN_URL_TEMPLATE
 
 class IpsecVpn(GatewayServices):
 
-    def __init__(self, client, gateway_name=None, ipsec_end_point=None):
+    def __init__(self, client, parent, gateway_name=None, ipsec_end_point=None):
         """Constructor for IPsec VPN objects.
 
         :param pyvcloud.vcd.client.Client client: the client that will be used
@@ -30,24 +30,36 @@ class IpsecVpn(GatewayServices):
         :param lxml.objectify.ObjectifiedElement resource: object containing
             EntityType.IPSEC_VPN XML data representing the ipsec vpn rule.
         """
+        self.parent = parent
+
         super(IpsecVpn, self).__init__(client, gateway_name=gateway_name,
                                        resource_id=ipsec_end_point)
         self.end_point = ipsec_end_point
-        self.resource = self.get_ipsec_config_resource()
 
-    def reload(self):
+    async def async_init(self):
+        """
+        Very bad hack
+        TODO
+        """
+        self._build_network_href()
+        self._build_self_href()
+
+        self.resource = await self.get_ipsec_config_resource()
+
+    async def reload(self):
         """Reloads the resource representation of the ipsec vpn."""
-        self.resource = self.client.get_resource(self.href)
+        self.resource = await self.client.get_resource(self.href)
 
     # NOQA
-    def _build_self_href(self, resoure_id):
+    # def _build_self_href(self, resoure_id):
+    def _build_self_href(self):
         ipsec_vpn_href = (self.network_url + IPSEC_VPN_URL_TEMPLATE)
         self.href = ipsec_vpn_href
 
-    def get_ipsec_config_resource(self):
-        return self.client.get_resource(self.href)
+    async def get_ipsec_config_resource(self):
+        return await self.client.get_resource(self.href)
 
-    def delete_ipsec_vpn(self):
+    async def delete_ipsec_vpn(self):
         """Delete IP sec Vpn."""
         end_points = self.end_point.split('-')
         local_ip = end_points[0]
@@ -58,12 +70,15 @@ class IpsecVpn(GatewayServices):
             if site.localIp == local_ip and site.peerIp == peer_ip:
                 vpn_sites.remove(site)
                 break
+        else:
+            raise RuntimeError(f'No vpn {self.end_point}')
 
-        self.client.put_resource(self.href,
+        self._build_network_href()
+        await self.client.put_resource(self.href,
                                  ipsec_vpn,
                                  EntityType.DEFAULT_CONTENT_TYPE.value)
 
-    def update_ipsec_vpn(self,
+    async def update_ipsec_vpn(self,
                          name=None,
                          peer_id=None,
                          peer_ip_address=None,
@@ -154,7 +169,7 @@ class IpsecVpn(GatewayServices):
                     site.dhGroup = E.dhGroup(dh_group)
                 break
 
-        self.client.put_resource(self.href, ipsec_vpn,
+        await self.client.put_resource(self.href, ipsec_vpn,
                                  EntityType.DEFAULT_CONTENT_TYPE.value)
 
     def get_vpn_site_info(self):

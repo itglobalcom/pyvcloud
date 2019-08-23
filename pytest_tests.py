@@ -1063,6 +1063,14 @@ async def test_vpn(dummy_gateway):
         for resource in await gateway.list_ipsec_vpn_resource():
             if resource.name == vpn_name:
                 assert resource.localIp == '46.243.181.109'
+                assert resource.peerId.text == '10'
+                assert resource.localId.text == '20'
+                assert resource.localSubnets.subnet == '10.10.10.0/24'
+                assert resource.peerSubnets.subnet == '11.10.11.0/24'
+                assert resource.encryptionAlgorithm == 'aes'
+                assert resource.authenticationMode == 'psk'
+                assert resource.description == 'Test description'
+                assert resource.enabled == True
                 assert resource.peerIp == '8.8.8.8'
                 resource_vpn = resource
                 break
@@ -1070,11 +1078,17 @@ async def test_vpn(dummy_gateway):
             raise RuntimeError(f'No VPN {vpn_name}')
     finally:
         # Remove
-        try:
-            ipsec_vpn = IpsecVpn(gateway.client, gateway.name, '')
-        except:
-            await gateway.delete_ipsec_vpn()
-            raise
+        ipsec_endpoint = f'{resource_vpn.localIp}-{resource_vpn.peerIp}'
+        ipsec_vpn = IpsecVpn(gateway.client, parent=(await gateway.get_resource()), ipsec_end_point=ipsec_endpoint)
+        await ipsec_vpn.async_init()
+        await ipsec_vpn.delete_ipsec_vpn()
+
+        # Check
+        for resource in await gateway.list_ipsec_vpn_resource():
+            if resource.name == vpn_name:
+                raise RuntimeError(f'Don\'t removed VPN {vpn_name}')
+        else:
+            pass
 
 
 # @pytest.mark.parametrize(

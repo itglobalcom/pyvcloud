@@ -41,6 +41,7 @@ class FirewallRule(GatewayServices):
         rule_id = self.resource.id.text
         self.href = f'{gateway_href}/rules/{rule_id}'
         self.gateway_name = gateway.name
+        self._build_network_href()
 
     def _build_self_href(self, rule_id):
         rule_href = (
@@ -331,7 +332,7 @@ class FirewallRule(GatewayServices):
                 firewall_rule.firewallRules.remove(rule)
                 firewall_rule.firewallRules.insert(index, rule)
                 break
-        await self._build_network_href()
+        # await self._build_network_href()
         return await self.client.put_resource(self._build_firewall_rules_href(),
                                         firewall_rule,
                                         EntityType.DEFAULT_CONTENT_TYPE.value)
@@ -348,6 +349,7 @@ class FirewallRule(GatewayServices):
             for object in resource[type].iter():
                 if object == value:
                     resource[type].remove(object)
+        # await self._build_network_href()
         return await self.client.put_resource(self.href, resource,
                                         EntityType.DEFAULT_CONTENT_TYPE.value)
 

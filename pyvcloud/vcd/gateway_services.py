@@ -60,8 +60,8 @@ class GatewayServices(object):
     def _extract_id(self, self_href):
         pass
 
-    async def _build_network_href(self):
-        self.parent = await self._get_parent_by_name()
+    def _build_network_href(self):
+        # self.parent = await self._get_parent_by_name()
         self.parent_href = self.parent.get('href')
         self.network_url = build_network_url_from_gateway_url(self.parent_href)
 
