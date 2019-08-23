@@ -921,7 +921,7 @@ async def dummy_gateway(vdc):
     yield gateway
 
 
-# @pytest.mark.skip()
+@pytest.mark.skip()
 @pytest.mark.asyncio
 async def test_gateway(gateway):
     await gateway.edit_rate_limits({'ext_net':{'200': '300'}})
