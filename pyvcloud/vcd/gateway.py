@@ -135,7 +135,7 @@ class Gateway(object):
         :rtype: lxml.objectify.ObjectifiedElement
 
         """
-        self.get_resource()
+        await self.get_resource()
 
         return await self.client.post_linked_resource(
             self.resource, RelationType.CONVERT_TO_ADVANCED_GATEWAY, None,

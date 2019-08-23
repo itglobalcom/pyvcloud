@@ -904,8 +904,9 @@ async def gateway(vdc, sys_admin_client):
     gateway = Gateway(sys_admin_client, resource=resource)
     await gateway.reload()
     await gateway.convert_to_advanced()
-    gateway.client = client
     await gateway.reload()
+    # gateway.client = client
+    # await gateway.reload()
 
     yield gateway
 
@@ -920,10 +921,10 @@ async def dummy_gateway(vdc):
     yield gateway
 
 
-@pytest.mark.skip()
+# @pytest.mark.skip()
 @pytest.mark.asyncio
 async def test_gateway(gateway):
-    pass
+    await gateway.edit_rate_limits({'ext_net':{'200': '300'}})
 
 
 @pytest.mark.parametrize(
