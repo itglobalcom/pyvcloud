@@ -13,6 +13,9 @@
 # limitations under the License.
 import json
 
+from lxml import etree
+from lxml import objectify
+
 from pyvcloud.vcd.client import create_element
 from pyvcloud.vcd.client import E
 from pyvcloud.vcd.client import EntityType
@@ -650,7 +653,10 @@ class Gateway(object):
                 rate_limit_range = rate_limit_configs.get(ext_name)
                 gateway_inf.InRateLimit = E.InRateLimit(rate_limit_range[0])
                 gateway_inf.OutRateLimit = E.OutRateLimit(rate_limit_range[1])
-
+                del gateway_inf.UseForDefaultRoute
+                gateway_inf.UseForDefaultRoute = E.UseForDefaultRoute(False)
+        objectify.deannotate(gateway)
+        etree.cleanup_namespaces(gateway)
         return await self.client.put_linked_resource(
             self.resource, RelationType.EDIT, EntityType.EDGE_GATEWAY.value,
             gateway)
@@ -801,13 +807,16 @@ class Gateway(object):
         for gateway_inf in \
                 gateway.Configuration.GatewayInterfaces.GatewayInterface:
             rate_limit_setting = dict()
+            rate_limit_setting['external_network'] = gateway_inf.Name.text
             if hasattr(gateway_inf, 'InRateLimit') and \
                     hasattr(gateway_inf, 'OutRateLimit'):
-                rate_limit_setting['external_network'] = gateway_inf.Name.text
                 rate_limit_setting['in_rate_limit'] = \
-                    gateway_inf.InRateLimit.text
+                    float(gateway_inf.InRateLimit.text)
                 rate_limit_setting['out_rate_limit'] = \
-                    gateway_inf.OutRateLimit.text
+                    float(gateway_inf.OutRateLimit.text)
+            else:
+                rate_limit_setting['in_rate_limit'] = None
+                rate_limit_setting['out_rate_limit'] = None
 
             out_list.append(rate_limit_setting)
 

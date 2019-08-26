@@ -924,7 +924,11 @@ async def dummy_gateway(vdc):
 @pytest.mark.skip()
 @pytest.mark.asyncio
 async def test_gateway(gateway):
-    await gateway.edit_rate_limits({'ext_net':{'200': '300'}})
+    rate_limits = await gateway.list_rate_limits()
+    assert rate_limits[0] == {'external_network': 'NSX-Backbone', 'in_rate_limit': None, 'out_rate_limit': None}
+    await gateway.edit_rate_limits({'NSX-Backbone':[200, 300]})
+    rate_limits = await gateway.list_rate_limits()
+    assert rate_limits[0] == {'external_network': 'NSX-Backbone', 'in_rate_limit': 200, 'out_rate_limit': 300}
 
 
 @pytest.mark.parametrize(
