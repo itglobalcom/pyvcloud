@@ -1085,7 +1085,6 @@ async def test_vpn(dummy_gateway):
         # Remove
         ipsec_endpoint = f'{resource_vpn.localIp}-{resource_vpn.peerIp}'
         ipsec_vpn = IpsecVpn(gateway.client, parent=(await gateway.get_resource()), ipsec_end_point=ipsec_endpoint)
-        await ipsec_vpn.async_init()
         await ipsec_vpn.delete_ipsec_vpn()
 
         # Check
@@ -1159,14 +1158,18 @@ async def test_nat(dummy_gateway, action, protocol):
 @pytest.mark.skip()
 @pytest.mark.asyncio
 async def test_tmp(vdc):
-    resource = await vdc.get_vapp_by_id('urn:vcloud:vapp:0a4ac4f4-52f7-4569-b0c0-bafda602544a')
-    # vm = VApp(vdc.client, resource=resource)
+    resource = await vdc.get_vapp_by_id('urn:vcloud:vapp:712c7620-d522-47a2-839a-2867452097a5')
+    vapp = VApp(vdc.client, resource=resource)
+    vm_resource = await vapp.get_vm()
+    vm = VM(vdc.client, resource=vm_resource)
+    await vm.reload()
+    vm_resource = await vm.get_resource()
     # await vm.
     # resource = await vapp.get_resource()
     with open(f'tmp.xml', 'wb') as f:
         f.write(
             etree.tostring(
-                resource,
+                vm_resource,
                 pretty_print=True
             )
         )

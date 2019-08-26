@@ -36,19 +36,24 @@ class IpsecVpn(GatewayServices):
                                        resource_id=ipsec_end_point)
         self.end_point = ipsec_end_point
 
-    async def async_init(self):
+        self._async_init_done = False
+
+    async def _async_init(self):
         """
         Very bad hack
         TODO
         """
-        self._build_network_href()
-        self._build_self_href()
+        if not self._async_init_done:
+            self._build_network_href()
+            self._build_self_href()
 
-        self.resource = await self.get_ipsec_config_resource()
+            self.resource = await self.get_ipsec_config_resource()
+            self._async_init_done = True
 
     async def reload(self):
         """Reloads the resource representation of the ipsec vpn."""
         self.resource = await self.client.get_resource(self.href)
+        self._async_init_done = False
 
     # NOQA
     # def _build_self_href(self, resoure_id):
@@ -61,6 +66,8 @@ class IpsecVpn(GatewayServices):
 
     async def delete_ipsec_vpn(self):
         """Delete IP sec Vpn."""
+        await self._async_init()
+
         end_points = self.end_point.split('-')
         local_ip = end_points[0]
         peer_ip = end_points[1]
@@ -114,6 +121,8 @@ class IpsecVpn(GatewayServices):
         :return: Ipsec Vpn object
         :rtype: lxml.objectify.ObjectifiedElement
         """
+        await self._async_init()
+
         end_points = self.end_point.split('-')
         local_ip = end_points[0]
         peer_ip = end_points[1]
