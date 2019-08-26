@@ -1100,25 +1100,6 @@ class Gateway(object):
         nat_rules_resource = await self.get_nat_rules()
         if (hasattr(nat_rules_resource.natRules, 'natRule')):
             for nat_rule in nat_rules_resource.natRules.natRule:
-                """
-                <natRule>
-                 <ruleId>196609</ruleId>
-                 <ruleTag>196609</ruleTag>
-                 <loggingEnabled>false</loggingEnabled>
-                 <enabled>true</enabled>
-                 <description>adsf</description>
-                 <translatedAddress>11.11.11.11</translatedAddress>
-                 <ruleType>user</ruleType>
-                 <action>dnat</action>
-                 <vnic>1</vnic>
-                 <originalAddress>10.10.10.10</originalAddress>
-                 <dnatMatchSourceAddress>any</dnatMatchSourceAddress>
-                 <protocol>tcp</protocol>
-                 <originalPort>888</originalPort>
-                 <translatedPort>80</translatedPort>
-                 <dnatMatchSourcePort>any</dnatMatchSourcePort>
-                </natRule>
-                """
                 nat_rule_info = {}
                 nat_rule_info['ID'] = nat_rule.ruleId
                 nat_rule_info['ruleTag'] = nat_rule.ruleTag

@@ -26,7 +26,7 @@ from pyvcloud.vcd.utils import build_network_url_from_gateway_url
 
 
 class NatRule(object):
-    def __init__(self, client, gateway_name=None, rule_id=None,
+    def __init__(self, client, gateway_name=None, parent=None, rule_id=None,
                  nat_href=None, resource=None):
         """Constructor for Nat objects.
 
@@ -38,14 +38,18 @@ class NatRule(object):
         :param lxml.objectify.ObjectifiedElement resource: object containing
             EntityType.NAT XML data representing the nat rule.
         """
+        self._async_init_done = False
+
         self.client = client
         self.gateway_name = gateway_name
+        self.parent = parent
         self.rule_id = rule_id
         if gateway_name is not None and \
            rule_id is not None and \
            nat_href is None and \
            resource is None:
-            self.__build_self_href()
+                # self.__build_self_href()
+                self._async_init_done = False
         if nat_href is None and resource is None and self.href is None:
             raise InvalidParameterException(
                 "NatRule initialization failed as arguments are either "
@@ -55,8 +59,19 @@ class NatRule(object):
             self.href = nat_href
         self.resource = resource
 
-    def __build_self_href(self):
-        self.parent = self.get_parent_by_name()
+    async def _async_init(self):
+        """
+        Very bad hack
+        TODO
+        """
+        if not self._async_init_done:
+            # await self._build_network_href()
+            await self.__build_self_href()
+
+            self._async_init_done = True
+
+    async def __build_self_href(self):
+        self.parent = await self.get_parent_by_name()
         self.parent_href = self.parent.get('href')
         network_url = build_network_url_from_gateway_url(self.parent_href)
         self.href = (network_url + NAT_RULE_URL_TEMPLATE).format(self.rule_id)
@@ -67,7 +82,7 @@ class NatRule(object):
             + len(NAT_RULES_URL_TEMPLATE) + 1
         self.rule_id = nat_href[rule_id_index:]
 
-    def get_resource(self):
+    async def get_resource(self):
         """Fetches the XML representation of the nat rule.
 
         :return: object containing EntityType.NAT_RULE XML data
@@ -75,22 +90,23 @@ class NatRule(object):
         :rtype: lxml.objectify.ObjectifiedElement
         """
         if self.resource is None:
-            self.reload()
+            await self.reload()
         return self.resource
 
-    def reload(self):
+    async def reload(self):
         """Reloads the resource representation of the nat rule."""
         rule_id_length = len(NAT_RULES + '/' + str(self.rule_id))
         nat_rule_config_url = self.href[:-rule_id_length]
         nat_rules_config_resource = \
-            self.client.get_resource(nat_rule_config_url)
+            await self.client.get_resource(nat_rule_config_url)
         nat_rules = nat_rules_config_resource.natRules.natRule
         for rule in nat_rules:
             if int(rule.ruleId) == int(self.rule_id):
                 self.resource = rule
+                self._async_init_done = False
                 break
 
-    def get_parent_by_name(self):
+    async def get_parent_by_name(self):
         """Get a gateway by name.
 
         :return: gateway​
@@ -105,7 +121,7 @@ class NatRule(object):
             ResourceType.EDGE_GATEWAY.value,
             query_result_format=QueryResultFormat.RECORDS,
             equality_filter=name_filter)
-        records = list(query.execute())
+        records = list(await query.execute())
         if records is None or len(records) == 0:
             raise EntityNotFoundException(
                 'Gateway with name \'%s\' not found.' % self.gateway_name)
@@ -114,10 +130,12 @@ class NatRule(object):
                                            "'%s'," % self.gateway_name)
         return records[0]
 
-    def delete_nat_rule(self):
+    async def delete_nat_rule(self):
         """Delete a nat rule from gateway."""
-        self.get_resource()
-        return self.client.delete_resource(self.href)
+        await self._async_init()
+
+        await self.get_resource()
+        return await self.client.delete_resource(self.href)
 
     def get_nat_rule_info(self):
         """Get the details of nat rule.
@@ -146,7 +164,7 @@ class NatRule(object):
             nat_rule_info['Description'] = nat_rule.description
         return nat_rule_info
 
-    def update_nat_rule(self,
+    async def update_nat_rule(self,
                         original_address=None,
                         translated_address=None,
                         description=None,
@@ -171,7 +189,9 @@ class NatRule(object):
         param int vnic: interface of gateway
 
         """
-        nat_rule = self.get_resource()
+        await self._async_init()
+
+        nat_rule = await self.get_resource()
 
         if original_address is not None:
             nat_rule.originalAddress = E.originalAddress(original_address)
@@ -195,7 +215,7 @@ class NatRule(object):
         if vnic is not None:
             nat_rule.vnic = E.vnic(vnic)
 
-        return self.client.put_resource(
+        return await self.client.put_resource(
             self.href,
             nat_rule,
             EntityType.DEFAULT_CONTENT_TYPE.value)

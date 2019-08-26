@@ -15,6 +15,7 @@ from pyvcloud.vcd.client import Client, \
 from pyvcloud.vcd.client import EntityType
 from pyvcloud.vcd.firewall_rule import FirewallRule
 from pyvcloud.vcd.ipsec_vpn import IpsecVpn
+from pyvcloud.vcd.nat_rule import NatRule
 from pyvcloud.vcd.gateway import Gateway
 from pyvcloud.vcd.org import Org
 from pyvcloud.vcd.vapp import VApp, RelationType
@@ -1095,10 +1096,6 @@ async def test_vpn(dummy_gateway):
             pass
 
 
-# @pytest.mark.parametrize(
-#     'action',
-#     ('snat', 'dnat')
-# )
 @pytest.mark.parametrize(
     'action, protocol',
     (
@@ -1132,6 +1129,8 @@ async def test_nat(dummy_gateway, action, protocol):
     )
 
     # Create
+    nat_list = await gateway.list_nat_rules()
+    ids_before = {nat['ID'] for nat in nat_list}
     await gateway.add_nat_rule(
         action,
         '10.10.10.2' if action == 'dnat' else '192.168.1.11',
@@ -1143,6 +1142,12 @@ async def test_nat(dummy_gateway, action, protocol):
         vnic=1,
     )
     await gateway.reload()
+    nat_list = await gateway.list_nat_rules()
+    ids_after = {nat['ID'] for nat in nat_list}
+    assert len(ids_before - ids_after) == 0
+    assert len(ids_after - ids_before) == 1
+    nat_id = list(ids_after - ids_before)[0]
+
     # Get
     try:
         for dic in await gateway.list_nat_rules():
@@ -1152,16 +1157,32 @@ async def test_nat(dummy_gateway, action, protocol):
             assert isinstance(dic['loggingEnabled'], bool)
     finally:
         # Remove
-        await gateway.delete_nat_rules()
+        resource_nat_rules = await gateway.get_nat_rules()
+        for resource in resource_nat_rules.natRules.natRule:
+            if int(resource.ruleId.text) == nat_id:
+                nat = NatRule(
+                    gateway.client,
+                    gateway_name=gateway.name,
+                    parent=(await gateway.get_resource()),
+                    resource=resource,
+                    rule_id=nat_id
+                )
+                await nat.delete_nat_rule()
+        # await gateway.delete_nat_rules()
+
+        await gateway.reload()
+
+        for nat_dic in await gateway.list_nat_rules():
+            assert nat_id != nat_dic['ID']
 
 
 @pytest.mark.skip()
 @pytest.mark.asyncio
-async def test_tmp(vdc):
+async def test_tmp(vdc, sys_admin_client):
     resource = await vdc.get_vapp_by_id('urn:vcloud:vapp:712c7620-d522-47a2-839a-2867452097a5')
-    vapp = VApp(vdc.client, resource=resource)
+    vapp = VApp(sys_admin_client, resource=resource)
     vm_resource = await vapp.get_vm()
-    vm = VM(vdc.client, resource=vm_resource)
+    vm = VM(sys_admin_client, resource=vm_resource)
     await vm.reload()
     vm_resource = await vm.get_resource()
     # await vm.
