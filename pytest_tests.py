@@ -1037,7 +1037,22 @@ async def test_firewall(dummy_gateway, enabled, action, log_default_action):
 
     assert len(rules_for_delete) == 2, 'Not found exactly 2 rules'
 
-    for rule in rules_for_delete:
+    for i, rule in enumerate(rules_for_delete):
+        # Edit & check
+        # await rule.edit(new_name='New Firewall Rule Name', source_values=['192.168.10.10:ip'])
+        if i == 0:
+            await rule.delete_firewall_rule_source_destination('8.8.8.8/29', 'source')
+            await rule.edit(new_name='New Firewall Rule Name', source_values=['any:ip'])
+            assert (await rule.list_firewall_rule_source_destination('source'))['ipAddress'] == ['any']
+            assert (await rule.list_firewall_rule_source_destination('destination'))['ipAddress'] == ['any']
+        elif i == 1:
+            await rule.delete_firewall_rule_source_destination('8.8.8.8/29', 'source')
+            await rule.edit(new_name='New Firewall Rule Name', source_values=['8.8.8.9/29:ip'])
+            assert (await rule.list_firewall_rule_source_destination('source'))['ipAddress'] == ['8.8.8.9/29']
+            assert (await rule.list_firewall_rule_source_destination('destination'))['ipAddress'] == ['any']
+        await rule._reload()
+        assert (await rule._get_resource()).name.text == 'New Firewall Rule Name'
+
         await rule.delete()
 
 
@@ -1193,21 +1208,23 @@ async def test_nat(dummy_gateway, action, protocol, original_port, translated_po
             assert nat_id != nat_dic['ID']
 
 
-@pytest.mark.skip()
+# @pytest.mark.skip()
 @pytest.mark.asyncio
-async def test_tmp(vdc, sys_admin_client):
-    resource = await vdc.get_vapp_by_id('urn:vcloud:vapp:712c7620-d522-47a2-839a-2867452097a5')
-    vapp = VApp(sys_admin_client, resource=resource)
-    vm_resource = await vapp.get_vm()
-    vm = VM(sys_admin_client, resource=vm_resource)
-    await vm.reload()
-    vm_resource = await vm.get_resource()
+async def test_tmp(vdc):
+    resource_list = await vdc.list_orgvdc_network_resources('Client2_Network8')
+    # resource = await vdc.get_vapp_by_id('urn:vcloud:vapp:712c7620-d522-47a2-839a-2867452097a5')
+    # vapp = VApp(sys_admin_client, resource=resource)
+    # vm_resource = await vapp.get_vm()
+    # vm = VM(sys_admin_client, resource=vm_resource)
+    # await vm.reload()
+    # vm_resource = await vm.get_resource()
     # await vm.
     # resource = await vapp.get_resource()
-    with open(f'tmp.xml', 'wb') as f:
-        f.write(
-            etree.tostring(
-                vm_resource,
-                pretty_print=True
+    for resource in resource_list:
+        with open(f'tmp.xml', 'wb') as f:
+            f.write(
+                etree.tostring(
+                    resource,
+                    pretty_print=True
+                )
             )
-        )
