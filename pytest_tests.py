@@ -1097,6 +1097,20 @@ async def test_vpn(dummy_gateway):
 
 
 @pytest.mark.parametrize(
+    'original_port',
+    (
+        8080,
+        'any',
+    )
+)
+@pytest.mark.parametrize(
+    'translated_port',
+    (
+        9090,
+        'any',
+    )
+)
+@pytest.mark.parametrize(
     'action, protocol',
     (
             ('snat', 'udp'),
@@ -1108,7 +1122,7 @@ async def test_vpn(dummy_gateway):
     )
 )
 @pytest.mark.asyncio
-async def test_nat(dummy_gateway, action, protocol):
+async def test_nat(dummy_gateway, action, protocol, original_port, translated_port):
     gateway = dummy_gateway
     fields = (
         'ID',
@@ -1137,8 +1151,8 @@ async def test_nat(dummy_gateway, action, protocol):
         '192.168.1.11' if action == 'dnat' else '10.10.10.2',
         description='Test NAT',
         protocol=protocol,
-        original_port=8080,
-        translated_port=9090,
+        original_port=original_port,
+        translated_port=translated_port,
         vnic=1,
     )
     await gateway.reload()
@@ -1155,6 +1169,9 @@ async def test_nat(dummy_gateway, action, protocol):
                 assert field in dic
             assert isinstance(dic['Enabled'], bool)
             assert isinstance(dic['loggingEnabled'], bool)
+            assert dic['originalPort'] == original_port if action == 'dnat' else 'any'
+            assert dic['translatedPort'] == translated_port if action == 'dnat' else 'any'
+            assert dic['protocol'] == protocol if action == 'dnat' else 'any'
     finally:
         # Remove
         resource_nat_rules = await gateway.get_nat_rules()
