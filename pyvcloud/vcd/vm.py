@@ -1026,7 +1026,9 @@ class VM(object):
     async def get_medias(self):
         disk_list = await self.client.get_resource(
             (await self.get_resource()).get('href') + '/virtualHardwareSection/media')
-        return [item for item in disk_list.Item if item.find(tag('rasd')('HostResource'))]
+        if hasattr(disk_list, 'Item'):
+            return [item for item in disk_list.Item if item.find(tag('rasd')('HostResource'))]
+        return []
 
     async def get_disk(self, disk_id):
         disk_list = await self.client.get_resource(

@@ -16,6 +16,7 @@ from pyvcloud.vcd.client import EntityType
 from pyvcloud.vcd.firewall_rule import FirewallRule
 from pyvcloud.vcd.gateway import Gateway
 from pyvcloud.vcd.org import Org
+from pyvcloud.vcd.platform import Platform
 from pyvcloud.vcd.vapp import VApp, RelationType
 from pyvcloud.vcd.vdc import VDC
 from pyvcloud.vcd.vm import VM
@@ -897,7 +898,11 @@ async def gateway(vdc, sys_admin_client):
     client = vdc.client
     vdc_resource = await vdc.get_resource()
     vdc = VDC(sys_admin_client, resource=vdc_resource)
-    await vdc.create_gateway_api_version_31(gateway_name, external_networks=['NSX-Backbone'])
+    await vdc.create_gateway_api_version_31(
+        gateway_name,
+        external_networks=['NSX-Backbone'],
+        should_create_as_advanced=False
+    )
     await vdc.reload()
     resource = await vdc.get_gateway(gateway_name)
 
@@ -909,7 +914,7 @@ async def gateway(vdc, sys_admin_client):
 
     yield gateway
 
-    await vdc.delete_gateway(gateway_name)
+    # await vdc.delete_gateway(gateway_name)
 
 
 @pytest.fixture
@@ -920,7 +925,7 @@ async def dummy_gateway(vdc):
     yield gateway
 
 
-@pytest.mark.skip()
+# @pytest.mark.skip()
 @pytest.mark.asyncio
 async def test_gateway(gateway):
     pass
@@ -995,14 +1000,43 @@ async def test_firewall(dummy_gateway, enabled, action, log_default_action):
 @pytest.mark.skip()
 @pytest.mark.asyncio
 async def test_tmp(vdc):
-    resource = await vdc.get_vapp_by_id('urn:vcloud:vapp:0a4ac4f4-52f7-4569-b0c0-bafda602544a')
-    # vm = VApp(vdc.client, resource=resource)
+    # resource_list = await vdc.list_orgvdc_network_resources('Client2_Network8')
+    # platform = Platform(sys_admin_client)
+    # xxx = await platform.get_external_network('NSX-Backbone')
+    # print(
+    #     etree.tostring(
+    #         xxx,
+    #         pretty_print=True
+    #     ).decode('utf8')
+    # )
+    resource = await vdc.get_vapp_by_id('urn:vcloud:vapp:bb1b21d1-c99b-46ee-ae85-8efd525ad1e8')
+    vapp = VApp(vdc.client, resource=resource)
+    resource = await vapp.get_vm()
+    vm = VM(vdc.client, resource=resource)
+    print(await vm.get_memory())
+    print(await vm.get_vc())
+    print(await vm.get_storage_profile_id())
+    print(await vm.get_medias())
+    print(await vm.is_vmtools_installed())
+    # with open('tmp.xml', 'wb') as f:
+    #     f.write(
+    #         etree.tostring(
+    #             resource,
+    #             pretty_print=True
+    #         )
+    #     )
+    # vapp = VApp(sys_admin_client, resource=resource)
+    # vm_resource = await vapp.get_vm()
+    # vm = VM(sys_admin_client, resource=vm_resource)
+    # await vm.reload()
+    # vm_resource = await vm.get_resource()
     # await vm.
     # resource = await vapp.get_resource()
-    with open(f'tmp.xml', 'wb') as f:
-        f.write(
-            etree.tostring(
-                resource,
-                pretty_print=True
-            )
-        )
+    # for resource in resource_list:
+    #     with open(f'tmp.xml', 'wb') as f:
+    #         f.write(
+    #             etree.tostring(
+    #                 resource,
+    #                 pretty_print=True
+    #             )
+    #         )
