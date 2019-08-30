@@ -18,6 +18,7 @@ from pyvcloud.vcd.ipsec_vpn import IpsecVpn
 from pyvcloud.vcd.nat_rule import NatRule
 from pyvcloud.vcd.gateway import Gateway
 from pyvcloud.vcd.org import Org
+from pyvcloud.vcd.platform import Platform
 from pyvcloud.vcd.vapp import VApp, RelationType
 from pyvcloud.vcd.vdc import VDC
 from pyvcloud.vcd.vm import VM
@@ -1210,8 +1211,24 @@ async def test_nat(dummy_gateway, action, protocol, original_port, translated_po
 
 @pytest.mark.skip()
 @pytest.mark.asyncio
-async def test_tmp(vdc):
-    resource_list = await vdc.list_orgvdc_network_resources('Client2_Network8')
+async def test_tmp(sys_admin_client):
+    platform = Platform(sys_admin_client)
+    resource = await platform.get_external_network('NSX-Backbone')
+    raise ZeroDivisionError(
+        etree.tostring(
+            resource[tag('vcloud')('Configuration')],
+            pretty_print=True
+        ).decode('utf8')
+    )
+    with open(f'tmp.xml', 'wb') as f:
+        f.write(
+            etree.tostring(
+                resource,
+                pretty_print=True
+            )
+        )
+
+    # resource_list = await vdc.list_orgvdc_network_resources('Client2_Network8')
     # resource = await vdc.get_vapp_by_id('urn:vcloud:vapp:712c7620-d522-47a2-839a-2867452097a5')
     # vapp = VApp(sys_admin_client, resource=resource)
     # vm_resource = await vapp.get_vm()
@@ -1220,11 +1237,11 @@ async def test_tmp(vdc):
     # vm_resource = await vm.get_resource()
     # await vm.
     # resource = await vapp.get_resource()
-    for resource in resource_list:
-        with open(f'tmp.xml', 'wb') as f:
-            f.write(
-                etree.tostring(
-                    resource,
-                    pretty_print=True
-                )
-            )
+    # for resource in resource_list:
+    #     with open(f'tmp.xml', 'wb') as f:
+    #         f.write(
+    #             etree.tostring(
+    #                 resource,
+    #                 pretty_print=True
+    #             )
+    #         )
