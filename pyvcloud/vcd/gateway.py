@@ -808,6 +808,11 @@ class Gateway(object):
                 gateway.Configuration.GatewayInterfaces.GatewayInterface:
             rate_limit_setting = dict()
             rate_limit_setting['external_network'] = gateway_inf.Name.text
+            if hasattr(gateway_inf, 'SubnetParticipation') \
+                    and hasattr(gateway_inf.SubnetParticipation, 'IpAddress'):
+                rate_limit_setting['ip_address'] = gateway_inf.SubnetParticipation.IpAddress.text
+            else:
+                rate_limit_setting['ip_address'] = None
             if hasattr(gateway_inf, 'InRateLimit') and \
                     hasattr(gateway_inf, 'OutRateLimit'):
                 rate_limit_setting['in_rate_limit'] = \

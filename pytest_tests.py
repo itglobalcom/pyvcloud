@@ -926,11 +926,18 @@ async def dummy_gateway(vdc):
 @pytest.mark.skip()
 @pytest.mark.asyncio
 async def test_gateway(gateway):
+    await gateway.edit_rate_limits({'NSX-Backbone': [100, 100]})
     rate_limits = await gateway.list_rate_limits()
-    assert rate_limits[0] == {'external_network': 'NSX-Backbone', 'in_rate_limit': None, 'out_rate_limit': None}
+    assert rate_limits[0]['external_network'] == 'NSX-Backbone'
+    assert rate_limits[0]['in_rate_limit'] == 100
+    assert rate_limits[0]['out_rate_limit'] == 100
+    assert isinstance(rate_limits[0]['ip_address'], str)
     await gateway.edit_rate_limits({'NSX-Backbone':[200, 300]})
     rate_limits = await gateway.list_rate_limits()
-    assert rate_limits[0] == {'external_network': 'NSX-Backbone', 'in_rate_limit': 200, 'out_rate_limit': 300}
+    assert rate_limits[0]['external_network'] == 'NSX-Backbone'
+    assert rate_limits[0]['in_rate_limit'] == 200
+    assert rate_limits[0]['out_rate_limit'] == 300
+    assert isinstance(rate_limits[0]['ip_address'], str)
 
 
 @pytest.mark.parametrize(
@@ -1218,15 +1225,17 @@ async def test_nat(dummy_gateway, action, protocol, original_port, translated_po
 
 @pytest.mark.skip()
 @pytest.mark.asyncio
-async def test_tmp(sys_admin_client):
-    platform = Platform(sys_admin_client)
-    resource = await platform.get_external_network('NSX-Backbone')
-    raise ZeroDivisionError(
-        etree.tostring(
-            resource[tag('vcloud')('Configuration')],
-            pretty_print=True
-        ).decode('utf8')
-    )
+async def test_tmp(dummy_gateway):
+    # platform = Platform(sys_admin_client)
+    # resource = await platform.get_external_network('NSX-Backbone')
+    # raise ZeroDivisionError(
+    #     etree.tostring(
+    #         resource[tag('vcloud')('Configuration')],
+    #         pretty_print=True
+    #     ).decode('utf8')
+    # )
+    await dummy_gateway.reload()
+    resource = await dummy_gateway.get_resource()
     with open(f'tmp.xml', 'wb') as f:
         f.write(
             etree.tostring(
