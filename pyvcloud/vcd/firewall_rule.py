@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from pyvcloud.vcd.client import create_element
+from pyvcloud.vcd.client import E
 from pyvcloud.vcd.client import EntityType
 from pyvcloud.vcd.exceptions import InvalidParameterException
 from pyvcloud.vcd.gateway import Gateway
@@ -71,7 +72,8 @@ class FirewallRule(GatewayServices):
              source_values=None,
              destination_values=None,
              services=None,
-             new_name=None):
+             new_name=None,
+             action=None):
         """Edit a Firewall rule.
 
         :param list source_values: list of source values. e.g.,
@@ -113,6 +115,10 @@ class FirewallRule(GatewayServices):
 
         if new_name:
             firewall_rule_temp.name = new_name
+
+        if action:
+            firewall_rule_temp.action = action
+
         await self.client.put_resource(self.href, firewall_rule_temp,
                                  EntityType.DEFAULT_CONTENT_TYPE.value)
 

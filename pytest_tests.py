@@ -951,6 +951,12 @@ async def test_gateway(gateway):
 )
 @pytest.mark.asyncio
 async def test_firewall(dummy_gateway, enabled, action, log_default_action):
+    possible_actions = {
+        AddFirewallRuleAction.DENY.value,
+        AddFirewallRuleAction.ACCEPT.value,
+    }
+    antiaction = list(possible_actions - {action})[0]
+
     gateway = dummy_gateway
     await gateway.reload()
 
@@ -1043,12 +1049,12 @@ async def test_firewall(dummy_gateway, enabled, action, log_default_action):
         # await rule.edit(new_name='New Firewall Rule Name', source_values=['192.168.10.10:ip'])
         if i == 0:
             await rule.delete_firewall_rule_source_destination('8.8.8.8/29', 'source')
-            await rule.edit(new_name='New Firewall Rule Name', source_values=['any:ip'])
+            await rule.edit(new_name='New Firewall Rule Name', source_values=['any:ip'], action=antiaction)
             assert (await rule.list_firewall_rule_source_destination('source'))['ipAddress'] == ['any']
             assert (await rule.list_firewall_rule_source_destination('destination'))['ipAddress'] == ['any']
         elif i == 1:
             await rule.delete_firewall_rule_source_destination('8.8.8.8/29', 'source')
-            await rule.edit(new_name='New Firewall Rule Name', source_values=['8.8.8.9/29:ip'])
+            await rule.edit(new_name='New Firewall Rule Name', source_values=['8.8.8.9/29:ip'], action=antiaction)
             assert (await rule.list_firewall_rule_source_destination('source'))['ipAddress'] == ['8.8.8.9/29']
             assert (await rule.list_firewall_rule_source_destination('destination'))['ipAddress'] == ['any']
         await rule._reload()

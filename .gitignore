@@ -67,9 +67,7 @@ tests/private.*
 **/auto.*
 
 # envparse file
-.env
-.env-lab
-.env-dev
+.env*
 
 tmp.xml
 pyvcloud.log*
