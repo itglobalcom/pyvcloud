@@ -1018,6 +1018,7 @@ async def test_tmp(vdc):
     print(await vm.get_storage_profile_id())
     print(await vm.get_medias())
     print(await vm.is_vmtools_installed())
+    print(await vm.get_cpus())
     # with open('tmp.xml', 'wb') as f:
     #     f.write(
     #         etree.tostring(
