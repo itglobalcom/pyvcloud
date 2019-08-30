@@ -413,7 +413,7 @@ class Gateway(object):
 
         :param subnets: dict of ipconfig settings for e.g.
                 {192.168.1.1/24 :{'enable': True,
-        'ip_address': '192.168.1.2'}}
+        'ip_address': '192.168.1.2', 'subnet_range': '192.168.1.10-192.168.1.12'}}
 
         :param subnet_participation: object containing gateway's subnet
         """
@@ -424,12 +424,26 @@ class Gateway(object):
                                            subnetpart.Netmask.text)))
             if subnet is not None:
                 subnet_found = True
-                if subnet.get('enable') is not None:
-                    subnetpart.UseForDefaultRoute = E. \
-                        UseForDefaultRoute(subnet.get('enable'))
                 if subnet.get('ip_address') is not None:
                     subnetpart.IpAddress = E.IpAddress(
                         subnet.get('ip_address'))
+                if subnet.get('subnet_range') is not None:
+                    if hasattr(subnetpart, 'UseForDefaultRoute'):
+                        use_for_default_route_tag = subnetpart.UseForDefaultRoute
+                        _parent = use_for_default_route_tag.getparent()
+                        _parent.insert(_parent.index(use_for_default_route_tag), E.IpRanges())
+                    else:
+                        subnetpart.IpRanges = E.IpRanges()
+                    subnetpart.IpRanges.IpRange = E.IpRange()
+                    subnetpart.IpRanges.IpRange.append(E.StartAddress(
+                        subnet['subnet_range'].split('-')[0]
+                    ))
+                    subnetpart.IpRanges.IpRange.append(E.EndAddress(
+                        subnet['subnet_range'].split('-')[1]
+                    ))
+                if subnet.get('enable') is not None:
+                    subnetpart.UseForDefaultRoute = E. \
+                        UseForDefaultRoute(subnet.get('enable'))
 
         if not subnet_found:
             raise ValueError('Subnet not found')
@@ -443,9 +457,9 @@ class Gateway(object):
 
         :param ipconfig_settings: dict of ipconfig settings for
         e.g: { extNetName:{192.168.1.1/24 :{'enable': True,
-        'ip_address': '192.168.1.2'}},
+        'ip_address': '192.168.1.2', 'subnet_range': '192.168.1.10-192.168.1.12'}}},
         10.20.30.1/24: {'enable': True,
-        'ip_address': '10.20.30.2'}}}
+        'ip_address': '10.20.30.2', 'subnet_range': '192.168.1.10-192.168.1.12'}}}}
 
         :return: object containing EntityType.TASK XML data
                 representing the asynchronous task.
@@ -464,6 +478,9 @@ class Gateway(object):
 
         if not externalnetwork_found:
             raise ValueError('External network not found')
+
+        objectify.deannotate(gateway)
+        etree.cleanup_namespaces(gateway)
 
         return await self.client.put_linked_resource(
             self.resource, RelationType.EDIT, EntityType.EDGE_GATEWAY.value,
