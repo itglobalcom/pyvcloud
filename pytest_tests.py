@@ -1059,6 +1059,7 @@ async def test_firewall(dummy_gateway, enabled, action, log_default_action):
             assert (await rule.list_firewall_rule_source_destination('destination'))['ipAddress'] == ['any']
         await rule._reload()
         assert (await rule._get_resource()).name.text == 'New Firewall Rule Name'
+        assert (await rule._get_resource()).action.text == antiaction.lower()
 
         await rule.delete()
 
