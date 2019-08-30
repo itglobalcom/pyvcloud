@@ -1208,7 +1208,7 @@ async def test_nat(dummy_gateway, action, protocol, original_port, translated_po
             assert nat_id != nat_dic['ID']
 
 
-# @pytest.mark.skip()
+@pytest.mark.skip()
 @pytest.mark.asyncio
 async def test_tmp(vdc):
     resource_list = await vdc.list_orgvdc_network_resources('Client2_Network8')
