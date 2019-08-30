@@ -613,7 +613,7 @@ class VAppPowerStatus(Enum):
 
 
 class _TaskMonitor(object):
-    _DEFAULT_POLL_SEC = 5
+    _DEFAULT_POLL_SEC = 1
     _DEFAULT_TIMEOUT_SEC = 600
 
     def __init__(self, client):
