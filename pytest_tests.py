@@ -935,9 +935,10 @@ async def test_gateway(gateway):
     await gateway.edit_rate_limits({'NSX-Backbone':[200, 300]})
     _dic = await gateway.list_configure_ip_settings()
     _ip_address = _dic[0]['ip_address'][0]
+    _dic = _dic[0]
     await gateway.edit_config_ip_settings({
-        'NSX-Backbone':{
-            '46.243.181.65/26': {
+        _dic['external_network']:{
+            f'{_dic["gateway"]}/{_dic["subnet_prefix_length"]}': {
                 'subnet_range': f'{_ip_address}-{_ip_address}'
             }
         }

@@ -263,7 +263,22 @@ class Gateway(object):
                     gatewayips.append(subnetpart.Gateway.text + '/' + str(
                         netmask_to_cidr_prefix_len(subnetpart.Gateway.text,
                                                    subnetpart.Netmask.text)))
+
+                if hasattr(subnetpart, 'SubnetPrefixLength'):
+                    ipconfigsettings['subnet_prefix_length'] = subnetpart.SubnetPrefixLength.text
+                else:
+                    ipconfigsettings['subnet_prefix_length'] = None
+                if hasattr(subnetpart, 'Gateway'):
+                    ipconfigsettings['gateway'] = subnetpart.Gateway.text
+                else:
+                    ipconfigsettings['gateway'] = None
+                if hasattr(subnetpart, 'Netmask'):
+                    ipconfigsettings['netmask'] = subnetpart.Netmask.text
+                else:
+                    ipconfigsettings['netmask'] = None
+
                 ips.append(subnetpart.IpAddress.text)
+
             out_list.append(ipconfigsettings)
         return out_list
 
