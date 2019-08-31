@@ -663,6 +663,12 @@ class Gateway(object):
         :rtype: lxml.objectify.ObjectifiedElement
         """
         gateway = await self.get_resource()
+        if not hasattr(gateway, 'Configuration'):
+            gateway.Configuration = E.Configuration()
+        if not hasattr(gateway.Configuration, 'GatewayInterfaces'):
+            gateway.Configuration.GatewayInterfaces = E.GatewayInterfaces()
+        if not hasattr(gateway.Configuration.GatewayInterfaces, 'GatewayInterface'):
+            gateway.Configuration.GatewayInterfaces.GatewayInterface = E.GatewayInterface()
         for gateway_inf in \
                 gateway.Configuration.GatewayInterfaces.GatewayInterface:
             ext_name = gateway_inf.Name.text
@@ -830,6 +836,10 @@ class Gateway(object):
                 rate_limit_setting['ip_address'] = gateway_inf.SubnetParticipation.IpAddress.text
             else:
                 rate_limit_setting['ip_address'] = None
+            if hasattr(gateway_inf, 'InterfaceType'):
+                rate_limit_setting['interface_type'] = gateway_inf.InterfaceType.text
+            else:
+                rate_limit_setting['interface_type'] = None
             if hasattr(gateway_inf, 'InRateLimit') and \
                     hasattr(gateway_inf, 'OutRateLimit'):
                 rate_limit_setting['in_rate_limit'] = \

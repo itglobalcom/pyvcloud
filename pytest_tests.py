@@ -916,16 +916,16 @@ async def gateway(vdc, sys_admin_client):
 
 @pytest.fixture
 async def dummy_gateway(vdc):
-    gateway_name = 'cloudmng-test-edge'
+    # gateway_name = 'cloudmng-test-edge'
+    gateway_name = 'TestGateway_b80f9'
     gateway_resource = await vdc.get_gateway(gateway_name)
     gateway = Gateway(vdc.client, resource=gateway_resource)
     yield gateway
 
 
-# @pytest.mark.skip()
+@pytest.mark.skip(reason='Need right test data')
 @pytest.mark.asyncio
 async def test_gateway(gateway):
-    # gateway = dummy_gateway
     await gateway.edit_rate_limits({'NSX-Backbone': [100, 100]})
     rate_limits = await gateway.list_rate_limits()
     assert rate_limits[0]['external_network'] == 'NSX-Backbone'
@@ -933,20 +933,21 @@ async def test_gateway(gateway):
     assert rate_limits[0]['out_rate_limit'] == 100
     assert isinstance(rate_limits[0]['ip_address'], str)
     await gateway.edit_rate_limits({'NSX-Backbone':[200, 300]})
-    # _dic = await gateway.list_configure_ip_settings()
-    # _ip_address = _dic[0]['ip_address']
-    # await gateway.edit_config_ip_settings({
-    #     'NSX-Backbone':{
-    #         '46.243.181.65/26': {
-    #             'subnet_range': f'{_ip_address}-{_ip_address}'
-    #         }
-    #     }
-    # })
+    _dic = await gateway.list_configure_ip_settings()
+    _ip_address = _dic[0]['gateway'][0].split('/')[0]
+    await gateway.edit_config_ip_settings({
+        'NSX-Backbone':{
+            '46.243.181.65/26': {
+                'subnet_range': f'{_ip_address}-{_ip_address}'
+            }
+        }
+    })
     rate_limits = await gateway.list_rate_limits()
     assert rate_limits[0]['external_network'] == 'NSX-Backbone'
     assert rate_limits[0]['in_rate_limit'] == 200
     assert rate_limits[0]['out_rate_limit'] == 300
     assert isinstance(rate_limits[0]['ip_address'], str)
+    assert isinstance(rate_limits[0]['interface_type'], str)
     # ip_settings = await gateway.list_configure_ip_settings()
 
 
