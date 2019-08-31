@@ -923,7 +923,7 @@ async def dummy_gateway(vdc):
     yield gateway
 
 
-@pytest.mark.skip(reason='Need right test data')
+@pytest.mark.skip(reason='SysAdmin test')
 @pytest.mark.asyncio
 async def test_gateway(gateway):
     await gateway.edit_rate_limits({'NSX-Backbone': [100, 100]})
@@ -934,7 +934,7 @@ async def test_gateway(gateway):
     assert isinstance(rate_limits[0]['ip_address'], str)
     await gateway.edit_rate_limits({'NSX-Backbone':[200, 300]})
     _dic = await gateway.list_configure_ip_settings()
-    _ip_address = _dic[0]['gateway'][0].split('/')[0]
+    _ip_address = _dic[0]['ip_address'][0]
     await gateway.edit_config_ip_settings({
         'NSX-Backbone':{
             '46.243.181.65/26': {
@@ -1083,10 +1083,10 @@ async def test_firewall(dummy_gateway, enabled, action, log_default_action):
 
 
 @pytest.mark.asyncio
-async def test_vpn(dummy_gateway):
+async def test_vpn(gateway):
     hash = uuid.uuid4().hex[:5]
     vpn_name = f'TestVpn-{hash}'
-    gateway = dummy_gateway
+    # gateway = dummy_gateway
 
     # Create
     await gateway.add_ipsec_vpn(
