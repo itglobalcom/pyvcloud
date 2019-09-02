@@ -916,8 +916,8 @@ async def gateway(vdc, sys_admin_client):
 
 @pytest.fixture
 async def dummy_gateway(vdc):
-    # gateway_name = 'cloudmng-test-edge'
-    gateway_name = 'TestGateway_b80f9'
+    gateway_name = 'cloudmng-test-edge'
+    # gateway_name = 'TestGateway_b80f9'
     gateway_resource = await vdc.get_gateway(gateway_name)
     gateway = Gateway(vdc.client, resource=gateway_resource)
     yield gateway
@@ -1160,7 +1160,7 @@ async def test_vpn(gateway):
             ('snat', 'any'),
             ('dnat', 'udp'),
             ('dnat', 'tcp'),
-            # ('dnat', 'any'),
+            ## ('dnat', 'any'),
     )
 )
 @pytest.mark.asyncio
@@ -1189,14 +1189,15 @@ async def test_nat(dummy_gateway, action, protocol, original_port, translated_po
     ids_before = {nat['ID'] for nat in nat_list}
     await gateway.add_nat_rule(
         action,
-        '10.10.10.2' if action == 'dnat' else '192.168.1.11',
-        '192.168.1.11' if action == 'dnat' else '10.10.10.2',
+        '46.243.181.109' if action == 'dnat' else '192.168.1.11',
+        '192.168.1.11' if action == 'dnat' else '46.243.181.109',
         description='Test NAT',
         protocol=protocol,
         original_port=original_port,
         translated_port=translated_port,
-        vnic=1,
+        # vnic=0,
     )
+
     await gateway.reload()
     nat_list = await gateway.list_nat_rules()
     ids_after = {nat['ID'] for nat in nat_list}
