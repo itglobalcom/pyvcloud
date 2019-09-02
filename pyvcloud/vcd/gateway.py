@@ -11,6 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import json
+
+from lxml import etree
+from lxml import objectify
+
 from pyvcloud.vcd.client import create_element
 from pyvcloud.vcd.client import E
 from pyvcloud.vcd.client import EntityType
@@ -133,7 +138,7 @@ class Gateway(object):
         :rtype: lxml.objectify.ObjectifiedElement
 
         """
-        self.get_resource()
+        await self.get_resource()
 
         return await self.client.post_linked_resource(
             self.resource, RelationType.CONVERT_TO_ADVANCED_GATEWAY, None,
@@ -258,7 +263,22 @@ class Gateway(object):
                     gatewayips.append(subnetpart.Gateway.text + '/' + str(
                         netmask_to_cidr_prefix_len(subnetpart.Gateway.text,
                                                    subnetpart.Netmask.text)))
+
+                if hasattr(subnetpart, 'SubnetPrefixLength'):
+                    ipconfigsettings['subnet_prefix_length'] = subnetpart.SubnetPrefixLength.text
+                else:
+                    ipconfigsettings['subnet_prefix_length'] = None
+                if hasattr(subnetpart, 'Gateway'):
+                    ipconfigsettings['gateway'] = subnetpart.Gateway.text
+                else:
+                    ipconfigsettings['gateway'] = None
+                if hasattr(subnetpart, 'Netmask'):
+                    ipconfigsettings['netmask'] = subnetpart.Netmask.text
+                else:
+                    ipconfigsettings['netmask'] = None
+
                 ips.append(subnetpart.IpAddress.text)
+
             out_list.append(ipconfigsettings)
         return out_list
 
@@ -408,7 +428,7 @@ class Gateway(object):
 
         :param subnets: dict of ipconfig settings for e.g.
                 {192.168.1.1/24 :{'enable': True,
-        'ip_address': '192.168.1.2'}}
+        'ip_address': '192.168.1.2', 'subnet_range': '192.168.1.10-192.168.1.12'}}
 
         :param subnet_participation: object containing gateway's subnet
         """
@@ -419,12 +439,26 @@ class Gateway(object):
                                            subnetpart.Netmask.text)))
             if subnet is not None:
                 subnet_found = True
-                if subnet.get('enable') is not None:
-                    subnetpart.UseForDefaultRoute = E. \
-                        UseForDefaultRoute(subnet.get('enable'))
                 if subnet.get('ip_address') is not None:
                     subnetpart.IpAddress = E.IpAddress(
                         subnet.get('ip_address'))
+                if subnet.get('subnet_range') is not None:
+                    if hasattr(subnetpart, 'UseForDefaultRoute'):
+                        use_for_default_route_tag = subnetpart.UseForDefaultRoute
+                        _parent = use_for_default_route_tag.getparent()
+                        _parent.insert(_parent.index(use_for_default_route_tag), E.IpRanges())
+                    else:
+                        subnetpart.IpRanges = E.IpRanges()
+                    subnetpart.IpRanges.IpRange = E.IpRange()
+                    subnetpart.IpRanges.IpRange.append(E.StartAddress(
+                        subnet['subnet_range'].split('-')[0]
+                    ))
+                    subnetpart.IpRanges.IpRange.append(E.EndAddress(
+                        subnet['subnet_range'].split('-')[1]
+                    ))
+                if subnet.get('enable') is not None:
+                    subnetpart.UseForDefaultRoute = E. \
+                        UseForDefaultRoute(subnet.get('enable'))
 
         if not subnet_found:
             raise ValueError('Subnet not found')
@@ -438,9 +472,9 @@ class Gateway(object):
 
         :param ipconfig_settings: dict of ipconfig settings for
         e.g: { extNetName:{192.168.1.1/24 :{'enable': True,
-        'ip_address': '192.168.1.2'}},
+        'ip_address': '192.168.1.2', 'subnet_range': '192.168.1.10-192.168.1.12'}}},
         10.20.30.1/24: {'enable': True,
-        'ip_address': '10.20.30.2'}}}
+        'ip_address': '10.20.30.2', 'subnet_range': '192.168.1.10-192.168.1.12'}}}}
 
         :return: object containing EntityType.TASK XML data
                 representing the asynchronous task.
@@ -459,6 +493,9 @@ class Gateway(object):
 
         if not externalnetwork_found:
             raise ValueError('External network not found')
+
+        objectify.deannotate(gateway)
+        etree.cleanup_namespaces(gateway)
 
         return await self.client.put_linked_resource(
             self.resource, RelationType.EDIT, EntityType.EDGE_GATEWAY.value,
@@ -641,6 +678,12 @@ class Gateway(object):
         :rtype: lxml.objectify.ObjectifiedElement
         """
         gateway = await self.get_resource()
+        if not hasattr(gateway, 'Configuration'):
+            gateway.Configuration = E.Configuration()
+        if not hasattr(gateway.Configuration, 'GatewayInterfaces'):
+            gateway.Configuration.GatewayInterfaces = E.GatewayInterfaces()
+        if not hasattr(gateway.Configuration.GatewayInterfaces, 'GatewayInterface'):
+            gateway.Configuration.GatewayInterfaces.GatewayInterface = E.GatewayInterface()
         for gateway_inf in \
                 gateway.Configuration.GatewayInterfaces.GatewayInterface:
             ext_name = gateway_inf.Name.text
@@ -648,7 +691,10 @@ class Gateway(object):
                 rate_limit_range = rate_limit_configs.get(ext_name)
                 gateway_inf.InRateLimit = E.InRateLimit(rate_limit_range[0])
                 gateway_inf.OutRateLimit = E.OutRateLimit(rate_limit_range[1])
-
+                del gateway_inf.UseForDefaultRoute
+                gateway_inf.UseForDefaultRoute = E.UseForDefaultRoute(False)
+        objectify.deannotate(gateway)
+        etree.cleanup_namespaces(gateway)
         return await self.client.put_linked_resource(
             self.resource, RelationType.EDIT, EntityType.EDGE_GATEWAY.value,
             gateway)
@@ -799,13 +845,25 @@ class Gateway(object):
         for gateway_inf in \
                 gateway.Configuration.GatewayInterfaces.GatewayInterface:
             rate_limit_setting = dict()
+            rate_limit_setting['external_network'] = gateway_inf.Name.text
+            if hasattr(gateway_inf, 'SubnetParticipation') \
+                    and hasattr(gateway_inf.SubnetParticipation, 'IpAddress'):
+                rate_limit_setting['ip_address'] = gateway_inf.SubnetParticipation.IpAddress.text
+            else:
+                rate_limit_setting['ip_address'] = None
+            if hasattr(gateway_inf, 'InterfaceType'):
+                rate_limit_setting['interface_type'] = gateway_inf.InterfaceType.text
+            else:
+                rate_limit_setting['interface_type'] = None
             if hasattr(gateway_inf, 'InRateLimit') and \
                     hasattr(gateway_inf, 'OutRateLimit'):
-                rate_limit_setting['external_network'] = gateway_inf.Name.text
                 rate_limit_setting['in_rate_limit'] = \
-                    gateway_inf.InRateLimit.text
+                    float(gateway_inf.InRateLimit.text)
                 rate_limit_setting['out_rate_limit'] = \
-                    gateway_inf.OutRateLimit.text
+                    float(gateway_inf.OutRateLimit.text)
+            else:
+                rate_limit_setting['in_rate_limit'] = None
+                rate_limit_setting['out_rate_limit'] = None
 
             out_list.append(rate_limit_setting)
 
@@ -1074,6 +1132,10 @@ class Gateway(object):
         network_url = build_network_url_from_gateway_url(self.href)
         return network_url + NAT_URL_TEMPLATE
 
+    async def delete_nat_rules(self):
+        nat_rule_href = self._build_nat_rule_href()
+        return await self.client.delete_resource(nat_rule_href)
+
     async def list_nat_rules(self):
         """List all nat rules on a gateway.
 
@@ -1087,8 +1149,20 @@ class Gateway(object):
             for nat_rule in nat_rules_resource.natRules.natRule:
                 nat_rule_info = {}
                 nat_rule_info['ID'] = nat_rule.ruleId
+                nat_rule_info['ruleTag'] = nat_rule.ruleTag
+                nat_rule_info['loggingEnabled'] = bool(nat_rule.loggingEnabled)
+                nat_rule_info['description'] = nat_rule.description
+                nat_rule_info['translatedAddress'] = nat_rule.translatedAddress
+                nat_rule_info['ruleType'] = nat_rule.ruleType
+                nat_rule_info['vnic'] = nat_rule.vnic
+                nat_rule_info['originalAddress'] = nat_rule.originalAddress
+                nat_rule_info['dnatMatchSourceAddress'] = getattr(nat_rule, 'dnatMatchSourceAddress', None)
+                nat_rule_info['protocol'] = nat_rule.protocol
+                nat_rule_info['originalPort'] = nat_rule.originalPort
+                nat_rule_info['translatedPort'] = nat_rule.translatedPort
+                nat_rule_info['dnatMatchSourcePort'] = getattr(nat_rule, 'dnatMatchSourcePort', None)
                 nat_rule_info['Action'] = nat_rule.action
-                nat_rule_info['Enabled'] = nat_rule.enabled
+                nat_rule_info['Enabled'] = bool(nat_rule.enabled)
                 out_list.append(nat_rule_info)
         return out_list
 
@@ -1281,6 +1355,10 @@ class Gateway(object):
         ipsec_vpn_href = self._build_ipsec_vpn_href()
         return await self.client.get_resource(ipsec_vpn_href)
 
+    async def delete_ipsec_vpn(self):
+        ipsec_vpn_href = self._build_ipsec_vpn_href()
+        return await self.client.delete_resource(ipsec_vpn_href)
+
     async def enable_activation_status_ipsec_vpn(self, is_active):
         """Enables activation status of IPsec VPN.
 
@@ -1373,6 +1451,19 @@ class Gateway(object):
                 ipsec_vpn_info["local_ip"] = site.localIp
                 ipsec_vpn_info["peer_ip"] = site.peerIp
                 out_list.append(ipsec_vpn_info)
+        return out_list
+
+    async def list_ipsec_vpn_resource(self):
+        """List IPsec VPN of a gateway.
+
+        :return: list of all ipsec vpn.
+        """
+        out_list = []
+        ipsec_vpn = await self.get_ipsec_vpn()
+        vpn_sites = ipsec_vpn.sites
+        if hasattr(vpn_sites, "site"):
+            for site in vpn_sites.site:
+                out_list.append(site)
         return out_list
 
     async def list_firewall_object_types(self, type):

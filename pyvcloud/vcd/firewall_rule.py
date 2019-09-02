@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from pyvcloud.vcd.client import create_element
+from pyvcloud.vcd.client import E
 from pyvcloud.vcd.client import EntityType
 from pyvcloud.vcd.exceptions import InvalidParameterException
 from pyvcloud.vcd.gateway import Gateway
@@ -32,10 +33,16 @@ class FirewallRule(GatewayServices):
     __SERVICE = 'service'
     __PROTOCOL_LIST = ['tcp', 'udp', 'icmp', 'any']
 
-    def __init__(self, *args, href, parent, **kwargs):
+    def __init__(self, *args, parent, **kwargs):
         super().__init__(*args, **kwargs)
-        self.href = href
+
         self.parent = parent
+        gateway = Gateway(self.client, resource=self.parent)
+        gateway_href = gateway._build_firewall_rule_href()
+        rule_id = self.resource.id.text
+        self.href = f'{gateway_href}/rules/{rule_id}'
+        self.gateway_name = gateway.name
+        self._build_network_href()
 
     def _build_self_href(self, rule_id):
         rule_href = (
@@ -65,7 +72,8 @@ class FirewallRule(GatewayServices):
              source_values=None,
              destination_values=None,
              services=None,
-             new_name=None):
+             new_name=None,
+             action=None):
         """Edit a Firewall rule.
 
         :param list source_values: list of source values. e.g.,
@@ -107,6 +115,10 @@ class FirewallRule(GatewayServices):
 
         if new_name:
             firewall_rule_temp.name = new_name
+
+        if action:
+            firewall_rule_temp.action = action
+
         await self.client.put_resource(self.href, firewall_rule_temp,
                                  EntityType.DEFAULT_CONTENT_TYPE.value)
 
@@ -326,6 +338,7 @@ class FirewallRule(GatewayServices):
                 firewall_rule.firewallRules.remove(rule)
                 firewall_rule.firewallRules.insert(index, rule)
                 break
+        # await self._build_network_href()
         return await self.client.put_resource(self._build_firewall_rules_href(),
                                         firewall_rule,
                                         EntityType.DEFAULT_CONTENT_TYPE.value)
@@ -342,6 +355,7 @@ class FirewallRule(GatewayServices):
             for object in resource[type].iter():
                 if object == value:
                     resource[type].remove(object)
+        # await self._build_network_href()
         return await self.client.put_resource(self.href, resource,
                                         EntityType.DEFAULT_CONTENT_TYPE.value)
 

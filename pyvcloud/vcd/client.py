@@ -613,7 +613,7 @@ class VAppPowerStatus(Enum):
 
 
 class _TaskMonitor(object):
-    _DEFAULT_POLL_SEC = 5
+    _DEFAULT_POLL_SEC = 1
     _DEFAULT_TIMEOUT_SEC = 600
 
     def __init__(self, client):
@@ -1101,12 +1101,6 @@ class Client(object):
 
     @staticmethod
     def _response_code_to_exception(sc, request_id, objectify_response):
-        print(
-            etree.tostring(
-                objectify_response,
-                pretty_print=True
-            ).decode('utf8')
-        )
         if sc == 400:
             raise BadRequestException(sc, request_id, objectify_response)
 

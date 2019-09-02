@@ -12,7 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from lxml import etree
+import json
+
+from lxml import etree, objectify
 
 from pyvcloud.vcd.acl import Acl
 from pyvcloud.vcd.client import ApiVersion
@@ -1921,7 +1923,11 @@ class VDC(object):
             is_sub_allocate_ip_pools_enabled=False,
             ext_net_to_subnet_with_ip_range=None,
             ext_net_to_rate_limit=None,
-            is_flips_mode_enabled=False):
+            is_flips_mode_enabled=False,
+            default_action='allow',
+            firewall_service_is_enbaled=True,
+            firewall_service_log_default_action=False,
+    ):
         """Request the creation of a gateway.
 
         :param str name: name of the new gateway.
@@ -1976,7 +1982,11 @@ class VDC(object):
                 is_ip_settings_configured,
                 ext_net_to_participated_subnet_with_ip_settings,
                 is_sub_allocate_ip_pools_enabled,
-                ext_net_to_subnet_with_ip_range, ext_net_to_rate_limit)
+                ext_net_to_subnet_with_ip_range, ext_net_to_rate_limit,
+                default_action=default_action,
+                firewall_service_is_enbaled=firewall_service_is_enbaled,
+                firewall_service_log_default_action=firewall_service_log_default_action,
+            )
         gateway_configuration_param.append(
             E.FipsModeEnabled(is_flips_mode_enabled))
         gateway_params.append(gateway_configuration_param)
@@ -2000,7 +2010,11 @@ class VDC(object):
             ext_net_to_participated_subnet_with_ip_settings=None,
             is_sub_allocate_ip_pools_enabled=False,
             ext_net_to_subnet_with_ip_range=None,
-            ext_net_to_rate_limit=None):
+            ext_net_to_rate_limit=None,
+            default_action='allow',
+            firewall_service_is_enbaled=True,
+            firewall_service_log_default_action=False,
+    ):
         """Create gateway configuration param.
 
         :return: gateway configuration param
@@ -2135,6 +2149,20 @@ class VDC(object):
             gateway_interfaces_param.append(gateway_interface_param)
 
         gateway_configuration_param.append(gateway_interfaces_param)
+
+        firewall_service = E.FirewallService()
+        firewall_service.IsEnabled = json.dumps(firewall_service_is_enbaled)
+        firewall_service.DefaultAction = default_action
+        firewall_service.LogDefaultAction = json.dumps(firewall_service_log_default_action)
+
+        edgeGatewayServiceConfiguration = E.EdgeGatewayServiceConfiguration()
+        edgeGatewayServiceConfiguration.append(firewall_service)
+
+        gateway_configuration_param.append(
+            edgeGatewayServiceConfiguration
+        )
+        objectify.deannotate(gateway_configuration_param)
+        etree.cleanup_namespaces(gateway_configuration_param)
         gateway_configuration_param.append(E.HaEnabled(is_ha_enabled))
         if is_default_gateway is True:
             gateway_configuration_param.append(
@@ -2147,6 +2175,7 @@ class VDC(object):
             E.AdvancedNetworkingEnabled(should_create_as_advanced))
         gateway_configuration_param.append(
             E.DistributedRoutingEnabled(is_dr_enabled))
+
         return gateway_configuration_param
 
     async def delete_gateway(self, name):

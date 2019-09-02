@@ -14,6 +14,8 @@ from pyvcloud.vcd.client import Client, \
     NetworkAdapterType, VCLOUD_STATUS_MAP, AddFirewallRuleAction
 from pyvcloud.vcd.client import EntityType
 from pyvcloud.vcd.firewall_rule import FirewallRule
+from pyvcloud.vcd.ipsec_vpn import IpsecVpn
+from pyvcloud.vcd.nat_rule import NatRule
 from pyvcloud.vcd.gateway import Gateway
 from pyvcloud.vcd.org import Org
 from pyvcloud.vcd.platform import Platform
@@ -895,7 +897,6 @@ async def network(vdc):
 async def gateway(vdc, sys_admin_client):
     hash = uuid.uuid4().hex[:5]
     gateway_name = f'TestGateway_{hash}'
-    client = vdc.client
     vdc_resource = await vdc.get_resource()
     vdc = VDC(sys_admin_client, resource=vdc_resource)
     await vdc.create_gateway_api_version_31(
@@ -909,8 +910,9 @@ async def gateway(vdc, sys_admin_client):
     gateway = Gateway(sys_admin_client, resource=resource)
     await gateway.reload()
     await gateway.convert_to_advanced()
-    gateway.client = client
     await gateway.reload()
+    # gateway.client = client
+    # await gateway.reload()
 
     yield gateway
 
@@ -919,16 +921,40 @@ async def gateway(vdc, sys_admin_client):
 
 @pytest.fixture
 async def dummy_gateway(vdc):
-    gateway_name = 'cloudmng-test-edge'
+    # gateway_name = 'cloudmng-test-edge'
+    gateway_name = 'TestGateway_b80f9'
     gateway_resource = await vdc.get_gateway(gateway_name)
     gateway = Gateway(vdc.client, resource=gateway_resource)
     yield gateway
 
 
-# @pytest.mark.skip()
+@pytest.mark.skip(reason='SysAdmin test')
 @pytest.mark.asyncio
 async def test_gateway(gateway):
-    pass
+    await gateway.edit_rate_limits({'NSX-Backbone': [100, 100]})
+    rate_limits = await gateway.list_rate_limits()
+    assert rate_limits[0]['external_network'] == 'NSX-Backbone'
+    assert rate_limits[0]['in_rate_limit'] == 100
+    assert rate_limits[0]['out_rate_limit'] == 100
+    assert isinstance(rate_limits[0]['ip_address'], str)
+    await gateway.edit_rate_limits({'NSX-Backbone':[200, 300]})
+    _dic = await gateway.list_configure_ip_settings()
+    _ip_address = _dic[0]['ip_address'][0]
+    _dic = _dic[0]
+    await gateway.edit_config_ip_settings({
+        _dic['external_network']:{
+            f'{_dic["gateway"]}/{_dic["subnet_prefix_length"]}': {
+                'subnet_range': f'{_ip_address}-{_ip_address}'
+            }
+        }
+    })
+    rate_limits = await gateway.list_rate_limits()
+    assert rate_limits[0]['external_network'] == 'NSX-Backbone'
+    assert rate_limits[0]['in_rate_limit'] == 200
+    assert rate_limits[0]['out_rate_limit'] == 300
+    assert isinstance(rate_limits[0]['ip_address'], str)
+    assert isinstance(rate_limits[0]['interface_type'], str)
+    # ip_settings = await gateway.list_configure_ip_settings()
 
 
 @pytest.mark.parametrize(
@@ -949,6 +975,12 @@ async def test_gateway(gateway):
 )
 @pytest.mark.asyncio
 async def test_firewall(dummy_gateway, enabled, action, log_default_action):
+    possible_actions = {
+        AddFirewallRuleAction.DENY.value,
+        AddFirewallRuleAction.ACCEPT.value,
+    }
+    antiaction = list(possible_actions - {action})[0]
+
     gateway = dummy_gateway
     await gateway.reload()
 
@@ -961,11 +993,36 @@ async def test_firewall(dummy_gateway, enabled, action, log_default_action):
         logging_enabled=log_default_action,
         source={'excude': False,'ipAddress': '8.8.8.8/29'},
         destination={'exculde': False, 'ipAddress': 'any'},
-        application={'service': {'protocol': 'tcp', 'port': 'any', 'sourcePort': 'any'}},
+        application={'service': {'protocol': 'tcp', 'port': '8080', 'sourcePort': 'any'}},
+    )
+    await gateway.add_firewall_rule(
+        rule_name + '_2',
+        enabled=enabled,
+        action=action,
+        logging_enabled=log_default_action,
+        source={'excude': False, 'ipAddress': '8.8.8.8/29'},
+        destination={'exculde': False, 'ipAddress': 'any'},
+        application={'service': {'protocol': 'icmp', 'port': 'any', 'sourcePort': 'any'}},
     )
     await gateway.reload()
 
+    rules_for_delete = []
     rules = await gateway.get_firewall_rules()
+    for resource in rules.firewallRules.firewallRule:
+        if resource.name.text == rule_name:
+            rule = FirewallRule(
+                gateway.client,
+                parent=await gateway.get_resource(),
+                resource=resource
+            )
+
+            rules_for_delete.append(rule)
+
+            await rule.update_firewall_rule_sequence(20)
+
+    await gateway.reload()
+    rules = await gateway.get_firewall_rules()
+
     for resource in rules.firewallRules.firewallRule:
         if resource.name.text == rule_name:
             assert json.loads(resource.enabled.text) == enabled
@@ -976,56 +1033,236 @@ async def test_firewall(dummy_gateway, enabled, action, log_default_action):
             assert json.loads(resource.destination.exclude.text) == False
             assert resource.destination.ipAddress.text == 'any'
             assert resource.application.service.protocol.text == 'tcp'
-            assert resource.application.service.port.text == 'any'
+            assert resource.application.service.port.text == '8080'
             assert resource.application.service.sourcePort.text == 'any'
-
-            gateway_href = gateway._build_firewall_rule_href()
-            rule_id = resource.id.text
-            rule_href = f'{gateway_href}/rules/{rule_id}'
+        elif resource.name.text == rule_name + '_2':
+            assert json.loads(resource.enabled.text) == enabled
+            assert resource.action.text == action.lower()
+            assert json.loads(resource.loggingEnabled.text) == log_default_action
+            assert json.loads(resource.source.exclude.text) == False
+            assert resource.source.ipAddress.text == '8.8.8.8/29'
+            assert json.loads(resource.destination.exclude.text) == False
+            assert resource.destination.ipAddress.text == 'any'
+            assert resource.application.service.protocol.text == 'icmp'
+            assert not hasattr(resource.application.service, 'port') \
+                    or resource.application.service.port.text == 'any'
+            assert not hasattr(resource.application.service, 'sourcePort') \
+                    or resource.application.service.sourcePort.text == 'any'
 
             rule = FirewallRule(
                 gateway.client,
-                href=rule_href,
                 parent=await gateway.get_resource(),
                 resource=resource
             )
+            rules_for_delete.append(rule)
 
-            await rule.delete()
+    # Check is order right: "Firewall..._2" - "Firewall..."
+    rules = await gateway.get_firewall_rules()
+    flag = False
+    for resource in rules.firewallRules.firewallRule:
+        if resource.name.text == rule_name:
+            assert flag is True
+        elif resource.name.text == rule_name + '_2':
+            assert flag is False
+            flag = True
 
-            break
-    else:
-        raise RuntimeError(f'Not found firewall rule {rule_name}')
+    assert len(rules_for_delete) == 2, 'Not found exactly 2 rules'
+
+    for i, rule in enumerate(rules_for_delete):
+        # Edit & check
+        # await rule.edit(new_name='New Firewall Rule Name', source_values=['192.168.10.10:ip'])
+        if i == 0:
+            await rule.delete_firewall_rule_source_destination('8.8.8.8/29', 'source')
+            await rule.edit(new_name='New Firewall Rule Name', source_values=['any:ip'], action=antiaction)
+            assert (await rule.list_firewall_rule_source_destination('source'))['ipAddress'] == ['any']
+            assert (await rule.list_firewall_rule_source_destination('destination'))['ipAddress'] == ['any']
+        elif i == 1:
+            await rule.delete_firewall_rule_source_destination('8.8.8.8/29', 'source')
+            await rule.edit(new_name='New Firewall Rule Name', source_values=['8.8.8.9/29:ip'], action=antiaction)
+            assert (await rule.list_firewall_rule_source_destination('source'))['ipAddress'] == ['8.8.8.9/29']
+            assert (await rule.list_firewall_rule_source_destination('destination'))['ipAddress'] == ['any']
+        await rule._reload()
+        assert (await rule._get_resource()).name.text == 'New Firewall Rule Name'
+        assert (await rule._get_resource()).action.text == antiaction.lower()
+
+        await rule.delete()
+
+
+@pytest.mark.asyncio
+async def test_vpn(gateway):
+    hash = uuid.uuid4().hex[:5]
+    vpn_name = f'TestVpn-{hash}'
+    # gateway = dummy_gateway
+
+    # Create
+    await gateway.add_ipsec_vpn(
+        name=vpn_name,
+        peer_id=10,
+        peer_ip_address='8.8.8.8',
+        local_id=20,
+        local_ip_address='46.243.181.109',
+        local_subnet='10.10.10.0/24',
+        peer_subnet='11.10.11.0/24',
+        shared_secret_encrypted='123',
+        encryption_protocol='AES',
+        authentication_mode='PSK',
+        description='Test description',
+        is_enabled=True,
+    )
+    await gateway.reload()
+    # Get
+    resource_vpn = None
+    try:
+        for resource in await gateway.list_ipsec_vpn_resource():
+            if resource.name == vpn_name:
+                assert resource.localIp == '46.243.181.109'
+                assert resource.peerId.text == '10'
+                assert resource.localId.text == '20'
+                assert resource.localSubnets.subnet == '10.10.10.0/24'
+                assert resource.peerSubnets.subnet == '11.10.11.0/24'
+                assert resource.encryptionAlgorithm == 'aes'
+                assert resource.authenticationMode == 'psk'
+                assert resource.description == 'Test description'
+                assert resource.enabled == True
+                assert resource.peerIp == '8.8.8.8'
+                resource_vpn = resource
+                break
+        else:
+            raise RuntimeError(f'No VPN {vpn_name}')
+    finally:
+        # Remove
+        ipsec_endpoint = f'{resource_vpn.localIp}-{resource_vpn.peerIp}'
+        ipsec_vpn = IpsecVpn(gateway.client, parent=(await gateway.get_resource()), ipsec_end_point=ipsec_endpoint)
+        await ipsec_vpn.delete_ipsec_vpn()
+
+        # Check
+        for resource in await gateway.list_ipsec_vpn_resource():
+            if resource.name == vpn_name:
+                raise RuntimeError(f'Don\'t removed VPN {vpn_name}')
+        else:
+            pass
+
+
+@pytest.mark.parametrize(
+    'original_port',
+    (
+        8080,
+        'any',
+    )
+)
+@pytest.mark.parametrize(
+    'translated_port',
+    (
+        9090,
+        'any',
+    )
+)
+@pytest.mark.parametrize(
+    'action, protocol',
+    (
+            ('snat', 'udp'),
+            ('snat', 'tcp'),
+            ('snat', 'any'),
+            ('dnat', 'udp'),
+            ('dnat', 'tcp'),
+            # ('dnat', 'any'),
+    )
+)
+@pytest.mark.asyncio
+async def test_nat(dummy_gateway, action, protocol, original_port, translated_port):
+    gateway = dummy_gateway
+    fields = (
+        'ID',
+        'ruleTag',
+        'loggingEnabled',
+        'description',
+        'translatedAddress',
+        'ruleType',
+        'vnic',
+        'originalAddress',
+        'dnatMatchSourceAddress',
+        'protocol',
+        'originalPort',
+        'translatedPort',
+        'dnatMatchSourcePort',
+        'Action',
+        'Enabled',
+    )
+
+    # Create
+    nat_list = await gateway.list_nat_rules()
+    ids_before = {nat['ID'] for nat in nat_list}
+    await gateway.add_nat_rule(
+        action,
+        '10.10.10.2' if action == 'dnat' else '192.168.1.11',
+        '192.168.1.11' if action == 'dnat' else '10.10.10.2',
+        description='Test NAT',
+        protocol=protocol,
+        original_port=original_port,
+        translated_port=translated_port,
+        vnic=1,
+    )
+    await gateway.reload()
+    nat_list = await gateway.list_nat_rules()
+    ids_after = {nat['ID'] for nat in nat_list}
+    assert len(ids_before - ids_after) == 0
+    assert len(ids_after - ids_before) == 1
+    nat_id = list(ids_after - ids_before)[0]
+
+    # Get
+    try:
+        for dic in await gateway.list_nat_rules():
+            for field in fields:
+                assert field in dic
+            assert isinstance(dic['Enabled'], bool)
+            assert isinstance(dic['loggingEnabled'], bool)
+            assert dic['originalPort'] == original_port if action == 'dnat' else 'any'
+            assert dic['translatedPort'] == translated_port if action == 'dnat' else 'any'
+            assert dic['protocol'] == protocol if action == 'dnat' else 'any'
+    finally:
+        # Remove
+        resource_nat_rules = await gateway.get_nat_rules()
+        for resource in resource_nat_rules.natRules.natRule:
+            if int(resource.ruleId.text) == nat_id:
+                nat = NatRule(
+                    gateway.client,
+                    gateway_name=gateway.name,
+                    parent=(await gateway.get_resource()),
+                    resource=resource,
+                    rule_id=nat_id
+                )
+                await nat.delete_nat_rule()
+        # await gateway.delete_nat_rules()
+
+        await gateway.reload()
+
+        for nat_dic in await gateway.list_nat_rules():
+            assert nat_id != nat_dic['ID']
 
 
 @pytest.mark.skip()
 @pytest.mark.asyncio
-async def test_tmp(vdc):
-    # resource_list = await vdc.list_orgvdc_network_resources('Client2_Network8')
+async def test_tmp(dummy_gateway):
     # platform = Platform(sys_admin_client)
-    # xxx = await platform.get_external_network('NSX-Backbone')
-    # print(
+    # resource = await platform.get_external_network('NSX-Backbone')
+    # raise ZeroDivisionError(
     #     etree.tostring(
-    #         xxx,
+    #         resource[tag('vcloud')('Configuration')],
     #         pretty_print=True
     #     ).decode('utf8')
     # )
-    resource = await vdc.get_vapp_by_id('urn:vcloud:vapp:bb1b21d1-c99b-46ee-ae85-8efd525ad1e8')
-    vapp = VApp(vdc.client, resource=resource)
-    resource = await vapp.get_vm()
-    vm = VM(vdc.client, resource=resource)
-    print(await vm.get_memory())
-    print(await vm.get_vc())
-    print(await vm.get_storage_profile_id())
-    print(await vm.get_medias())
-    print(await vm.is_vmtools_installed())
-    print(await vm.get_cpus())
-    # with open('tmp.xml', 'wb') as f:
-    #     f.write(
-    #         etree.tostring(
-    #             resource,
-    #             pretty_print=True
-    #         )
-    #     )
+    await dummy_gateway.reload()
+    resource = await dummy_gateway.get_resource()
+    with open('tmp.xml', 'wb') as f:
+        f.write(
+            etree.tostring(
+                resource,
+                pretty_print=True
+            )
+        )
+
+    # resource_list = await vdc.list_orgvdc_network_resources('Client2_Network8')
+    # resource = await vdc.get_vapp_by_id('urn:vcloud:vapp:712c7620-d522-47a2-839a-2867452097a5')
     # vapp = VApp(sys_admin_client, resource=resource)
     # vm_resource = await vapp.get_vm()
     # vm = VM(sys_admin_client, resource=vm_resource)
