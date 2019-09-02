@@ -1151,7 +1151,9 @@ class Gateway(object):
                 nat_rule_info['ID'] = nat_rule.ruleId
                 nat_rule_info['ruleTag'] = nat_rule.ruleTag
                 nat_rule_info['loggingEnabled'] = bool(nat_rule.loggingEnabled)
-                nat_rule_info['description'] = nat_rule.description
+                nat_rule_info['description'] = nat_rule.description if hasattr(
+                    nat_rule, 'description'
+                ) else None
                 nat_rule_info['translatedAddress'] = nat_rule.translatedAddress
                 nat_rule_info['ruleType'] = nat_rule.ruleType
                 nat_rule_info['vnic'] = nat_rule.vnic
