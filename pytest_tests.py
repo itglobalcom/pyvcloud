@@ -1248,7 +1248,7 @@ async def test_tmp(dummy_gateway):
     # )
     await dummy_gateway.reload()
     resource = await dummy_gateway.get_resource()
-    with open(f'tmp.xml', 'wb') as f:
+    with open('tmp.xml', 'wb') as f:
         f.write(
             etree.tostring(
                 resource,
