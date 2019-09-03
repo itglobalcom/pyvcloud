@@ -1033,7 +1033,7 @@ class Gateway(object):
         dhcp_pool_href = self._build_dhcp_href()
         dhcp_resource = await self.get_dhcp()
 
-        dhcp_resource.IsEnabled = True
+        dhcp_resource.enabled = True
 
         ip_pool_tag = create_element("ipPool")
         ip_pool_tag.append(create_element("autoConfigureDNS", auto_config_dns))
@@ -1059,10 +1059,8 @@ class Gateway(object):
         ip_pool_tag.append(create_element("ipRange", ip_range))
         dhcp_resource.ipPools.append(ip_pool_tag)
 
-        print(etree.tostring(
-            dhcp_resource,
-            pretty_print=True
-        ).decode('utf8'))
+        objectify.deannotate(dhcp_resource)
+        etree.cleanup_namespaces(dhcp_resource)
 
         await self.client.put_resource(dhcp_pool_href, dhcp_resource,
                                  EntityType.DEFAULT_CONTENT_TYPE.value)
