@@ -1033,6 +1033,8 @@ class Gateway(object):
         dhcp_pool_href = self._build_dhcp_href()
         dhcp_resource = await self.get_dhcp()
 
+        dhcp_resource.IsEnabled = True
+
         ip_pool_tag = create_element("ipPool")
         ip_pool_tag.append(create_element("autoConfigureDNS", auto_config_dns))
         if default_gateway is not None:
