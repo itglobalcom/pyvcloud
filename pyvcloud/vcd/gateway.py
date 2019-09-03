@@ -1059,6 +1059,11 @@ class Gateway(object):
         ip_pool_tag.append(create_element("ipRange", ip_range))
         dhcp_resource.ipPools.append(ip_pool_tag)
 
+        print(etree.tostring(
+            dhcp_resource,
+            pretty_print=True
+        ).decode('utf8'))
+
         await self.client.put_resource(dhcp_pool_href, dhcp_resource,
                                  EntityType.DEFAULT_CONTENT_TYPE.value)
 
