@@ -213,7 +213,7 @@ class FirewallRule(GatewayServices):
         gateway_res = Gateway(self.client, resource=self.parent)
         object_list = await gateway_res.list_firewall_objects(type, object_type)
         for object in object_list:
-            if object.get('name') == value:
+            if object.get('name').text.lower() == value.lower():
                 properties = object.get('prop')
                 for prop in properties:
                     if prop.get('name') == group_type:

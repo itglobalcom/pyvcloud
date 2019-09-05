@@ -745,6 +745,24 @@ class Gateway(object):
                                           self.name + 'is not set.')
         return out
 
+    async def edit_firewall_rules(self, is_firewall_enabled=None, firewall_default_action=None):
+        if is_firewall_enabled is None and firewall_default_action is None:
+            raise RuntimeError()
+
+        firewall_rule_href = self._build_firewall_rule_href()
+        firewall_rules_resource = await self.get_firewall_rules()
+
+        if is_firewall_enabled is not None:
+            firewall_rules_resource.enabled = is_firewall_enabled
+        if firewall_default_action is not None:
+            firewall_rules_resource.defaultPolicy.action = firewall_default_action
+
+        objectify.deannotate(firewall_rules_resource)
+        etree.cleanup_namespaces(firewall_rules_resource)
+
+        await self.client.put_resource(firewall_rule_href, firewall_rules_resource,
+                                       EntityType.DEFAULT_CONTENT_TYPE.value)
+
     async def add_firewall_rule(self,
                                 name,
                                 action='accept',
@@ -1033,6 +1051,8 @@ class Gateway(object):
         dhcp_pool_href = self._build_dhcp_href()
         dhcp_resource = await self.get_dhcp()
 
+        dhcp_resource.enabled = True
+
         ip_pool_tag = create_element("ipPool")
         ip_pool_tag.append(create_element("autoConfigureDNS", auto_config_dns))
         if default_gateway is not None:
@@ -1056,6 +1076,9 @@ class Gateway(object):
 
         ip_pool_tag.append(create_element("ipRange", ip_range))
         dhcp_resource.ipPools.append(ip_pool_tag)
+
+        objectify.deannotate(dhcp_resource)
+        etree.cleanup_namespaces(dhcp_resource)
 
         await self.client.put_resource(dhcp_pool_href, dhcp_resource,
                                  EntityType.DEFAULT_CONTENT_TYPE.value)
@@ -1151,7 +1174,9 @@ class Gateway(object):
                 nat_rule_info['ID'] = nat_rule.ruleId
                 nat_rule_info['ruleTag'] = nat_rule.ruleTag
                 nat_rule_info['loggingEnabled'] = bool(nat_rule.loggingEnabled)
-                nat_rule_info['description'] = nat_rule.description
+                nat_rule_info['description'] = nat_rule.description if hasattr(
+                    nat_rule, 'description'
+                ) else None
                 nat_rule_info['translatedAddress'] = nat_rule.translatedAddress
                 nat_rule_info['ruleType'] = nat_rule.ruleType
                 nat_rule_info['vnic'] = nat_rule.vnic
