@@ -745,6 +745,24 @@ class Gateway(object):
                                           self.name + 'is not set.')
         return out
 
+    async def edit_firewall_rules(self, is_firewall_enabled=None, firewall_default_action=None):
+        if is_firewall_enabled is None and firewall_default_action is None:
+            raise RuntimeError()
+
+        firewall_rule_href = self._build_firewall_rule_href()
+        firewall_rules_resource = await self.get_firewall_rules()
+
+        if is_firewall_enabled is not None:
+            firewall_rules_resource.enabled = is_firewall_enabled
+        if firewall_default_action is not None:
+            firewall_rules_resource.defaultPolicy.action = firewall_default_action
+
+        objectify.deannotate(firewall_rules_resource)
+        etree.cleanup_namespaces(firewall_rules_resource)
+
+        await self.client.put_resource(firewall_rule_href, firewall_rules_resource,
+                                       EntityType.DEFAULT_CONTENT_TYPE.value)
+
     async def add_firewall_rule(self,
                                 name,
                                 action='accept',

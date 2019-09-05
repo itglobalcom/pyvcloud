@@ -953,6 +953,13 @@ async def test_gateway(gateway):
 
 
 @pytest.mark.parametrize(
+    'default_action',
+    (
+        AddFirewallRuleAction.DENY.value,
+        AddFirewallRuleAction.ACCEPT.value,
+    )
+)
+@pytest.mark.parametrize(
     'action',
     (
         AddFirewallRuleAction.DENY.value,
@@ -969,7 +976,7 @@ async def test_gateway(gateway):
     )
 )
 @pytest.mark.asyncio
-async def test_firewall(dummy_gateway, enabled, action, log_default_action):
+async def test_firewall(dummy_gateway, enabled, action, log_default_action, default_action):
     possible_actions = {
         AddFirewallRuleAction.DENY.value,
         AddFirewallRuleAction.ACCEPT.value,
@@ -1081,6 +1088,15 @@ async def test_firewall(dummy_gateway, enabled, action, log_default_action):
         assert (await rule._get_resource()).action.text == antiaction.lower()
 
         await rule.delete()
+
+    # Change gateway firewall settings
+    await gateway.edit_firewall_rules(is_firewall_enabled=enabled, firewall_default_action=default_action)
+    await gateway.reload()
+    resource = await gateway.get_resource()
+    assert resource.Configuration.EdgeGatewayServiceConfiguration.FirewallService.IsEnabled == enabled
+    assert resource.Configuration.EdgeGatewayServiceConfiguration.FirewallService.DefaultAction == (
+        'drop' if default_action == 'Deny' else 'allow'
+    )
 
 
 @pytest.mark.asyncio
@@ -1248,14 +1264,17 @@ async def test_tmp(dummy_gateway):
     #     ).decode('utf8')
     # )
     await dummy_gateway.reload()
-    resource = await dummy_gateway.get_resource()
-    with open('tmp.xml', 'wb') as f:
-        f.write(
-            etree.tostring(
-                resource,
-                pretty_print=True
+    # resource = await dummy_gateway.get_resource()
+    resource_f = await dummy_gateway.get_firewall_rules()
+    for resource in resource_f.firewallRules.firewallRule:
+        if resource.name.text == 'TestFirewall':
+            rule = FirewallRule(
+                dummy_gateway.client,
+                parent=await dummy_gateway.get_resource(),
+                resource=resource
             )
-        )
+            await rule.edit(destination_values=['internal:gatewayinterface'])
+            # await rule.edit(source_values=['8.8.8.8:ip'])  #, destination_values=['internal:gatewayinterface'])
 
     # resource_list = await vdc.list_orgvdc_network_resources('Client2_Network8')
     # resource = await vdc.get_vapp_by_id('urn:vcloud:vapp:712c7620-d522-47a2-839a-2867452097a5')
@@ -1266,11 +1285,3 @@ async def test_tmp(dummy_gateway):
     # vm_resource = await vm.get_resource()
     # await vm.
     # resource = await vapp.get_resource()
-    # for resource in resource_list:
-    #     with open(f'tmp.xml', 'wb') as f:
-    #         f.write(
-    #             etree.tostring(
-    #                 resource,
-    #                 pretty_print=True
-    #             )
-    #         )
