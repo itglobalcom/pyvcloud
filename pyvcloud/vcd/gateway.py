@@ -696,7 +696,6 @@ class Gateway(object):
                     use_for_default_route = rate_limit_range[2]
                 else:
                     use_for_default_route = False
-                use_for_default_route = True
                 gateway_inf.UseForDefaultRoute = E.UseForDefaultRoute(use_for_default_route)
         objectify.deannotate(gateway)
         etree.cleanup_namespaces(gateway)
