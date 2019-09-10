@@ -932,7 +932,7 @@ async def test_gateway(gateway):
     assert rate_limits[0]['in_rate_limit'] == 100
     assert rate_limits[0]['out_rate_limit'] == 100
     assert isinstance(rate_limits[0]['ip_address'], str)
-    await gateway.edit_rate_limits({'NSX-Backbone':[200, 300]})
+    await gateway.edit_rate_limits({'NSX-Backbone':[200, 300, False]})
     _dic = await gateway.list_configure_ip_settings()
     _ip_address = _dic[0]['ip_address'][0]
     _dic = _dic[0]

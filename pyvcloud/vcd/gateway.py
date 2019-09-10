@@ -668,8 +668,8 @@ class Gateway(object):
 
         :param rate_limit_configs: dict of external network vs rate limit
         for e.g.
-        { extNework1:['101.0', '101.0'],
-          extNework2:['101.0', '101.0']
+        { extNework1:['101.0', '101.0', True],
+          extNework2:['101.0', '101.0', False]
         }
 
         :return: object containing EntityType.TASK XML data
@@ -692,7 +692,11 @@ class Gateway(object):
                 gateway_inf.InRateLimit = E.InRateLimit(rate_limit_range[0])
                 gateway_inf.OutRateLimit = E.OutRateLimit(rate_limit_range[1])
                 del gateway_inf.UseForDefaultRoute
-                gateway_inf.UseForDefaultRoute = E.UseForDefaultRoute(False)
+                if len(rate_limit_range) > 2:
+                    use_for_default_route = rate_limit_range[2]
+                else:
+                    use_for_default_route = False
+                gateway_inf.UseForDefaultRoute = E.UseForDefaultRoute(use_for_default_route)
         objectify.deannotate(gateway)
         etree.cleanup_namespaces(gateway)
         return await self.client.put_linked_resource(
