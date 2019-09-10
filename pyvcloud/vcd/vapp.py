@@ -69,6 +69,10 @@ class VApp(object):
             self.name = resource.get('name')
             self.href = resource.get('href')
             self.id = resource.get('id')
+            if self.id is None:
+                self.id = self.href.split('/')[-1]
+                if self.id.startswith('vapp-'):
+                    self.id = self.id[5:]
 
     async def get_resource(self):
         """Fetches the XML representation of the vApp from vCD.

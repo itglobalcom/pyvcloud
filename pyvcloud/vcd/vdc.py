@@ -144,7 +144,10 @@ class VDC(object):
             for resource in self.resource.ResourceEntities.ResourceEntity:
                 if entity_type is None or \
                    entity_type.value == resource.get('type'):
-                    if resource.get('id') == id:
+                    entity_id = resource.get('href').split('/')[-1]
+                    if entity_id.startswith('vapp-'):
+                        entity_id = entity_id[5:]
+                    if entity_id == id.split(':')[-1]:
                         result.append(resource.get('href'))
         if len(result) == 0:
             raise EntityNotFoundException('vApp with id \'%s\' not found' % id)
