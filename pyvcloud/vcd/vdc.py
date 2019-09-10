@@ -1049,7 +1049,9 @@ class VDC(object):
         if hasattr(self.resource, 'VdcStorageProfiles') and \
            hasattr(self.resource.VdcStorageProfiles, 'VdcStorageProfile'):
             for profile in self.resource.VdcStorageProfiles.VdcStorageProfile:
-                if profile.get('id') == profile_id:
+                id = profile.get('href').split('/')[-1]
+                if id == profile_id.split(':')[-1]:
+                # if profile.get('id') == profile_id:
                     return profile
 
         raise EntityNotFoundException(
