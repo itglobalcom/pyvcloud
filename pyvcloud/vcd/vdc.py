@@ -572,7 +572,7 @@ class VDC(object):
                     result.append({
                         'name': resource.get('name'),
                         'type': resource.get('type'),
-                        'id': resource.get('id'),
+                        'id': id,
                     })
         return result
 
