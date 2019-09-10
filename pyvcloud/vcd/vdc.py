@@ -569,6 +569,8 @@ class VDC(object):
                     id = resource.get('id')
                     if id is None:
                         id = resource.get('href').split('/')[-1][5:]
+                        if entity_type == EntityType.VAPP:
+                            id = 'urn:vcloud:vapp:' + id
                     result.append({
                         'name': resource.get('name'),
                         'type': resource.get('type'),
