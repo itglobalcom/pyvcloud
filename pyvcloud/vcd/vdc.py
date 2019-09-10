@@ -566,6 +566,9 @@ class VDC(object):
             for resource in self.resource.ResourceEntities.ResourceEntity:
                 if entity_type is None or \
                    entity_type.value == resource.get('type'):
+                    id = resource.get('id')
+                    if id is None:
+                        id = resource.get('href').split('/')[-1][5:]
                     result.append({
                         'name': resource.get('name'),
                         'type': resource.get('type'),
