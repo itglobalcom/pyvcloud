@@ -138,11 +138,20 @@ class VM(object):
         return int(item[tag('rasd')('VirtualQuantity')])
 
     async def is_vmtools_installed(self):
-        r = await self.get_resource()
-        return (
+        await self.get_resource()
+
+        if (
+                hasattr(self.resource, 'VmSpecSection')
+            and hasattr(self.resource.VmSpecSection, 'VmToolsVersion')
+            and self.resource.VmSpecSection.VmToolsVersion.text != '0'
+        ):
+            return True
+        elif (
                 hasattr(self.resource.RuntimeInfoSection, 'VMWareTools')
                 and getattr(self.resource.RuntimeInfoSection, 'VMWareTools') != '0'
-            )
+        ):
+            return True
+        return False
 
     async def modify_cpu(self, virtual_quantity, cores_per_socket=None):
         """Updates the number of CPUs of a vm.
