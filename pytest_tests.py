@@ -314,8 +314,6 @@ async def test_vm_change_storage_policy(vapp, vdc):
 async def test_vm_disk(vapp, vdc):
     vm_resource = await vapp.get_vm()
     vm = VM(vapp.client, resource=vm_resource)
-    storage_profile_xml = await vdc.get_storage_profile(env('storage_profile'))
-    storage_profile_id = storage_profile_xml.get('id')
 
     disk_id = await vm.add_disk(
         'test_add_disk',
@@ -894,7 +892,7 @@ async def network(vdc):
 
 
 @pytest.fixture
-async def gateway(vdc, sys_admin_client):
+async def gateway(vdc, sys_admin_client, client):
     hash = uuid.uuid4().hex[:5]
     gateway_name = f'TestGateway_{hash}'
     vdc_resource = await vdc.get_resource()
@@ -911,18 +909,17 @@ async def gateway(vdc, sys_admin_client):
     await gateway.reload()
     await gateway.convert_to_advanced()
     await gateway.reload()
-    # gateway.client = client
-    # await gateway.reload()
+    gateway.client = client
+    await gateway.reload()
 
     yield gateway
 
-    # await vdc.delete_gateway(gateway_name)
+    await vdc.delete_gateway(gateway_name)
 
 
 @pytest.fixture
 async def dummy_gateway(vdc):
-    gateway_name = 'cloudmng-test-edge'
-    # gateway_name = 'TestGateway_b80f9'
+    gateway_name = env('test_network_gateway')
     gateway_resource = await vdc.get_gateway(gateway_name)
     gateway = Gateway(vdc.client, resource=gateway_resource)
     yield gateway
@@ -1105,7 +1102,8 @@ async def test_firewall(dummy_gateway, enabled, action, log_default_action, defa
 
 
 @pytest.mark.asyncio
-async def test_vpn(gateway):
+async def test_vpn(dummy_gateway):
+    gateway = dummy_gateway
     hash = uuid.uuid4().hex[:5]
     vpn_name = f'TestVpn-{hash}'
     # gateway = dummy_gateway
@@ -1116,7 +1114,7 @@ async def test_vpn(gateway):
         peer_id=10,
         peer_ip_address='8.8.8.8',
         local_id=20,
-        local_ip_address='46.243.181.109',
+        local_ip_address='46.243.180.243',
         local_subnet='10.10.10.0/24',
         peer_subnet='11.10.11.0/24',
         shared_secret_encrypted='123',
@@ -1131,7 +1129,7 @@ async def test_vpn(gateway):
     try:
         for resource in await gateway.list_ipsec_vpn_resource():
             if resource.name == vpn_name:
-                assert resource.localIp == '46.243.181.109'
+                assert resource.localIp == '46.243.180.243'
                 assert resource.peerId.text == '10'
                 assert resource.localId.text == '20'
                 assert resource.localSubnets.subnet == '10.10.10.0/24'
@@ -1229,13 +1227,19 @@ async def test_nat(dummy_gateway, action, protocol, original_port, translated_po
     # Get
     try:
         for dic in await gateway.list_nat_rules():
+            if dic['ID'] != nat_id:
+                continue
             for field in fields:
                 assert field in dic
             assert isinstance(dic['Enabled'], bool)
             assert isinstance(dic['loggingEnabled'], bool)
-            assert dic['originalPort'] == original_port if action == 'dnat' else 'any'
-            assert dic['translatedPort'] == translated_port if action == 'dnat' else 'any'
-            assert dic['protocol'] == protocol if action == 'dnat' else 'any'
+            assert dic['originalPort'] == (original_port if action == 'dnat' else 'any')
+            assert dic['translatedPort'] == (translated_port if action == 'dnat' else 'any')
+            assert dic['protocol'] == (protocol if action == 'dnat' else 'any')
+
+            break
+        else:
+            raise RuntimeError('No this NAT rule {}'.format(nat_id))
     finally:
         # Remove
         resource_nat_rules = await gateway.get_nat_rules()
