@@ -1656,7 +1656,7 @@ class VDC(object):
                 'Org vdc network with name \'%s\' not found.' % name)
         return result[0]
 
-    def get_isolated_orgvdc_network(self, name):
+    async def get_isolated_orgvdc_network(self, name):
         """Retrieve an isolated org vdc network in the current vdc.
 
         :param str name: name of the org vdc network we want to retrieve.
@@ -1669,7 +1669,7 @@ class VDC(object):
         :raises: EntityNotFoundException: if org vdc network with the given
             name is not found.
         """
-        result = self.list_orgvdc_network_resources(
+        result = await self.list_orgvdc_network_resources(
             name=name, type=FenceMode.ISOLATED.value)
         if len(result) == 0:
             raise EntityNotFoundException(
@@ -1720,7 +1720,7 @@ class VDC(object):
         return await self.client.delete_resource(
             net_resource.get('href'), force=force)
 
-    def delete_isolated_orgvdc_network(self, name, force=False):
+    async def delete_isolated_orgvdc_network(self, name, force=False):
         """Delete an isolated org vdc network in the current vdc.
 
         :param str name: name of the org vdc network we want to delete.
@@ -1736,8 +1736,8 @@ class VDC(object):
         :raises: EntityNotFoundException: if org vdc network with the given
             name is not found.
         """
-        net_resource = self.get_isolated_orgvdc_network(name)
-        return self.client.delete_resource(
+        net_resource = await self.get_isolated_orgvdc_network(name)
+        return await self.client.delete_resource(
             net_resource.get('href'), force=force)
 
     async def create_gateway_api_version_32(
