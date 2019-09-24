@@ -50,7 +50,7 @@ class VdcNetwork(object):
         self.href_admin = get_admin_href(self.href)
         self.admin_resource = None
 
-    def get_resource(self):
+    async def get_resource(self):
         """Fetches the XML representation of the org vdc network from vCD.
 
         Will serve cached response if possible.
@@ -61,10 +61,10 @@ class VdcNetwork(object):
         :rtype: lxml.objectify.ObjectifiedElement
         """
         if self.resource is None:
-            self.reload()
+            await self.reload()
         return self.resource
 
-    def get_admin_resource(self):
+    async def get_admin_resource(self):
         """Fetches the XML representation of the admin org vdc network.
 
         Will serve cached response if possible.
@@ -75,33 +75,33 @@ class VdcNetwork(object):
         :rtype: lxml.objectify.ObjectifiedElement
         """
         if self.admin_resource is None:
-            self.reload_admin()
+            await self.reload_admin()
         return self.admin_resource
 
-    def reload(self):
+    async def reload(self):
         """Reloads the resource representation of the org vdc network.
 
         This method should be called in between two method invocations on the
         Org Vdc Network object, if the former call changes the representation
         of the org vdc network in vCD.
         """
-        self.resource = self.client.get_resource(self.href)
+        self.resource = await self.client.get_resource(self.href)
         if self.resource is not None:
             self.name = self.resource.get('name')
             self.href = self.resource.get('href')
 
-    def reload_admin(self):
+    async def reload_admin(self):
         """Reloads the admin resource representation of the org vdc network.
 
         This method should be called in between two method invocations on the
         Admin Org Vdc Network object, if the former call changes the
         representation of the admin org vdc network in vCD.
         """
-        self.admin_resource = self.client.get_resource(self.href_admin)
+        self.admin_resource = await self.client.get_resource(self.href_admin)
         if self.admin_resource is not None:
             self.href_admin = self.admin_resource.get('href')
 
-    def edit_name_description_and_shared_state(self,
+    async def edit_name_description_and_shared_state(self,
                                                name,
                                                description=None,
                                                is_shared=None):
@@ -118,17 +118,17 @@ class VdcNetwork(object):
         """
         if name is None:
             raise InvalidParameterException("Name can't be None or empty")
-        vdc_network = self.get_resource()
+        vdc_network = await self.get_resource()
         vdc_network.set('name', name)
         if description is not None:
             vdc_network.Description = E.Description(description)
         if is_shared is not None:
             vdc_network.IsShared = E.IsShared(is_shared)
-        return self.client.put_linked_resource(
+        return await self.client.put_linked_resource(
             self.resource, RelationType.EDIT, EntityType.ORG_VDC_NETWORK.value,
             vdc_network)
 
-    def add_static_ip_pool_and_dns(self,
+    async def add_static_ip_pool_and_dns(self,
                                    ip_ranges_param=None,
                                    primary_dns_ip=None,
                                    secondary_dns_ip=None,
@@ -153,7 +153,7 @@ class VdcNetwork(object):
                 secondary_dns_ip is None and dns_suffix is None:
             raise InvalidParameterException("All input params can't be None "
                                             "or empty")
-        vdc_network = self.get_resource()
+        vdc_network = await self.get_resource()
         ip_scopes = ip_scope = vdc_network.Configuration.IpScopes
         ip_scope = ip_scopes.IpScope
         ip_scopes.remove(ip_scope)
@@ -206,11 +206,11 @@ class VdcNetwork(object):
                 ip_range_tag.append(E.EndAddress(end_address))
                 ip_ranges_list.append(ip_range_tag)
 
-        return self.client.put_linked_resource(
+        return await self.client.put_linked_resource(
             self.resource, RelationType.EDIT, EntityType.ORG_VDC_NETWORK.value,
             vdc_network)
 
-    def modify_static_ip_pool(self, ip_range_param, new_ip_range_param):
+    async def modify_static_ip_pool(self, ip_range_param, new_ip_range_param):
         """Modify static IP pool of org vdc network.
 
         :param str ip_range_param: ip range. For ex: 2.3.3.2-2.3.3.10
@@ -222,7 +222,7 @@ class VdcNetwork(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        vdc_network = self.get_resource()
+        vdc_network = await self.get_resource()
         ip_scope = vdc_network.Configuration.IpScopes.IpScope
         if not hasattr(ip_scope, 'IpRanges'):
             raise OperationNotSupportedException('No IP range found.')
@@ -243,11 +243,11 @@ class VdcNetwork(object):
             ip_range.StartAddress = E.StartAddress(new_start_address)
             ip_range.EndAddress = E.StartAddress(new_end_address)
 
-        return self.client.put_linked_resource(
+        return await self.client.put_linked_resource(
             self.resource, RelationType.EDIT, EntityType.ORG_VDC_NETWORK.value,
             vdc_network)
 
-    def remove_static_ip_pool(self, ip_range_param):
+    async def remove_static_ip_pool(self, ip_range_param):
         """Remove static IP pool of org vdc network.
 
         :param str ip_range_param: ip range. For ex: 2.3.3.2-2.3.3.10
@@ -257,7 +257,7 @@ class VdcNetwork(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        vdc_network = self.get_resource()
+        vdc_network = await self.get_resource()
         ip_scope = vdc_network.Configuration.IpScopes.IpScope
         if not hasattr(ip_scope, 'IpRanges'):
             raise OperationNotSupportedException('No IP range found.')
@@ -267,11 +267,11 @@ class VdcNetwork(object):
                     ip_range.EndAddress) == ip_range_param:
                 ip_scope.IpRanges.remove(ip_range)
 
-        return self.client.put_linked_resource(
+        return await self.client.put_linked_resource(
             self.resource, RelationType.EDIT, EntityType.ORG_VDC_NETWORK.value,
             vdc_network)
 
-    def get_all_metadata(self):
+    async def get_all_metadata(self):
         """Fetch all metadata entries of the org vdc network.
 
         :return: an object containing EntityType.METADATA XML data which
@@ -280,11 +280,11 @@ class VdcNetwork(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        self.get_resource()
-        return self.client.get_linked_resource(
+        await self.get_resource()
+        return await self.client.get_linked_resource(
             self.resource, RelationType.DOWN, EntityType.METADATA.value)
 
-    def get_metadata_value(self, key, domain=MetadataDomain.GENERAL):
+    async def get_metadata_value(self, key, domain=MetadataDomain.GENERAL):
         """Fetch the metadata value identified by the domain and key.
 
         :param str key: key of the metadata to be fetched.
@@ -296,10 +296,10 @@ class VdcNetwork(object):
         :rtype: lxml.objectify.ObjectifiedElement
         """
         metadata = Metadata(
-            client=self.client, resource=self.get_all_metadata())
-        return metadata.get_metadata_value(key, domain)
+            client=self.client, resource=await self.get_all_metadata())
+        return await metadata.get_metadata_value(key, domain)
 
-    def set_metadata(self,
+    async def set_metadata(self,
                      key,
                      value,
                      domain=MetadataDomain.GENERAL,
@@ -326,8 +326,8 @@ class VdcNetwork(object):
         :rtype: lxml.objectify.ObjectifiedElement
         """
         metadata = Metadata(
-            client=self.client, resource=self.get_all_metadata())
-        return metadata.set_metadata(
+            client=self.client, resource=await self.get_all_metadata())
+        return await metadata.set_metadata(
             key=key,
             value=value,
             domain=domain,
@@ -335,7 +335,7 @@ class VdcNetwork(object):
             metadata_value_type=metadata_value_type,
             use_admin_endpoint=True)
 
-    def remove_metadata(self, key, domain=MetadataDomain.GENERAL):
+    async def remove_metadata(self, key, domain=MetadataDomain.GENERAL):
         """Remove a metadata entry from the org vdc network.
 
         Only admins can perform this operation.
@@ -353,11 +353,11 @@ class VdcNetwork(object):
             corresponding to the key provided.
         """
         metadata = Metadata(
-            client=self.client, resource=self.get_all_metadata())
+            client=self.client, resource=await self.get_all_metadata())
         return metadata.remove_metadata(
             key=key, domain=domain, use_admin_endpoint=True)
 
-    def list_allocated_ip_address(self):
+    async def list_allocated_ip_address(self):
         """List allocated ip address of org vDC network.
 
         :return: List where each entry is a dictionary containing allocated IP
@@ -366,7 +366,7 @@ class VdcNetwork(object):
             'Type': 'vsmAllocated'}]
         :rtype: list
         """
-        allocated_ip_addresses = self.client.get_linked_resource(
+        allocated_ip_addresses = await self.client.get_linked_resource(
             self.get_resource(), RelationType.DOWN,
             EntityType.ALLOCATED_NETWORK_ADDRESS.value)
         result = []
@@ -378,7 +378,7 @@ class VdcNetwork(object):
             })
         return result
 
-    def list_connected_vapps(self, filter=None):
+    async def list_connected_vapps(self, filter=None):
         """List connected vApps.
 
         :param str filter: filter to fetch the selected vApp, e.g., name==vApp*
@@ -387,11 +387,11 @@ class VdcNetwork(object):
         """
         vapp_name_list = []
         if (self.client.is_sysadmin()):
-            vdc = self.client.get_linked_resource(self.get_resource(),
+            vdc = await self.client.get_linked_resource(self.get_resource(),
                                                   RelationType.UP,
                                                   EntityType.VDC_ADMIN.value)
         else:
-            vdc = self.client.get_linked_resource(
+            vdc = await self.client.get_linked_resource(
                 self.get_resource(), RelationType.UP, EntityType.VDC.value)
 
         for entity in vdc.ResourceEntities.ResourceEntity:
@@ -407,7 +407,7 @@ class VdcNetwork(object):
                         })
         return vapp_name_list
 
-    def convert_to_sub_interface(self):
+    async def convert_to_sub_interface(self):
         """Convert to sub interface.
 
         :return: an object of type EntityType.TASK XML which represents
@@ -415,13 +415,13 @@ class VdcNetwork(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        self.get_admin_resource()
+        await self.get_admin_resource()
 
-        return self.client.post_linked_resource(
+        return await self.client.post_linked_resource(
             self.admin_resource,
             RelationType.VDC_ROUTED_CONVERT_TO_SUB_INTERFACE, None, None)
 
-    def convert_to_internal_interface(self):
+    async def convert_to_internal_interface(self):
         """Convert to internal interface.
 
         :return: an object of type EntityType.TASK XML which represents
@@ -429,13 +429,13 @@ class VdcNetwork(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        self.get_admin_resource()
+        await self.get_admin_resource()
 
-        return self.client.post_linked_resource(
+        return await self.client.post_linked_resource(
             self.admin_resource,
             RelationType.VDC_ROUTED_CONVERT_TO_INTERNAL_INTERFACE, None, None)
 
-    def convert_to_distributed_interface(self):
+    async def convert_to_distributed_interface(self):
         """Convert to distributed interface.
 
         :return: an object of type EntityType.TASK XML which represents
@@ -443,9 +443,9 @@ class VdcNetwork(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        self.get_admin_resource()
+        await self.get_admin_resource()
 
-        return self.client.post_linked_resource(
+        return await self.client.post_linked_resource(
             self.admin_resource,
             RelationType.VDC_ROUTED_CONVERT_TO_DISTRIBUTED_INTERFACE, None,
             None)
