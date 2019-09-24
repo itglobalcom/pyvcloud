@@ -1351,7 +1351,7 @@ class VDC(object):
         await self.get_resource()
 
         platform = Platform(self.client)
-        parent_network = platform.get_external_network(parent_network_name)
+        parent_network = await platform.get_external_network(parent_network_name)
         parent_network_href = parent_network.get('href')
 
         request_payload = E.OrgVdcNetwork(name=network_name)
@@ -1581,7 +1581,7 @@ class VDC(object):
             else:
                 raise MultipleRecordsException(f'Network with name "{name}"')
 
-    def list_orgvdc_routed_networks(self):
+    async def list_orgvdc_routed_networks(self):
         """Fetch all routed org vdc networks in the current vdc.
 
         :return: a list of lxml.objectify.ObjectifiedElement objects, where
@@ -1590,10 +1590,10 @@ class VDC(object):
 
         :rtype: list
         """
-        return self.list_orgvdc_network_resources(
+        return await self.list_orgvdc_network_resources(
             type=FenceMode.NAT_ROUTED.value)
 
-    def list_orgvdc_direct_networks(self):
+    async def list_orgvdc_direct_networks(self):
         """Fetch all directly connected org vdc networks in the current vdc.
 
         :return: a list of lxml.objectify.ObjectifiedElement objects, where
@@ -1602,9 +1602,9 @@ class VDC(object):
 
         :rtype: list
         """
-        return self.list_orgvdc_network_resources(type=FenceMode.BRIDGED.value)
+        return await self.list_orgvdc_network_resources(type=FenceMode.BRIDGED.value)
 
-    def list_orgvdc_isolated_networks(self):
+    async def list_orgvdc_isolated_networks(self):
         """Fetch all isolated org vdc networks in the current vdc.
 
         :return: a list of lxml.objectify.ObjectifiedElement objects, where
@@ -1613,7 +1613,7 @@ class VDC(object):
 
         :rtype: list
         """
-        return self.list_orgvdc_network_resources(
+        return await self.list_orgvdc_network_resources(
             type=FenceMode.ISOLATED.value)
 
     async def get_routed_orgvdc_network(self, name):
@@ -1636,7 +1636,7 @@ class VDC(object):
                 'Org vdc network with name \'%s\' not found.' % name)
         return result[0]
 
-    def get_direct_orgvdc_network(self, name):
+    async def get_direct_orgvdc_network(self, name):
         """Retrieve a directly connected org vdc network in the current vdc.
 
         :param str name: name of the org vdc network we want to retrieve.
@@ -1649,7 +1649,7 @@ class VDC(object):
         :raises: EntityNotFoundException: if org vdc network with the given
             name is not found.
         """
-        result = self.list_orgvdc_network_resources(
+        result = await self.list_orgvdc_network_resources(
             name=name, type=FenceMode.BRIDGED.value)
         if len(result) == 0:
             raise EntityNotFoundException(
@@ -1809,7 +1809,7 @@ class VDC(object):
             gateway_params.append(E.Description(desc))
         gateway_params.append(E.EdgeGatewayType(edgeGatewayType))
         gateway_configuration_param = \
-            self._create_gateway_configuration_param(
+            await self._create_gateway_configuration_param(
                 external_networks, gateway_backing_config,
                 is_default_gateway, selected_extnw_for_default_gw,
                 default_gateway_ip, is_default_gw_for_dns_relay_selected,
@@ -1890,7 +1890,7 @@ class VDC(object):
             gateway_params.append(E.Description(desc))
 
         gateway_configuration_param = \
-            self._create_gateway_configuration_param(
+            await self._create_gateway_configuration_param(
                 external_networks, gateway_backing_config,
                 is_default_gateway, selected_extnw_for_default_gw,
                 default_gateway_ip, is_default_gw_for_dns_relay_selected,
@@ -2229,7 +2229,7 @@ class VDC(object):
                                            "'%s'," % name)
         return records[0]
 
-    def list_vapp_details(self, resource_type, filter=None):
+    async def list_vapp_details(self, resource_type, filter=None):
         """List vApp details.
 
         :param str filter: filter to fetch the vApp Details based on filter,
@@ -2251,11 +2251,11 @@ class VDC(object):
             resource_type,
             query_result_format=QueryResultFormat.RECORDS,
             qfilter=filter)
-        out_list = list(query.execute())
+        out_list = list(await query.execute())
 
         return out_list
 
-    def _fetch_compute_policies(self):
+    async def _fetch_compute_policies(self):
         """Fetch References vDC compute policies.
 
         :return: an object containing VdcComputePolicyReferences XML element
@@ -2263,12 +2263,12 @@ class VDC(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        self.get_resource()
-        return self.client.get_linked_resource(
+        await self.get_resource()
+        return await self.client.get_linked_resource(
             self.resource, rel=RelationType.DOWN,
             media_type=EntityType.VDC_COMPUTE_POLICY_REFERENCES.value)
 
-    def list_compute_policies(self):
+    async def list_compute_policies(self):
         """List VdcComputePolicy references.
 
         :return: list of VdcComputePolicyReference XML elements each of which
@@ -2282,13 +2282,13 @@ class VDC(object):
                 float(ApiVersion.VERSION_32.value):
             raise OperationNotSupportedException("Unsupported API version")
 
-        policy_references = self._fetch_compute_policies()
+        policy_references = await self._fetch_compute_policies()
         policy_list = []
         for policy_reference in policy_references.VdcComputePolicyReference:
             policy_list.append(policy_reference)
-        return policy_reference
+        return policy_list
 
-    def add_compute_policy(self, href):
+    async def add_compute_policy(self, href):
         """Add a VdcComputePolicy.
 
         :param str href: URI of the compute policy
@@ -2305,18 +2305,18 @@ class VDC(object):
                 float(ApiVersion.VERSION_32.value):
             raise OperationNotSupportedException("Unsupported API version")
 
-        policy_references = self._fetch_compute_policies()
+        policy_references = await self._fetch_compute_policies()
         policy_id = retrieve_compute_policy_id_from_href(href)
         policy_reference_element = E.VdcComputePolicyReference()
         policy_reference_element.set('href', href)
         policy_reference_element.set('id', policy_id)
         policy_references.append(policy_reference_element)
-        return self.client.put_linked_resource(
+        return await self.client.put_linked_resource(
             self.resource, RelationType.DOWN,
             EntityType.VDC_COMPUTE_POLICY_REFERENCES.value,
             policy_references)
 
-    def remove_compute_policy(self, href):
+    async def remove_compute_policy(self, href):
         """Delete a VdcComputePolicy.
 
         :param str href: URI of the compute policy to be deleted
@@ -2335,12 +2335,12 @@ class VDC(object):
                 float(ApiVersion.VERSION_32.value):
             raise OperationNotSupportedException("Unsupported API version")
 
-        policy_references = self._fetch_compute_policies()
+        policy_references = await self._fetch_compute_policies()
         policy_id = retrieve_compute_policy_id_from_href(href)
         for policy_reference in policy_references.VdcComputePolicyReference:
             if policy_id == policy_reference.get('id'):
                 policy_references.remove(policy_reference)
-                return self.client.put_linked_resource(
+                return await self.client.put_linked_resource(
                     self.resource, RelationType.DOWN,
                     EntityType.VDC_COMPUTE_POLICY_REFERENCES.value,
                     policy_references)
