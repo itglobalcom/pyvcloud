@@ -367,7 +367,7 @@ class VdcNetwork(object):
         :rtype: list
         """
         allocated_ip_addresses = await self.client.get_linked_resource(
-            self.get_resource(), RelationType.DOWN,
+            await self.get_resource(), RelationType.DOWN,
             EntityType.ALLOCATED_NETWORK_ADDRESS.value)
         result = []
         for ip_address in allocated_ip_addresses.IpAddress:
@@ -387,7 +387,7 @@ class VdcNetwork(object):
         """
         vapp_name_list = []
         if (self.client.is_sysadmin()):
-            vdc = await self.client.get_linked_resource(self.get_resource(),
+            vdc = await self.client.get_linked_resource(await self.get_resource(),
                                                   RelationType.UP,
                                                   EntityType.VDC_ADMIN.value)
         else:
