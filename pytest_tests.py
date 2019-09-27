@@ -381,6 +381,19 @@ async def test_vm_disk(vapp, vdc):
 
 
 @pytest.mark.asyncio
+async def test_list_storage_profile(vapp):
+    vm_resource = await vapp.get_vm()
+    vm = VM(vapp.client, resource=vm_resource)
+    dic = await vm.list_storage_profile()
+    for field in (
+        'name',
+        'id',
+        'href',
+    ):
+        assert field in dic[0]
+
+
+@pytest.mark.asyncio
 async def test_add_resources(vapp, vdc):
     await vapp.reload()
 
