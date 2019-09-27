@@ -1283,7 +1283,7 @@ async def test_nat(dummy_gateway, action, protocol, original_port, translated_po
             assert nat_id != nat_dic['ID']
 
 
-# @pytest.mark.skip()
+@pytest.mark.skip()
 @pytest.mark.asyncio
 async def test_tmp(client):
     # platform = Platform(sys_admin_client)

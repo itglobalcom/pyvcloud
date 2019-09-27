@@ -46,6 +46,7 @@ from pyvcloud.vcd.exceptions import AccessForbiddenException, \
     VcdTaskException  # NOQA
 
 SIZE_1MB = 1024 * 1024
+TIMEOUT = 1 * 60 * 60  # 1 hour
 
 NSMAP = {
     'ns10':
@@ -614,7 +615,7 @@ class VAppPowerStatus(Enum):
 
 class _TaskMonitor(object):
     _DEFAULT_POLL_SEC = 1
-    _DEFAULT_TIMEOUT_SEC = 600
+    _DEFAULT_TIMEOUT_SEC = TIMEOUT
 
     def __init__(self, client):
         self._client = client
@@ -905,7 +906,7 @@ class Client(object):
 
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        async with aiohttp.ClientSession() as new_session:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=TIMEOUT)) as new_session:
             # Use with block to avoid leaking socket connections.
             response = await self._do_request_prim(
                 'GET', self._uri + '/versions', new_session, accept_type='')
@@ -963,7 +964,8 @@ class Client(object):
         # We can now proceed to login. Ensure we close session if
         # any exception is thrown to avoid leaking a socket connection.
         self._logger.debug('API version in use: %s' % self._api_version)
-        new_session = aiohttp.ClientSession()
+        new_session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=TIMEOUT))
+
         try:
             response = await self._do_request_prim(
                 'POST',
@@ -1017,7 +1019,7 @@ class Client(object):
 
 
     async def rehydrate(self, state):
-        self._session = aiohttp.ClientSession()
+        self._session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=TIMEOUT))
         self._session.headers[self._HEADER_X_VCLOUD_AUTH_NAME] = \
             state.get('token')
         self._is_sysadmin = self._is_sys_admin(state.get('org'))
@@ -1028,7 +1030,7 @@ class Client(object):
                 self._session_endpoints[endpoint] = wkep[endpoint.name]
 
     async def rehydrate_from_token(self, token):
-        new_session = aiohttp.ClientSession()
+        new_session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=TIMEOUT))
         new_session.headers[self._HEADER_X_VCLOUD_AUTH_NAME] = token
         response = await self._do_request_prim('GET', self._uri + "/session",
                                          new_session)
