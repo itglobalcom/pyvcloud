@@ -863,14 +863,14 @@ class VDC(object):
         await self.get_resource()
 
         if disk_id is not None:
-            disk = self.get_disk(disk_id=disk_id)
+            disk = await self.get_disk(disk_id=disk_id)
         else:
-            disk = self.get_disk(name=name)
+            disk = await self.get_disk(name=name)
 
         new_owner = disk.Owner
         new_owner.User.set('href', user_href)
         etree.cleanup_namespaces(new_owner)
-        return self.client.put_resource(
+        return await self.client.put_resource(
             disk.get('href') + '/owner/', new_owner, EntityType.OWNER.value)
 
     async def get_storage_profiles(self):
