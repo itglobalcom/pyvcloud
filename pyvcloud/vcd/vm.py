@@ -1448,17 +1448,24 @@ class VM(object):
         """
         storage_profile = []
         await self.get_resource()
-        if hasattr(self.resource.VmSpecSection, 'DiskSection'):
-            if hasattr(self.resource.VmSpecSection.DiskSection,
-                       'DiskSettings'):
-                for disk_setting in \
-                        self.resource.VmSpecSection.DiskSection.DiskSettings:
-                    if hasattr(disk_setting, 'StorageProfile'):
-                        storage_profile.append({
-                            'name': disk_setting.StorageProfile.get('name'),
-                            'id': disk_setting.StorageProfile.get('id'),
-                            'href': disk_setting.StorageProfile.get('href'),
-                        })
+        if hasattr(self.resource, 'VmSpecSection'):
+            if hasattr(self.resource.VmSpecSection, 'DiskSection'):
+                if hasattr(self.resource.VmSpecSection.DiskSection,
+                           'DiskSettings'):
+                    for disk_setting in \
+                            self.resource.VmSpecSection.DiskSection.DiskSettings:
+                        if hasattr(disk_setting, 'StorageProfile'):
+                            storage_profile.append({
+                                'name': disk_setting.StorageProfile.get('name'),
+                                'id': disk_setting.StorageProfile.get('id'),
+                                'href': disk_setting.StorageProfile.get('href'),
+                            })
+        else:  # VCloud 9.7
+            storage_profile.append({
+                'name': self.resource.StorageProfile.get('name'),
+                'id': self.resource.StorageProfile.get('id'),
+                'href': self.resource.StorageProfile.get('href'),
+            })
         return storage_profile
 
     async def get_storage_profile_id(self, name=None, vm_resource=None):
