@@ -119,8 +119,8 @@ class VM(object):
         uri = self.href + '/virtualHardwareSection/cpu'
         item = await self.client.get_resource(uri)
         return {
-            'num_cpus': item[tag('rasd')('VirtualQuantity')],
-            'num_cores_per_socket': item[tag('vmw')('CoresPerSocket')],
+            'num_cpus': int(item[tag('rasd')('VirtualQuantity')]),
+            'num_cores_per_socket': int(item[tag('vmw')('CoresPerSocket')]),
         }
 
     async def get_memory(self):
