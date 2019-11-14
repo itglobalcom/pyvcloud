@@ -1546,8 +1546,6 @@ class VM(object):
             guest_customization.remove(guest_customization.ComputerName)
             cn = E.ComputerName(computer_name)
             guest_customization.ResetPasswordRequired.addnext(cn)
-        else:
-            del self.resource.GuestCustomizationSection
         if description is not None:
             if hasattr(self.resource, 'Description'):
                 self.resource.remove(self.resource.Description)
