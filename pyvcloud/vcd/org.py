@@ -173,7 +173,7 @@ class Org(object):
         """
         if self.resource is None:
             await self.reload()
-        if self.client.get_api_version() < ApiVersion.VERSION_33.value:
+        if float(self.client.get_api_version()) < float(ApiVersion.VERSION_33.value):
             links = get_links(
                 self.resource,
                 rel=RelationType.DOWN,
