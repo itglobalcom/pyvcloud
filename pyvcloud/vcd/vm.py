@@ -1361,6 +1361,8 @@ class VM(object):
             'AdminPasswordEnabled',
             'AdminPasswordAuto',
             'AdminPassword',
+            'AdminAutoLogonEnabled',
+            'AdminAutoLogonCount',
             'ResetPasswordRequired',
             'CustomizationScript',
             'ComputerName',
