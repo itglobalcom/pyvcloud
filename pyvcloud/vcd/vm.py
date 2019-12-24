@@ -2001,7 +2001,7 @@ class VM(object):
 
         return result
 
-    def update_guest_customization_section(self, enabled=None,
+    async def update_guest_customization_section(self, enabled=None,
                                            change_sid=None,
                                            join_domain_enabled=None,
                                            use_org_settings=None,
@@ -2036,9 +2036,9 @@ class VM(object):
             the asynchronous task updating guest customization section.
         :rtype: lxml.objectify.ObjectifiedElement
         """
-        self.get_resource()
+        await self.get_resource()
         uri = self.href + '/guestCustomizationSection/'
-        gc_section = self.get_guest_customization_section()
+        gc_section = await self.get_guest_customization_section()
         if enabled is not None:
             gc_section.Enabled = E.Enabled(enabled)
         if change_sid is not None:
@@ -2076,7 +2076,7 @@ class VM(object):
             gc_section.CustomizationScript = E.CustomizationScript(
                 customization_script)
 
-        return self.client. \
+        return await self.client. \
             put_resource(uri, gc_section,
                          EntityType.GUEST_CUSTOMIZATION_SECTION.value)
 
