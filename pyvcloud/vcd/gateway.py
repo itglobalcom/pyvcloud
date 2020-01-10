@@ -1118,6 +1118,9 @@ class Gateway(object):
         """
         nat_rule_href = self._build_nat_rule_href()
         nat_rules_resource = await self.get_nat_rules()
+        nat_rules_resource.enabled = True
+        objectify.deannotate(nat_rules_resource)
+        etree.cleanup_namespaces(nat_rules_resource)
         nat_rules_tag = nat_rules_resource.natRules
         nat_rule = E.natRule()
         nat_rule.append(E.ruleType(type))
@@ -1335,6 +1338,9 @@ class Gateway(object):
         """
         ipsec_vpn_href = self._build_ipsec_vpn_href()
         ipsec_vpn_resource = await self.get_ipsec_vpn()
+        ipsec_vpn_resource.enabled = True
+        objectify.deannotate(ipsec_vpn_resource)
+        etree.cleanup_namespaces(ipsec_vpn_resource)
         vpn_sites = ipsec_vpn_resource.sites
         site = E.site()
         site.append(E.enabled(is_enabled))
