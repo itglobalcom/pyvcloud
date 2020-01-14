@@ -31,6 +31,7 @@ from pyvcloud.vcd.network_url_constants import FIREWALL_URL_TEMPLATE
 from pyvcloud.vcd.network_url_constants import GET_CERTIFICATES
 from pyvcloud.vcd.network_url_constants import GET_CRL_CERTIFICATES
 from pyvcloud.vcd.network_url_constants import IPSEC_VPN_URL_TEMPLATE
+from pyvcloud.vcd.network_url_constants import IPSEC_VPN_URL_STATISTICS_TEMPLATE
 from pyvcloud.vcd.network_url_constants import NAT_URL_TEMPLATE
 from pyvcloud.vcd.network_url_constants import SERVICE_CERTIFICATE_POST
 from pyvcloud.vcd.network_url_constants import STATIC_ROUTE_URL_TEMPLATE
@@ -1381,6 +1382,10 @@ class Gateway(object):
         network_url = build_network_url_from_gateway_url(self.href)
         return network_url + IPSEC_VPN_URL_TEMPLATE
 
+    def _build_ipsec_vpn_statistics_href(self):
+        network_url = build_network_url_from_gateway_url(self.href)
+        return network_url + IPSEC_VPN_URL_STATISTICS_TEMPLATE
+
     async def get_ipsec_vpn(self):
         """Get IPSec VPN from vCD.
 
@@ -1389,6 +1394,10 @@ class Gateway(object):
         """
         ipsec_vpn_href = self._build_ipsec_vpn_href()
         return await self.client.get_resource(ipsec_vpn_href)
+
+    async def get_ipsec_vpn_statistic(self):
+        ipsec_vpn_statistics_href = self._build_ipsec_vpn_statistics_href()
+        return await self.client.get_resource(ipsec_vpn_statistics_href)
 
     async def delete_ipsec_vpn(self):
         ipsec_vpn_href = self._build_ipsec_vpn_href()

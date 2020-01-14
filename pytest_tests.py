@@ -1162,6 +1162,9 @@ async def test_vpn(dummy_gateway):
                 break
         else:
             raise RuntimeError(f'No VPN {vpn_name}')
+
+        resource = await gateway.get_ipsec_vpn_statistic()
+        assert resource.siteStatistics.ikeStatus.channelState.text == 'CONNECTING'
     finally:
         # Remove
         ipsec_endpoint = f'{resource_vpn.localIp}-{resource_vpn.peerIp}'
@@ -1285,86 +1288,7 @@ async def test_nat(dummy_gateway, action, protocol, original_port, translated_po
             assert nat_id != nat_dic['ID']
 
 
-# @pytest.mark.skip()
+@pytest.mark.skip()
 @pytest.mark.asyncio
-async def test_tmp(sys_admin_client):
-    platform = Platform(sys_admin_client)
-    raise ZeroDivisionError(
-        etree.tostring(
-            await platform.list_vcenters(),
-            pretty_print=True
-        ).decode('utf8')
-    )
-    """
-    <vmext:VimServerReference 
-        xmlns:vmext="http://www.vmware.com/vcloud/extension/v1.5" 
-        xmlns="http://www.vmware.com/vcloud/v1.5"
-        xmlns:ovf="http://schemas.dmtf.org/ovf/envelope/1" 
-        xmlns:vssd="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_VirtualSystemSettingData" 
-        xmlns:common="http://schemas.dmtf.org/wbem/wscim/1/common" 
-        xmlns:rasd="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_ResourceAllocationSettingData" 
-        xmlns:vmw="http://www.vmware.com/schema/ovf" 
-        xmlns:ovfenv="http://schemas.dmtf.org/ovf/environment/1" 
-        xmlns:ns9="http://www.vmware.com/vcloud/versions" 
-        href="https://vcloud-lab.itglobal.com/api/admin/extension/vimServer/db1bf375-c1e6-468c-bf2f-ef5d0a538eb9" 
-        id="urn:vcloud:vimserver:db1bf375-c1e6-468c-bf2f-ef5d0a538eb9" 
-        name="vc01-lab.itglobal.com" 
-        type="application/vnd.vmware.admin.vmwvirtualcenter+xml"
-    />
-    """
-    # org = Org(vdc.client, href=org_href)
-    # catalog_item = await org.get_catalog_item('Templates', 'Ubuntu 16.04 x64 v6 (minimal requirements)')
-    # template_resource = await vdc.client.get_resource(
-    #     catalog_item.Entity.get('href'))
-    # with open('tmp.xml', 'wb') as f:
-    #     f.write(
-    #         etree.tostring(
-    #             template_resource,
-    #             pretty_print=True
-    #         )
-    #     )
-    # p = Platform(sys_admin_client)
-    # l = await p.get_vcenter('vc01-ds1.itglobal.com')
-    # vapp_id = 'urn:vcloud:vapp:4d91e07a-d0fc-4c46-ac0d-a8160d576717'
-    # l = await vdc.get_vapp_by_id(vapp_id)
-    # with open('tmp3.xml', 'wb') as f:
-    #     f.write(
-    #         etree.tostring(
-    #             # l,
-    #             await vdc.get_resource(),
-    #             pretty_print=True
-    #         )
-    #     )
-
-
-# @pytest.mark.asyncio
-# async def test_tmp(sys_admin_client, vdc):
-#     vdc.client = sys_admin_client
-#     for n in range(
-#         29, 516
-#     ):
-#         try:
-#             await vdc.delete_gateway(f'b2c_itglobal_Edge_{n}')
-#         except Exception as err:
-#             print('err', n, err)
-    # vdc_resource = await vdc.get_resource()
-    #
-    # vapp = VApp(vdc.client, resource=vapp_resource)
-    # await vapp.reload()
-    # with open('vapp_resource_orguser.xml', 'wb') as f:
-    #     f.write(etree.tostring(
-    #         await vapp.get_resource(),
-    #         pretty_print=True
-    #     ))
-    #
-    # # sys admin
-    # vdc.client = sys_admin_client
-    # await vdc.reload()
-    # vapp_resource = await vdc.get_vapp_by_id(vapp_id)
-    # vapp = VApp(sys_admin_client, resource=vapp_resource)
-    # await vapp.reload()
-    # with open('vapp_resource_sysadmin.xml', 'wb') as f:
-    #     f.write(etree.tostring(
-    #         await vapp.get_resource(),
-    #         pretty_print=True
-    #     ))
+async def test_tmp():
+    pass
