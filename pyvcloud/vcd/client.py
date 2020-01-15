@@ -1101,42 +1101,63 @@ class Client(object):
 
     @staticmethod
     def _response_code_to_exception(sc, request_id, objectify_response):
+        try:
+            xml = etree.tostring(
+                objectify_response,
+                pretty_print=True
+            ).decode('utf8')
+        except:
+            xml = str(objectify_response)
         if sc == 400:
-            raise BadRequestException(sc, request_id, objectify_response)
+            # raise BadRequestException(sc, request_id, objectify_response)
+            raise BadRequestException(sc, request_id, xml)
 
         if sc == 401:
-            raise UnauthorizedException(sc, request_id, objectify_response)
+            # raise UnauthorizedException(sc, request_id, objectify_response)
+            raise UnauthorizedException(sc, request_id, xml)
 
         if sc == 403:
-            raise AccessForbiddenException(sc, request_id, objectify_response)
+            # raise AccessForbiddenException(sc, request_id, objectify_response)
+            raise AccessForbiddenException(sc, request_id, xml)
 
         if sc == 404:
-            raise NotFoundException(sc, request_id, objectify_response)
+            # raise NotFoundException(sc, request_id, objectify_response)
+            raise NotFoundException(sc, request_id, xml)
 
         if sc == 405:
-            raise MethodNotAllowedException(sc, request_id, objectify_response)
+            # raise MethodNotAllowedException(sc, request_id, objectify_response)
+            raise MethodNotAllowedException(sc, request_id, xml)
 
         if sc == 406:
-            raise NotAcceptableException(sc, request_id, objectify_response)
+            # raise NotAcceptableException(sc, request_id, objectify_response)
+            raise NotAcceptableException(sc, request_id, xml)
 
         if sc == 408:
-            raise RequestTimeoutException(sc, request_id, objectify_response)
+            # raise RequestTimeoutException(sc, request_id, objectify_response)
+            raise RequestTimeoutException(sc, request_id, xml)
 
         if sc == 409:
-            raise ConflictException(sc, request_id, objectify_response)
+            # raise ConflictException(sc, request_id, objectify_response)
+            raise ConflictException(sc, request_id, xml)
 
         if sc == 415:
+            # raise UnsupportedMediaTypeException(sc, request_id,
+            #                                     objectify_response)
             raise UnsupportedMediaTypeException(sc, request_id,
-                                                objectify_response)
+                                                xml)
 
         if sc == 416:
+            # raise InvalidContentLengthException(sc, request_id,
+            #                                     objectify_response)
             raise InvalidContentLengthException(sc, request_id,
-                                                objectify_response)
+                                                xml)
 
         if sc == 500:
-            raise InternalServerException(sc, request_id, objectify_response)
+            # raise InternalServerException(sc, request_id, objectify_response)
+            raise InternalServerException(sc, request_id, xml)
 
-        raise UnknownApiException(sc, request_id, objectify_response)
+        # raise UnknownApiException(sc, request_id, objectify_response)
+        raise UnknownApiException(sc, request_id, xml)
 
     def _redact_headers(self, headers):
         redacted_headers = {}
