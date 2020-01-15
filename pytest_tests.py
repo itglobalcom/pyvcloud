@@ -1229,12 +1229,15 @@ async def test_vpn_edit(dummy_gateway):
         assert resource.siteStatistics.ikeStatus.channelState.text == 'CONNECTING'
     finally:
         # Remove
-        ipsec_endpoint = f'{resource_vpn.localIp}-{resource_vpn.peerIp}'
-        ipsec_vpn = IpsecVpn(gateway.client, parent=(await gateway.get_resource()), ipsec_end_point=ipsec_endpoint)
-        await ipsec_vpn.delete_ipsec_vpn()
+        await gateway.edit_ipsec_vpn(
+            enabled=True,
+            sites=[]
+        )
+        await gateway.reload()
 
         # Check
         for resource in await gateway.list_ipsec_vpn_resource():
+            raise RuntimeError('Don\'t remove VPN')
             if resource.name == vpn_name:
                 raise RuntimeError(f'Don\'t removed VPN {vpn_name}')
         else:

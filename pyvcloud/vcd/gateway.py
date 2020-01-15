@@ -1411,6 +1411,8 @@ class Gateway(object):
         """
         ipsec_vpn_href = self._build_ipsec_vpn_href()
         ipsec_vpn_resource = await self.get_ipsec_vpn()
+        if hasattr(ipsec_vpn_resource.sites, 'site'):
+            del ipsec_vpn_resource.sites.site
         if len(sites):
             ipsec_vpn_resource.enabled = True
             objectify.deannotate(ipsec_vpn_resource)
