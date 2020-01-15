@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import json
+from typing import List
 
 from lxml import etree
 from lxml import objectify
@@ -1374,6 +1375,98 @@ class Gateway(object):
         site.append(E.authenticationMode(authentication_mode))
         site.append(E.dhGroup(dh_group))
         vpn_sites.append(site)
+
+        await self.client.put_resource(ipsec_vpn_href, ipsec_vpn_resource,
+                                 EntityType.DEFAULT_CONTENT_TYPE.value)
+
+    async def edit_ipsec_vpn(self, enabled: bool, sites: List):
+        """Edit IPsec VPN in the gateway.
+
+        <site>
+            <enabled>true</enabled>
+            <name>VMC-US-East-Management</name>
+            <localId>111.222.33.44</localId>
+            <localIp>111.222.33.44</localIp>
+            <peerId>44.55.66.77</peerId>
+            <peerIp>44.55.66.77</peerIp>
+            <ipsecSessionType>policybasedsession</ipsecSessionType>
+            <encryptionAlgorithm>aes256</encryptionAlgorithm>
+            <enablePfs>true</enablePfs>
+            <dhGroup>dh14</dhGroup>
+            <localSubnets>
+                <subnet>172.18.40.0/24</subnet>
+                <subnet>172.20.0.0/24</subnet>
+            </localSubnets>
+            <peerSubnets>
+                <subnet>10.2.0.0/16</subnet>
+            </peerSubnets>
+            <psk>NotTheRealPSK</psk>
+            <authenticationMode>psk</authenticationMode>
+
+            <siteId>ipsecsite-1</siteId>
+            <ikeOption>ikev2</ikeOption>
+            <digestAlgorithm>sha1</digestAlgorithm>
+            <responderOnly>false</responderOnly>
+        </site>
+        """
+        ipsec_vpn_href = self._build_ipsec_vpn_href()
+        ipsec_vpn_resource = await self.get_ipsec_vpn()
+        if len(sites):
+            ipsec_vpn_resource.enabled = True
+            objectify.deannotate(ipsec_vpn_resource)
+            etree.cleanup_namespaces(ipsec_vpn_resource)
+
+            for site_json in sites:
+                site = E.site()
+
+                if 'enabled' in site_json:
+                    site.append(E.enabled(site_json['enabled']))
+                if 'name' in site_json:
+                    site.append(E.name(site_json['name']))
+                if 'description' in site_json:
+                    site.append(E.description(site_json['description']))
+                if 'localId' in site_json:
+                    site.append(E.localId(site_json['localId']))
+                if 'localIp' in site_json:
+                    site.append(E.localIp(site_json['localIp']))
+                if 'peerId' in site_json:
+                    site.append(E.peerId(site_json['peerId']))
+                if 'peerIp' in site_json:
+                    site.append(E.peerIp(site_json['peerIp']))
+                if 'ipsecSessionType' in site_json:
+                    site.append(E.ipsecSessionType(site_json['ipsecSessionType']))
+                if 'encryptionAlgorithm' in site_json:
+                    site.append(E.encryptionAlgorithm(site_json['encryptionAlgorithm']))
+                if 'mtu' in site_json:
+                    site.append(E.mtu(site_json['mtu']))
+                if 'enablePfs' in site_json:
+                    site.append(E.enablePfs(site_json['enablePfs']))
+                if 'dhGroup' in site_json:
+                    site.append(E.dhGroup(site_json['dhGroup']))
+                if 'localSubnets' in site_json:
+                    local_subnets = E.localSubnets()
+                    for subnet in site_json['localSubnets']:
+                        local_subnets.append(E.subnet(subnet))
+                    site.append(local_subnets)
+                if 'peerSubnets' in site_json:
+                    peer_subnets = E.peerSubnets()
+                    for subnet in site_json['peerSubnets']:
+                        peer_subnets.append(E.subnet(subnet))
+                    site.append(peer_subnets)
+                if 'psk' in site_json:
+                    site.append(E.psk(site_json['psk']))
+                if 'authenticationMode' in site_json:
+                    site.append(E.authenticationMode(site_json['authenticationMode']))
+                if 'ikeOption' in site_json:
+                    site.append(E.ikeOption(site_json['ikeOption']))
+                if 'digestAlgorithm' in site_json:
+                    site.append(E.digestAlgorithm(site_json['digestAlgorithm']))
+                if 'responderOnly' in site_json:
+                    site.append(E.responderOnly(site_json['responderOnly']))
+                if 'complianceSuite' in site_json:
+                    site.append(E.complianceSuite(site_json['complianceSuite']))
+
+                ipsec_vpn_resource.sites.append(site)
 
         await self.client.put_resource(ipsec_vpn_href, ipsec_vpn_resource,
                                  EntityType.DEFAULT_CONTENT_TYPE.value)
