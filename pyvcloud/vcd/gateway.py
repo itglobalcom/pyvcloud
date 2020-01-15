@@ -1411,8 +1411,8 @@ class Gateway(object):
         """
         ipsec_vpn_href = self._build_ipsec_vpn_href()
         ipsec_vpn_resource = await self.get_ipsec_vpn()
-        if hasattr(ipsec_vpn_resource.sites, 'site'):
-            del ipsec_vpn_resource.sites.site
+        # if hasattr(ipsec_vpn_resource.sites, 'site'):
+        del ipsec_vpn_resource.sites.site
         if len(sites):
             ipsec_vpn_resource.enabled = True
             objectify.deannotate(ipsec_vpn_resource)
@@ -1459,6 +1459,8 @@ class Gateway(object):
                     site.append(E.psk(site_json['psk']))
                 if 'authenticationMode' in site_json:
                     site.append(E.authenticationMode(site_json['authenticationMode']))
+                if 'siteId' in site_json:
+                    site.append(E.siteId(site_json['siteId']))
                 if 'ikeOption' in site_json:
                     site.append(E.ikeOption(site_json['ikeOption']))
                 if 'digestAlgorithm' in site_json:
