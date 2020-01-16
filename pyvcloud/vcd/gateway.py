@@ -1414,7 +1414,7 @@ class Gateway(object):
         #     ipsec_vpn_resource.sites.site.clear()
         ipsec_vpn_resource.sites.clear()
         if len(sites):
-            ipsec_vpn_resource.enabled = True
+            ipsec_vpn_resource.enabled = enabled
             objectify.deannotate(ipsec_vpn_resource)
             etree.cleanup_namespaces(ipsec_vpn_resource)
 
