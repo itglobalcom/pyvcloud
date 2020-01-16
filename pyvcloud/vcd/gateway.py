@@ -1420,53 +1420,53 @@ class Gateway(object):
             for site_json in sites:
                 site = E.site()
 
-                if 'enabled' in site_json:
+                if site_json.get('enabled') is not None:
                     site.append(E.enabled(site_json['enabled']))
-                if 'name' in site_json:
+                if site_json.get('name') is not None:
                     site.append(E.name(site_json['name']))
-                if 'description' in site_json:
+                if site_json.get('description') is not None:
                     site.append(E.description(site_json['description']))
-                if 'localId' in site_json:
+                if site_json.get('localId') is not None:
                     site.append(E.localId(site_json['localId']))
-                if 'localIp' in site_json:
+                if site_json.get('localIp') is not None:
                     site.append(E.localIp(site_json['localIp']))
-                if 'peerId' in site_json:
+                if site_json.get('peerId') is not None:
                     site.append(E.peerId(site_json['peerId']))
-                if 'peerIp' in site_json:
+                if site_json.get('peerIp') is not None:
                     site.append(E.peerIp(site_json['peerIp']))
-                if 'ipsecSessionType' in site_json:
+                if site_json.get('ipsecSessionType') is not None:
                     site.append(E.ipsecSessionType(site_json['ipsecSessionType']))
-                if 'encryptionAlgorithm' in site_json:
+                if site_json.get('encryptionAlgorithm') is not None:
                     site.append(E.encryptionAlgorithm(site_json['encryptionAlgorithm']))
-                if 'mtu' in site_json:
+                if site_json.get('mtu') is not None:
                     site.append(E.mtu(site_json['mtu']))
-                if 'enablePfs' in site_json:
+                if site_json.get('enablePfs') is not None:
                     site.append(E.enablePfs(site_json['enablePfs']))
-                if 'dhGroup' in site_json:
+                if site_json.get('dhGroup') is not None:
                     site.append(E.dhGroup(site_json['dhGroup']))
-                if 'localSubnets' in site_json:
+                if site_json.get('localSubnets') is not None:
                     local_subnets = E.localSubnets()
                     for subnet in site_json['localSubnets']:
                         local_subnets.append(E.subnet(subnet))
                     site.append(local_subnets)
-                if 'peerSubnets' in site_json:
+                if site_json.get('peerSubnets') is not None:
                     peer_subnets = E.peerSubnets()
                     for subnet in site_json['peerSubnets']:
                         peer_subnets.append(E.subnet(subnet))
                     site.append(peer_subnets)
-                if 'psk' in site_json:
+                if site_json.get('psk') is not None:
                     site.append(E.psk(site_json['psk']))
-                if 'authenticationMode' in site_json:
+                if site_json.get('authenticationMode') is not None:
                     site.append(E.authenticationMode(site_json['authenticationMode']))
-                if 'siteId' in site_json:
+                if site_json.get('siteId') is not None:
                     site.append(E.siteId(site_json['siteId']))
-                if 'ikeOption' in site_json:
+                if site_json.get('ikeOption') is not None:
                     site.append(E.ikeOption(site_json['ikeOption']))
-                if 'digestAlgorithm' in site_json:
+                if site_json.get('digestAlgorithm') is not None:
                     site.append(E.digestAlgorithm(site_json['digestAlgorithm']))
-                if 'responderOnly' in site_json:
+                if site_json.get('responderOnly') is not None:
                     site.append(E.responderOnly(site_json['responderOnly']))
-                if 'complianceSuite' in site_json:
+                if site_json.get('complianceSuite') is not None:
                     site.append(E.complianceSuite(site_json['complianceSuite']))
 
                 ipsec_vpn_resource.sites.append(site)

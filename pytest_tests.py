@@ -1190,6 +1190,7 @@ async def test_vpn_edit(dummy_gateway, enabled):
         enabled=enabled,
         sites=[
             {
+                'siteId': None,
                 "enabled": True,
                 "name": "test-shevch",
                 "description": "b2c_itglobal_tunnelId_2",
