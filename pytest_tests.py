@@ -1180,17 +1180,16 @@ async def test_vpn(dummy_gateway):
 
 
 @pytest.mark.asyncio
-async def test_vpn_edit(dummy_gateway):
+@pytest.mark.parametrize('enabled',
+                         [True, False])
+async def test_vpn_edit(dummy_gateway, enabled):
     gateway = dummy_gateway
-    hash = uuid.uuid4().hex[:5]
-    vpn_name = f'TestVpn-{hash}'
 
     # Create
     await gateway.edit_ipsec_vpn(
-        enabled=True,
+        enabled=enabled,
         sites=[
             {
-                # "siteId": "РЕАЛЬНЫЙ SITE ID",
                 "enabled": True,
                 "name": "test-shevch",
                 "description": "b2c_itglobal_tunnelId_2",
@@ -1252,7 +1251,7 @@ async def test_vpn_edit(dummy_gateway):
         # Get
         vpn_resources = await gateway.get_ipsec_vpn()
 
-        assert vpn_resources.enabled == True
+        assert vpn_resources.enabled == enabled
         assert len(vpn_resources.sites.site) == 2
 
         vpn_id_1 = vpn_id_2 = None
@@ -1306,12 +1305,13 @@ async def test_vpn_edit(dummy_gateway):
         #     raise RuntimeError(f'No VPN {vpn_name}')
 
         resource = await gateway.get_ipsec_vpn_statistic()
-        assert resource.siteStatistics[0].ikeStatus.channelState.text == 'CONNECTING'
-        assert resource.siteStatistics[1].ikeStatus.channelState.text == 'CONNECTING'
+        # assert resource.siteStatistics[0].ikeStatus.channelState.text == 'CONNECTING'
+        # assert resource.siteStatistics[1].ikeStatus.channelState.text == 'CONNECTING'
+        assert len(resource.siteStatistics) == 2
 
         # Change
         await gateway.edit_ipsec_vpn(
-            enabled=True,
+            enabled=not enabled,
             sites=[
                 {
                     "siteId": vpn_id_2,
@@ -1373,7 +1373,7 @@ async def test_vpn_edit(dummy_gateway):
         # Get
         vpn_resources = await gateway.get_ipsec_vpn()
 
-        assert vpn_resources.enabled == True
+        assert vpn_resources.enabled == (not enabled)
         assert len(vpn_resources.sites.site) == 2
 
 
@@ -1430,7 +1430,7 @@ async def test_vpn_edit(dummy_gateway):
     finally:
         # Remove
         await gateway.edit_ipsec_vpn(
-            enabled=True,
+            enabled=False,
             sites=[]
         )
         # await gateway.delete_ipsec_vpn()

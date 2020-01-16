@@ -1413,11 +1413,10 @@ class Gateway(object):
         # if hasattr(ipsec_vpn_resource.sites, 'site'):
         #     ipsec_vpn_resource.sites.site.clear()
         ipsec_vpn_resource.sites.clear()
+        ipsec_vpn_resource.enabled = enabled
+        objectify.deannotate(ipsec_vpn_resource)
+        etree.cleanup_namespaces(ipsec_vpn_resource)
         if len(sites):
-            ipsec_vpn_resource.enabled = enabled
-            objectify.deannotate(ipsec_vpn_resource)
-            etree.cleanup_namespaces(ipsec_vpn_resource)
-
             for site_json in sites:
                 site = E.site()
 
