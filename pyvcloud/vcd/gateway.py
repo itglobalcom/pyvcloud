@@ -1402,7 +1402,6 @@ class Gateway(object):
             </peerSubnets>
             <psk>NotTheRealPSK</psk>
             <authenticationMode>psk</authenticationMode>
-
             <siteId>ipsecsite-1</siteId>
             <ikeOption>ikev2</ikeOption>
             <digestAlgorithm>sha1</digestAlgorithm>
@@ -1412,7 +1411,8 @@ class Gateway(object):
         ipsec_vpn_href = self._build_ipsec_vpn_href()
         ipsec_vpn_resource = await self.get_ipsec_vpn()
         # if hasattr(ipsec_vpn_resource.sites, 'site'):
-        del ipsec_vpn_resource.sites.site
+        #     ipsec_vpn_resource.sites.site.clear()
+        ipsec_vpn_resource.sites.clear()
         if len(sites):
             ipsec_vpn_resource.enabled = True
             objectify.deannotate(ipsec_vpn_resource)
@@ -1473,7 +1473,7 @@ class Gateway(object):
                 ipsec_vpn_resource.sites.append(site)
 
         await self.client.put_resource(ipsec_vpn_href, ipsec_vpn_resource,
-                                 EntityType.DEFAULT_CONTENT_TYPE.value)
+                             EntityType.DEFAULT_CONTENT_TYPE.value)
 
     def _build_ipsec_vpn_href(self):
         network_url = build_network_url_from_gateway_url(self.href)

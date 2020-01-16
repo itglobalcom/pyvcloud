@@ -1188,51 +1188,252 @@ async def test_vpn_edit(dummy_gateway):
     # Create
     await gateway.edit_ipsec_vpn(
         enabled=True,
-        sites=[{
-            'name': vpn_name,
-            'peerId': 10,
-            'peerIp': '8.8.8.8',
-            'localId': 20,
-            'localIp': '46.243.180.243',
-            'localSubnets': ['10.10.10.0/24'],
-            'peerSubnets': ['11.10.11.0/24'],
-            'psk': '123',
-            'encryptionAlgorithm': 'AES',
-            'authenticationMode': 'PSK',
-            'description': 'Test description',
-            'enabled': True,
-        }]
+        sites=[
+            {
+                # "siteId": "РЕАЛЬНЫЙ SITE ID",
+                "enabled": True,
+                "name": "test-shevch",
+                "description": "b2c_itglobal_tunnelId_2",
+                "localId": "46.243.184.12",
+                "localIp": "46.243.184.12",
+                "localSubnets": [
+                    "10.0.0.0/24"
+                ],
+                "peerId": "172.16.0.1",
+                "peerIp": "172.16.0.1",
+                "peerSubnets": [
+                    "172.16.0.0/24"
+                ],
+                "psk": "gfdfgdfgdfgsdfgsgdfgsgdsfgsdf3443FGgsfgsfgsfgsdfgsgf",
+                "mtu": 1500,
+                "complianceSuite": "none",
+                "ipsecSessionType": "policybasedsession",
+                "responderOnly": False,
+                "enablePfs": False,
+                "encryptionAlgorithm": "aes",
+                "digestAlgorithm": "sha1",
+                "dhGroup": "DH14",
+                "ikeOption": "IKEv1",
+                "authenticationMode": "psk"
+            },
+            {
+                # "siteId": "РЕАЛЬНЫЙ SITE ID",
+                "enabled": True,
+                "name": "test-shevch-3des",
+                "description": "b2c_itglobal_tunnelId_3",
+                "localId": "46.243.184.12",
+                "localIp": "46.243.184.12",
+                "localSubnets": [
+                    "10.0.0.0/24"
+                ],
+                "peerId": "192.168.0.1",
+                "peerIp": "192.168.0.1",
+                "peerSubnets": [
+                    "192.168.0.0/24"
+                ],
+                "psk": "gfdfgdfgdfgsdfgsgdfgsgdsfgsdf3443FGgsfgsfgsfgsdfgsgf",
+                "mtu": 1500,
+                "complianceSuite": "none",
+                "ipsecSessionType": "policybasedsession",
+                "responderOnly": False,
+                "enablePfs": False,
+                "encryptionAlgorithm": "3des",
+                "digestAlgorithm": "sha1",
+                "dhGroup": "DH14",
+                "ikeOption": "IKEv1",
+                "authenticationMode": "psk"
+            }
+        ]
     )
     await gateway.reload()
 
-    # Get
-    resource_vpn = None
+
     try:
-        for resource in await gateway.list_ipsec_vpn_resource():
-            if resource.name == vpn_name:
-                assert resource.localIp == '46.243.180.243'
-                assert resource.peerId.text == '10'
-                assert resource.localId.text == '20'
-                assert resource.localSubnets.subnet == '10.10.10.0/24'
-                assert resource.peerSubnets.subnet == '11.10.11.0/24'
-                assert resource.encryptionAlgorithm == 'aes'
-                assert resource.authenticationMode == 'psk'
-                assert resource.description == 'Test description'
+        # Get
+        vpn_resources = await gateway.get_ipsec_vpn()
+
+        assert vpn_resources.enabled == True
+        assert len(vpn_resources.sites.site) == 2
+
+        vpn_id_1 = vpn_id_2 = None
+
+        for resource in vpn_resources.sites.site:
+            if resource.name == 'test-shevch':
+                vpn_id_1 = resource.siteId.text
+
+                assert resource.localIp.text == '46.243.184.12'
+                assert resource.peerId.text == '172.16.0.1'
+                assert resource.peerIp.text == '172.16.0.1'
+                assert resource.localId.text == '46.243.184.12'
+                assert resource.localSubnets.subnet.text == '10.0.0.0/24'
+                assert resource.peerSubnets.subnet.text == '172.16.0.0/24'
+                assert resource.mtu.text == '1500'
+                assert resource.complianceSuite.text == 'none'
+                assert resource.ipsecSessionType.text == 'policybasedsession'
+                assert resource.encryptionAlgorithm.text == 'aes'
+                assert resource.responderOnly == False
+                assert resource.enablePfs == False
+                assert resource.digestAlgorithm.text == 'sha1'
+                assert resource.dhGroup.text == 'dh14'
+                assert resource.ikeOption.text == 'ikev1'
+                assert resource.authenticationMode.text == 'psk'
+                assert resource.description.text == 'b2c_itglobal_tunnelId_2'
                 assert resource.enabled == True
-                assert resource.peerIp == '8.8.8.8'
-                resource_vpn = resource
-                break
-        else:
-            raise RuntimeError(f'No VPN {vpn_name}')
+            elif resource.name == 'test-shevch-3des':
+                vpn_id_2 = resource.siteId.text
+
+                assert resource.localIp.text == '46.243.184.12'
+                assert resource.peerId.text == '192.168.0.1'
+                assert resource.peerIp.text == '192.168.0.1'
+                assert resource.localId.text == '46.243.184.12'
+                assert resource.localSubnets.subnet.text == '10.0.0.0/24'
+                assert resource.peerSubnets.subnet.text == '192.168.0.0/24'
+                assert resource.mtu.text == '1500'
+                assert resource.complianceSuite.text == 'none'
+                assert resource.ipsecSessionType.text == 'policybasedsession'
+                assert resource.encryptionAlgorithm.text == '3des'
+                assert resource.responderOnly == False
+                assert resource.enablePfs == False
+                assert resource.digestAlgorithm.text == 'sha1'
+                assert resource.dhGroup.text == 'dh14'
+                assert resource.ikeOption.text == 'ikev1'
+                assert resource.authenticationMode.text == 'psk'
+                assert resource.description.text == 'b2c_itglobal_tunnelId_3'
+                assert resource.enabled == True
+            else:
+                raise Exception('Unknown vpn_resource')
+        # else:
+        #     raise RuntimeError(f'No VPN {vpn_name}')
 
         resource = await gateway.get_ipsec_vpn_statistic()
-        assert resource.siteStatistics.ikeStatus.channelState.text == 'CONNECTING'
+        assert resource.siteStatistics[0].ikeStatus.channelState.text == 'CONNECTING'
+        assert resource.siteStatistics[1].ikeStatus.channelState.text == 'CONNECTING'
+
+        # Change
+        await gateway.edit_ipsec_vpn(
+            enabled=True,
+            sites=[
+                {
+                    "siteId": vpn_id_2,
+                    "enabled": True,
+                    "name": "test-shevch",
+                    "description": "b2c_itglobal_tunnelId_2",
+                    "localId": "46.243.184.12",
+                    "localIp": "46.243.184.12",
+                    "localSubnets": [
+                        "10.0.0.0/24"
+                    ],
+                    "peerId": "172.16.0.1",
+                    "peerIp": "172.16.0.1",
+                    "peerSubnets": [
+                        "172.16.0.0/24"
+                    ],
+                    "psk": "gfdfgdfgdfgsdfgsgdfgsgdsfgsdf3443FGgsfgsfgsfgsdfgsgf",
+                    "mtu": 1500,
+                    "complianceSuite": "none",
+                    "ipsecSessionType": "policybasedsession",
+                    "responderOnly": False,
+                    "enablePfs": False,
+                    "encryptionAlgorithm": "aes",
+                    "digestAlgorithm": "sha1",
+                    "dhGroup": "DH14",
+                    "ikeOption": "IKEv1",
+                    "authenticationMode": "psk"
+                },
+                {
+                    "siteId": vpn_id_1,
+                    "enabled": True,
+                    "name": "test-shevch-3des",
+                    "description": "b2c_itglobal_tunnelId_3",
+                    "localId": "46.243.184.12",
+                    "localIp": "46.243.184.12",
+                    "localSubnets": [
+                        "10.0.0.0/24"
+                    ],
+                    "peerId": "192.168.0.1",
+                    "peerIp": "192.168.0.1",
+                    "peerSubnets": [
+                        "192.168.0.0/24"
+                    ],
+                    "psk": "gfdfgdfgdfgsdfgsgdfgsgdsfgsdf3443FGgsfgsfgsfgsdfgsgf",
+                    "mtu": 1500,
+                    "complianceSuite": "none",
+                    "ipsecSessionType": "policybasedsession",
+                    "responderOnly": False,
+                    "enablePfs": False,
+                    "encryptionAlgorithm": "3des",
+                    "digestAlgorithm": "sha1",
+                    "dhGroup": "DH14",
+                    "ikeOption": "IKEv1",
+                    "authenticationMode": "psk"
+                }
+            ]
+        )
+
+        # Get
+        vpn_resources = await gateway.get_ipsec_vpn()
+
+        assert vpn_resources.enabled == True
+        assert len(vpn_resources.sites.site) == 2
+
+
+        for resource in vpn_resources.sites.site:
+            if resource.name == 'test-shevch':
+                assert resource.siteId.text == vpn_id_2
+                assert resource.localIp.text == '46.243.184.12'
+                assert resource.peerId.text == '172.16.0.1'
+                assert resource.peerIp.text == '172.16.0.1'
+                assert resource.localId.text == '46.243.184.12'
+                assert resource.localSubnets.subnet.text == '10.0.0.0/24'
+                assert resource.peerSubnets.subnet.text == '172.16.0.0/24'
+                assert resource.mtu.text == '1500'
+                assert resource.complianceSuite.text == 'none'
+                assert resource.ipsecSessionType.text == 'policybasedsession'
+                assert resource.encryptionAlgorithm.text == 'aes'
+                assert resource.responderOnly == False
+                assert resource.enablePfs == False
+                assert resource.digestAlgorithm.text == 'sha1'
+                assert resource.dhGroup.text == 'dh14'
+                assert resource.ikeOption.text == 'ikev1'
+                assert resource.authenticationMode.text == 'psk'
+                assert resource.description.text == 'b2c_itglobal_tunnelId_2'
+                assert resource.enabled == True
+            elif resource.name == 'test-shevch-3des':
+                assert resource.siteId.text == vpn_id_1
+                assert resource.localIp.text == '46.243.184.12'
+                assert resource.peerId.text == '192.168.0.1'
+                assert resource.peerIp.text == '192.168.0.1'
+                assert resource.localId.text == '46.243.184.12'
+                assert resource.localSubnets.subnet.text == '10.0.0.0/24'
+                assert resource.peerSubnets.subnet.text == '192.168.0.0/24'
+                assert resource.mtu.text == '1500'
+                assert resource.complianceSuite.text == 'none'
+                assert resource.ipsecSessionType.text == 'policybasedsession'
+                assert resource.encryptionAlgorithm.text == '3des'
+                assert resource.responderOnly == False
+                assert resource.enablePfs == False
+                assert resource.digestAlgorithm.text == 'sha1'
+                assert resource.dhGroup.text == 'dh14'
+                assert resource.ikeOption.text == 'ikev1'
+                assert resource.authenticationMode.text == 'psk'
+                assert resource.description.text == 'b2c_itglobal_tunnelId_3'
+                assert resource.enabled == True
+            else:
+                raise Exception('Unknown vpn_resource')
+        # else:
+        #     raise RuntimeError(f'No VPN {vpn_name}')
+
+        resource = await gateway.get_ipsec_vpn_statistic()
+        # assert resource.siteStatistics[0].ikeStatus.channelState.text == 'CONNECTING'
+        # assert resource.siteStatistics[1].ikeStatus.channelState.text == 'CONNECTING'
+        assert len(resource.siteStatistics) == 2
     finally:
         # Remove
         await gateway.edit_ipsec_vpn(
             enabled=True,
             sites=[]
         )
+        # await gateway.delete_ipsec_vpn()
         await gateway.reload()
 
         # Check
