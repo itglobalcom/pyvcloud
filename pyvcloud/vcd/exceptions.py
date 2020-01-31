@@ -35,15 +35,16 @@ class VcdResponseException(VcdException):
         self.request_id = request_id
 
     def __str__(self):
-        return \
-            'Status code: ' + \
-            (('%d, <empty response body>' % self.status_code)
-             if self.vcd_error is None else
-             ('%d/%s, %s' %
-              (self.status_code,
-               self.vcd_error.get('minorErrorCode'),
-               self.vcd_error.get('message')))) + \
-            (' (request id: %s)' % self.request_id)
+        # return \
+        #     'Status code: ' + \
+        #     (('%d, <empty response body>' % self.status_code)
+        #      if self.vcd_error is None else
+        #      ('%d/%s, %s' %
+        #       (self.status_code,
+        #        self.vcd_error.get('minorErrorCode'),
+        #        self.vcd_error.get('message')))) + \
+        #     (' (request id: %s)' % self.request_id)
+        return str(self.__dict__)
 
 
 class LinkException(VcdException):

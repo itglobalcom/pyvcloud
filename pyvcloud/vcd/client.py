@@ -1097,7 +1097,8 @@ class Client(object):
 
         self._response_code_to_exception(
             sc, self._get_response_request_id(response),
-            await _objectify_response(response, objectify_results))
+            (await response.read()).decode('utf8'))
+            # await _objectify_response(response, objectify_results))
 
     @staticmethod
     def _response_code_to_exception(sc, request_id, objectify_response):

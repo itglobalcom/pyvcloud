@@ -282,6 +282,37 @@ class VApp(object):
                         return env[0].get('{' + NSMAP['ve'] + '}vCenterId')
         return None
 
+    async def get_vm_moid_sysadmin(self):
+        """
+        Resource must be reloaded by sysadmin client.
+        """
+        vapp = await self.get_resource()
+        if hasattr(vapp, 'Children') and hasattr(vapp.Children, 'Vm'):
+            for vm in vapp.Children.Vm:
+                info = getattr(
+                    vm.VCloudExtension,
+                    tag('vmext')('VmVimInfo'),
+                    None
+                )
+                if info is None:
+                    return None
+                vim_object_ref = getattr(
+                    info,
+                    tag('vmext')('VmVimObjectRef'),
+                    None
+                )
+                if vim_object_ref is None:
+                    return None
+                moref = getattr(
+                    vim_object_ref,
+                    tag('vmext')('MoRef'),
+                    None
+                )
+                if moref is None:
+                    return None
+                return moref.text
+        return None
+
     def set_lease(self, deployment_lease=0, storage_lease=0):
         """Update lease settings of the vApp.
 
