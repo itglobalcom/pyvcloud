@@ -39,11 +39,14 @@ CREDS = dict(
 requests.packages.urllib3.disable_warnings()
 
 
+API_VERSION = '31.0'
+
+
 @pytest.fixture()
 async def client():
     cli = Client(
         env('host'),
-        api_version='31.0',
+        api_version=API_VERSION,
         verify_ssl_certs=False,
         log_file=None,
         log_requests=False,
@@ -68,7 +71,7 @@ async def client():
 async def sys_admin_client():
     cli = Client(
         env('host'),
-        api_version='31.0',
+        api_version=API_VERSION,
         verify_ssl_certs=False,
         log_file=None,
         log_requests=False,
@@ -155,8 +158,8 @@ async def vapp(vdc, client):
 
 @pytest.fixture()
 async def vapp_test(vdc):
-    # vapp_xml = await vdc.get_vapp_by_id('urn:vcloud:vapp:712c7620-d522-47a2-839a-2867452097a5')
-    vapp_xml = await vdc.get_vapp_by_id('urn:vcloud:vapp:8dd2c7f2-6817-48e6-b3cc-92fd7954fefa')
+    # vapp_xml = await vdc.get_vapp_by_id('urn:vcloud:vapp:8dd2c7f2-6817-48e6-b3cc-92fd7954fefa')
+    vapp_xml = await vdc.get_vapp('New_Client8_Service7_Instance5')
     vapp = VApp(vdc.client, resource=vapp_xml)
 
     yield vapp
@@ -164,8 +167,6 @@ async def vapp_test(vdc):
     await asyncio.sleep(1.0)
     await vdc.reload()
     await vapp.reload()
-
-    # await vdc.delete_vapp_by_id(vapp.id, force=True)
 
 
 @pytest.fixture()
@@ -1553,6 +1554,21 @@ async def test_nat(dummy_gateway, action, protocol, original_port, translated_po
 
         for nat_dic in await gateway.list_nat_rules():
             assert nat_id != nat_dic['ID']
+
+
+@pytest.mark.asyncio
+async def test_vcloudid(vapp, sys_admin_client):
+    client = vapp.client
+    try:
+        vapp.client = sys_admin_client
+        vapp.resource = None
+        await vapp.reload()
+        d = await vapp.get_vm_moid_sysadmin()
+        l = d.split('-')
+        assert l[0] == 'vm'
+        assert l[1].isnumeric()
+    finally:
+        vapp.client = client
 
 
 @pytest.mark.skip()
