@@ -1557,7 +1557,7 @@ async def test_nat(dummy_gateway, action, protocol, original_port, translated_po
 
 
 @pytest.mark.asyncio
-async def test_vcloudid(vapp, sys_admin_client):
+async def test_vcloudid_vapp(vapp, sys_admin_client):
     client = vapp.client
     try:
         vapp.client = sys_admin_client
@@ -1569,6 +1569,24 @@ async def test_vcloudid(vapp, sys_admin_client):
         assert l[1].isnumeric()
     finally:
         vapp.client = client
+
+
+@pytest.mark.asyncio
+async def test_vcloudid_vm(vapp, sys_admin_client):
+    client = vapp.client
+    vm_resource = await vapp.get_vm()
+    vm = VM(client, resource=vm_resource)
+    try:
+        vm.client = sys_admin_client
+        vm.resource = None
+        await vm.reload()
+        d = await vm.get_vm_moid_sysadmin()
+        l = d.split('-')
+        assert l[0] == 'vm'
+        assert l[1].isnumeric()
+    finally:
+        vm.client = client
+
 
 
 @pytest.mark.skip()
