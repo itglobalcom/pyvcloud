@@ -928,6 +928,11 @@ class VM(object):
         new_disk = deepcopy(last_disk)
         addr = int(str(
             last_disk['{' + NSMAP['rasd'] + '}AddressOnParent'])) + 1
+
+        # INFO: We can't use number 7. I don't know why ¯\_(ツ)_/¯
+        if addr == 7:
+            addr += 1
+
         instance_id = int(str(
             last_disk[tag('rasd')('InstanceID')])) + 1
         new_disk[tag('rasd')('AddressOnParent')] = addr
