@@ -935,6 +935,10 @@ class VM(object):
 
         instance_id = int(str(
             last_disk[tag('rasd')('InstanceID')])) + 1
+
+        if instance_id == 2007:
+            instance_id += 1
+
         new_disk[tag('rasd')('AddressOnParent')] = addr
         new_disk[tag('rasd')('ElementName')] = 'Hard disk %s' % addr
         new_disk[tag('rasd')('InstanceID')] = instance_id
